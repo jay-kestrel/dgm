@@ -38,6 +38,7 @@ class DeltaGenerator:
             for k, v in overrides.items():
                 if hasattr(self.config, k):
                     setattr(self.config, k, v)
+                self.config.distributions.pop(k, None)
 
         self.battery = MetricsBattery()
 
@@ -144,6 +145,7 @@ class EnsembleGenerator:
             for k, v in overrides.items():
                 if hasattr(self.config, k):
                     setattr(self.config, k, v)
+                self.config.distributions.pop(k, None)
 
         self.battery = MetricsBattery()
 
@@ -212,6 +214,7 @@ def generate(
     N: int = 50,
     R_rt: float = 0.5,
     confinement: Optional[float] = None,
+    lateral_valley_width: Optional[float] = None,
     config: Optional[Union[str, DGMConfig]] = None,
     seed: Any = _UNSET,
     **overrides
@@ -239,6 +242,9 @@ def generate(
     if confinement is not None:
         cfg.confinement = float(confinement)
 
+    if lateral_valley_width is not None:
+        cfg.lateral_valley_width = float(lateral_valley_width)
+
     if seed is not _UNSET:
         cfg.seed = seed
 
@@ -250,6 +256,7 @@ def sample_ensemble(
     N: int = 50,
     R_rt: float = 0.5,
     confinement: Optional[float] = None,
+    lateral_valley_width: Optional[float] = None,
     num_realizations: int = 50,
     config: Optional[Union[str, DGMConfig]] = None,
     base_seed: int = 42,
@@ -277,6 +284,11 @@ def sample_ensemble(
 
     if confinement is not None:
         cfg.confinement = float(confinement)
+        cfg.distributions.pop("confinement", None)
+
+    if lateral_valley_width is not None:
+        cfg.lateral_valley_width = float(lateral_valley_width)
+        cfg.distributions.pop("lateral_valley_width", None)
 
     ens = EnsembleGenerator(
         N=N,

@@ -87,7 +87,7 @@ def extend_leaf_to_shoreline(
 ) -> None:
     """
     Extends all terminal leaf nodes (outlets) directly to shoreline r_shore,
-    minimizing edge crossings (with fallback forced extension if no crossing-free angle is found).
+    minimizing edge crossings (retaining valid position if no crossing-free path to shoreline exists).
     Updates node coordinates and edge lengths in place.
     """
     if domain is None:
@@ -110,8 +110,23 @@ def extend_leaf_to_shoreline(
                 other_edges = [e for e in existing_edges if e != (par_pos, (px, py))]
 
                 orig_theta = G.nodes[n]['theta']
+
+                # Compute effective angular span at shoreline
+                span = domain.theta_open
+                if domain.lateral_valley_width is not None and domain.r_shore > 1e-3:
+                    max_sin = min(1.0, (domain.lateral_valley_width / 2.0) / domain.r_shore)
+                    span = min(span, 2.0 * math.asin(max_sin))
+
+                # Adaptive offsets proportional to span, plus static offsets
+                candidate_offsets = [0.0]
+                for frac in [0.05, -0.05, 0.1, -0.1, 0.2, -0.2, 0.35, -0.35, 0.5, -0.5, 0.7, -0.7]:
+                    candidate_offsets.append(frac * span)
+                for t_offset in [0.02, -0.02, 0.05, -0.05, 0.1, -0.1]:
+                    if t_offset not in candidate_offsets:
+                        candidate_offsets.append(t_offset)
+
                 extended = False
-                for t_offset in [0.0, 0.02, -0.02, 0.05, -0.05, 0.1, -0.1]:
+                for t_offset in candidate_offsets:
                     cand_theta = domain.clamp_theta(orig_theta + t_offset, domain.r_shore)
                     cx, cy = domain.polar_to_cartesian(domain.r_shore, cand_theta)
                     if par_pos is None or not edge_intersects_graph(par_pos, (cx, cy), other_edges):
@@ -130,21 +145,8 @@ def extend_leaf_to_shoreline(
                         extended = True
                         break
 
-                if not extended:
-                    # Fallback: force extension along original theta
-                    cand_theta = domain.clamp_theta(orig_theta, domain.r_shore)
-                    cx, cy = domain.polar_to_cartesian(domain.r_shore, cand_theta)
-                    G.nodes[n]['r'] = domain.r_shore
-                    G.nodes[n]['theta'] = cand_theta
-                    G.nodes[n]['x'] = cx
-                    G.nodes[n]['y'] = cy
-                    if parent_n is not None and G.has_edge(parent_n, n):
-                        straight_dist = max(10.0, math.hypot(cx - par_pos[0], cy - par_pos[1]))
-                        sinuosity = G.edges[parent_n, n].get('sinuosity', 1.0)
-                        G.edges[parent_n, n]['straight_distance'] = straight_dist
-                        G.edges[parent_n, n]['length'] = straight_dist * sinuosity
-                        if (par_pos, (px, py)) in existing_edges:
-                            idx = existing_edges.index((par_pos, (px, py)))
-                            existing_edges[idx] = (par_pos, (cx, cy))
+                # If no crossing-free path to shoreline exists (e.g. downstream branches
+                # densely block the corridor in narrow valleys), retain the node's existing
+                # valid planar coordinates rather than creating planar edge crossings.
 
             G.nodes[n]['node_type'] = 'outlet'

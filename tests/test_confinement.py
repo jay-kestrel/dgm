@@ -91,3 +91,74 @@ def test_cli_confinement_argument(tmp_path):
     main(["generate", "-N", "25", "-R", "0.4", "-C", "0.6", "-s", "42", "-o", str(out_file)])
     assert out_file.exists()
     assert out_file.stat().st_size > 0
+
+
+def test_cli_lateral_valley_width_argument(tmp_path):
+    from dgm.cli import main
+    out_file = tmp_path / "valley_delta.graphml"
+
+    main(["generate", "-N", "25", "-R", "0.4", "-W", "2500.0", "-s", "42", "-o", str(out_file)])
+    assert out_file.exists()
+    assert out_file.stat().st_size > 0
+
+
+def test_polar_domain_boundary_checks():
+    domain = PolarDomain(r_shore=10000.0, confinement=0.5, lateral_valley_width=2000.0)
+
+    # Apex boundary at r=0
+    assert domain.is_in_domain(0.0, 0.0) is True
+    clamped_apex = domain.clamp_theta(0.5, r=0.0)
+    assert domain.min_theta <= clamped_apex <= domain.max_theta
+
+    # Boundary floating-point inclusion
+    for r in [500.0, 1000.0, 3000.0, 5000.0, 10000.0]:
+        clamped = domain.clamp_theta(math.radians(45.0), r=r)
+        assert domain.is_in_domain(r, clamped) is True
+
+    # PolarDomain directly rejecting invalid lateral_valley_width
+    with pytest.raises(ValueError, match="lateral_valley_width must be > 0"):
+        PolarDomain(lateral_valley_width=-500.0)
+
+
+def test_extreme_confinement_generation():
+    # Maximum confinement factor 0.95
+    G = dgm.generate(N=30, R_rt=0.5, confinement=0.95, seed=42)
+    assert isinstance(G, nx.DiGraph)
+    assert nx.is_weakly_connected(G)
+    assert G.number_of_nodes() == 30
+    assert G.graph['confinement'] == 0.95
+
+
+def test_combined_confinement_and_valley_width():
+    G = dgm.generate(N=35, R_rt=0.5, confinement=0.5, lateral_valley_width=1500.0, seed=42)
+    assert nx.is_weakly_connected(G)
+    assert G.graph['confinement'] == 0.5
+    assert G.graph['lateral_valley_width'] == 1500.0
+
+    # Every node must satisfy |y| <= 750 + epsilon
+    for n in G.nodes():
+        assert abs(G.nodes[n]['y']) <= 750.0 + 1e-4
+
+
+def test_planarity_under_confinement_and_valley_corridor():
+    from dgm.core.geometry_utils import segments_intersect
+
+    # Verify zero edge crossings under high confinement and narrow corridor
+    for conf, width in [(0.8, None), (0.0, 2000.0), (0.5, 1500.0)]:
+        G = dgm.generate(N=25, R_rt=0.5, confinement=conf, lateral_valley_width=width, seed=42)
+        edges = [((G.nodes[u]['x'], G.nodes[u]['y']), (G.nodes[v]['x'], G.nodes[v]['y'])) for u, v in G.edges()]
+        crossings = 0
+        for i in range(len(edges)):
+            for j in range(i + 1, len(edges)):
+                if segments_intersect(edges[i][0], edges[i][1], edges[j][0], edges[j][1]):
+                    crossings += 1
+        assert crossings == 0, f"Found {crossings} crossings for conf={conf}, width={width}"
+
+
+def test_ensemble_with_confinement():
+    ens = dgm.sample_ensemble(N=20, R_rt=0.5, confinement=0.7, lateral_valley_width=3000.0, num_realizations=3, base_seed=10)
+    assert len(ens) == 3
+    for G in ens:
+        assert G.graph['confinement'] == 0.7
+        assert G.graph['lateral_valley_width'] == 3000.0
+        assert nx.is_weakly_connected(G)

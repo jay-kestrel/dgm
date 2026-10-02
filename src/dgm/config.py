@@ -207,8 +207,8 @@ class DGMConfig:
             raise ValueError("r_shore must be > 0.")
         if self.murray_p <= 0:
             raise ValueError("murray_p must be > 0.")
-        if not (0.0 <= self.confinement < 1.0):
-            raise ValueError(f"confinement parameter must be in [0.0, 1.0) (received {self.confinement}).")
+        if not (0.0 <= self.confinement <= 0.95):
+            raise ValueError(f"confinement parameter must be in [0.0, 0.95] (received {self.confinement}).")
         if self.lateral_valley_width is not None and self.lateral_valley_width <= 0:
             raise ValueError(f"lateral_valley_width must be > 0 (received {self.lateral_valley_width}).")
 

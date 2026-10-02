@@ -35,6 +35,9 @@ class PolarDomain:
         self.confinement = max(0.0, min(0.95, float(confinement)))
         self.lateral_valley_width = float(lateral_valley_width) if lateral_valley_width is not None else None
 
+        if self.lateral_valley_width is not None and self.lateral_valley_width <= 0:
+            raise ValueError(f"lateral_valley_width must be > 0 (received {self.lateral_valley_width}).")
+
         # Base unconfined opening angle
         self.theta_open_unconfined = self.theta_base + self.theta_delta * self.R_rt
 
@@ -59,12 +62,12 @@ class PolarDomain:
 
     def is_in_domain(self, r: float, theta: float) -> bool:
         """Checks if a point (r, theta) lies within the domain sectoral wedge, shoreline radius, and lateral valley bounds."""
-        in_wedge = (0.0 <= r <= self.r_shore) and (self.min_theta <= theta <= self.max_theta)
+        in_wedge = (-1e-7 <= r <= self.r_shore + 1e-7) and (self.min_theta - 1e-7 <= theta <= self.max_theta + 1e-7)
         if not in_wedge:
             return False
         if self.lateral_valley_width is not None:
             _, y = self.polar_to_cartesian(r, theta)
-            if abs(y) > (self.lateral_valley_width / 2.0):
+            if abs(y) > (self.lateral_valley_width / 2.0) + 1e-6:
                 return False
         return True
 
@@ -84,8 +87,9 @@ class PolarDomain:
         return math.sqrt(max(0.0, val))
 
     def __repr__(self) -> str:
+        width_str = f", lateral_valley_width={self.lateral_valley_width:.1f}m" if self.lateral_valley_width is not None else ""
         return (
             f"PolarDomain(r_shore={self.r_shore:.1f}m, "
             f"theta_open={math.degrees(self.theta_open):.1f}°, "
-            f"confinement={self.confinement:.2f}, R_rt={self.R_rt:.2f})"
+            f"confinement={self.confinement:.2f}, R_rt={self.R_rt:.2f}{width_str})"
         )

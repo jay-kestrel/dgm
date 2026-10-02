@@ -23,6 +23,7 @@ def main(args=None):
     gen_parser.add_argument("-N", "--nodes", type=int, default=50, help="Target number of nodes/junctions (default: 50)")
     gen_parser.add_argument("-R", "--r-rt", type=float, default=0.5, help="River-to-Tidal forcing ratio in [0, 1] (default: 0.5)")
     gen_parser.add_argument("-C", "--confinement", type=float, default=None, help="Lateral valley confinement in [0, 0.95] (default: 0.0)")
+    gen_parser.add_argument("-W", "--lateral-valley-width", type=float, default=None, help="Explicit maximum lateral valley corridor width in meters (default: unconstrained)")
     gen_parser.add_argument("-m", "--mechanism", choices=["potential_field", "ner_optimality"], default="potential_field", help="Loop reconnection engine")
     gen_parser.add_argument("-c", "--config", type=str, default=None, help="Path to custom YAML configuration file")
     gen_parser.add_argument("-s", "--seed", type=int, default=42, help="Random seed (default: 42)")
@@ -33,6 +34,7 @@ def main(args=None):
     ens_parser.add_argument("-N", "--nodes", type=int, default=50, help="Target number of nodes/junctions (default: 50)")
     ens_parser.add_argument("-R", "--r-rt", type=float, default=0.5, help="River-to-Tidal forcing ratio in [0, 1] (default: 0.5)")
     ens_parser.add_argument("-C", "--confinement", type=float, default=None, help="Lateral valley confinement in [0, 0.95] (default: 0.0)")
+    ens_parser.add_argument("-W", "--lateral-valley-width", type=float, default=None, help="Explicit maximum lateral valley corridor width in meters (default: unconstrained)")
     ens_parser.add_argument("-n", "--num-realizations", type=int, default=30, help="Number of realizations to sample (default: 30)")
     ens_parser.add_argument("-m", "--mechanism", choices=["potential_field", "ner_optimality"], default="potential_field", help="Loop reconnection engine")
     ens_parser.add_argument("-c", "--config", type=str, default=None, help="Path to custom YAML configuration file")
@@ -54,6 +56,8 @@ def main(args=None):
 
         if parsed.confinement is not None:
             cfg.confinement = parsed.confinement
+        if parsed.lateral_valley_width is not None:
+            cfg.lateral_valley_width = parsed.lateral_valley_width
 
         gen = DeltaGenerator(cfg)
         G = gen.generate()
@@ -86,6 +90,10 @@ def main(args=None):
 
         if parsed.confinement is not None:
             cfg.confinement = parsed.confinement
+            cfg.distributions.pop("confinement", None)
+        if parsed.lateral_valley_width is not None:
+            cfg.lateral_valley_width = parsed.lateral_valley_width
+            cfg.distributions.pop("lateral_valley_width", None)
 
         cfg.sample_parameters = parsed.sample_parameters
 
