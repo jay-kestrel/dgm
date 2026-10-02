@@ -280,11 +280,11 @@ class DGMConfig:
                     raise ValueError("min_spur_length distribution low bound must be >= 0.0.")
 
     @classmethod
-    def load_default(cls) -> "DGMConfig":
-        """Loads configuration from the packaged default_config.yaml."""
+    def load_default(cls, **overrides) -> "DGMConfig":
+        """Loads configuration from the packaged default_config.yaml with optional overrides."""
         if DEFAULT_CONFIG_PATH.exists():
-            return cls.from_yaml(DEFAULT_CONFIG_PATH)
-        return cls()
+            return cls.from_yaml(DEFAULT_CONFIG_PATH, **overrides)
+        return cls(**overrides)
 
     @classmethod
     def from_yaml(cls, path: Union[str, Path], **overrides) -> "DGMConfig":

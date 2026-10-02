@@ -79,6 +79,26 @@ def main():
         help="Base random seed (default: 42)"
     )
     parser.add_argument(
+        "--enable-pruning", action="store_true", default=False,
+        help="Enable pre-hydraulic dead-end spur pruning (default: False)"
+    )
+    parser.add_argument(
+        "--simplify-chains", action="store_true", default=False,
+        help="Simplify degree-2 pass-through chains (default: False)"
+    )
+    parser.add_argument(
+        "--confinement", type=float, default=None,
+        help="Override lateral valley confinement factor in [0, 0.95]"
+    )
+    parser.add_argument(
+        "--curved", action="store_true", default=False,
+        help="Enable 2D curved centerline coordinates"
+    )
+    parser.add_argument(
+        "--config", "-c", type=str, default=None,
+        help="Path to custom YAML config file"
+    )
+    parser.add_argument(
         "--output-dir", "-o", type=str, default=None,
         help="Custom destination directory for benchmark deliverables"
     )
@@ -93,10 +113,23 @@ def main():
     print(f"Realizations / Delta:  {args.realizations}")
     print(f"Node Budget Cap:       {args.max_nodes}")
     print(f"Loop Mechanism:        {args.mechanism}")
+    print(f"Pruning Enabled:       {args.enable_pruning}")
+    print(f"Simplify Chains:       {args.simplify_chains}")
     print(f"Base Random Seed:      {args.seed}")
     print("-" * 78)
 
     t0 = time.time()
+
+    # Build config overrides
+    overrides = {}
+    if args.enable_pruning:
+        overrides["enable_pruning"] = True
+    if args.simplify_chains:
+        overrides["simplify_pass_through_nodes"] = True
+    if args.confinement is not None:
+        overrides["confinement"] = args.confinement
+    if args.curved:
+        overrides["enable_curved_centerlines"] = True
 
     # 1. Initialize benchmark suite
     suite = EmpiricalValidationBenchmark(
@@ -105,6 +138,8 @@ def main():
         loop_mechanism=args.mechanism,
         sample_parameters=True,
         base_seed=args.seed,
+        config=args.config,
+        **overrides,
     )
 
     # 2. Run benchmark across all 28 DIDNT deltas

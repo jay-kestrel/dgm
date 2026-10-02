@@ -21,6 +21,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 
+from ..config import DGMConfig
 from ..generator import EnsembleGenerator
 from ..metrics import MetricsBattery
 from ..io.datasets import (
@@ -133,6 +134,8 @@ class EmpiricalValidationBenchmark:
         loop_mechanism: str = "potential_field",
         sample_parameters: bool = True,
         base_seed: int = 42,
+        config: Optional[Union[str, DGMConfig]] = None,
+        **config_overrides,
     ):
         self.dataset_dir = dataset_dir
         self.realizations_per_delta = realizations_per_delta
@@ -140,6 +143,18 @@ class EmpiricalValidationBenchmark:
         self.loop_mechanism = loop_mechanism
         self.sample_parameters = sample_parameters
         self.base_seed = base_seed
+
+        import copy
+        if isinstance(config, str):
+            self.config = DGMConfig.from_yaml(config, **config_overrides)
+        elif isinstance(config, DGMConfig):
+            self.config = copy.deepcopy(config)
+            for k, v in config_overrides.items():
+                if hasattr(self.config, k):
+                    setattr(self.config, k, v)
+                self.config.distributions.pop(k, None)
+        else:
+            self.config = DGMConfig.load_default(**config_overrides)
 
         self.deltas = self._load_deltas()
         self.results: Optional[Dict[str, Any]] = None
@@ -161,6 +176,7 @@ class EmpiricalValidationBenchmark:
             print("DGM Empirical Real-World Delta Validation Benchmark Suite")
             print(f"Conditioned on {len(self.deltas)} DIDNT deltas | {self.realizations_per_delta} realizations/delta")
             print(f"Loop Mechanism: {self.loop_mechanism} | Stochastic Parameters: {self.sample_parameters}")
+            print(f"Pruning Enabled: {self.config.enable_pruning} | Confinement: {self.config.confinement}")
             print("=" * 78)
 
         detailed_results: List[Dict[str, Any]] = []
@@ -183,6 +199,7 @@ class EmpiricalValidationBenchmark:
                 loop_mechanism=self.loop_mechanism,
                 sample_parameters=self.sample_parameters,
                 base_seed=self.base_seed + idx * 100,
+                config=self.config,
             )
             summary = gen.evaluate_ensemble()
             m = summary['metrics']
@@ -837,7 +854,9 @@ def run_empirical_benchmark(
     loop_mechanism: str = "potential_field",
     sample_parameters: bool = True,
     base_seed: int = 42,
+    config: Optional[Union[str, DGMConfig]] = None,
     verbose: bool = True,
+    **config_overrides,
 ) -> Dict[str, Any]:
     """
     Convenience function executing the complete empirical benchmark pipeline
@@ -864,6 +883,8 @@ def run_empirical_benchmark(
         loop_mechanism=loop_mechanism,
         sample_parameters=sample_parameters,
         base_seed=base_seed,
+        config=config,
+        **config_overrides,
     )
 
     results = suite.run(verbose=verbose)
