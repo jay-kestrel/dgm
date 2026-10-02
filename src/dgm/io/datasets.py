@@ -115,42 +115,61 @@ class DIDNTLoader:
             except (ValueError, TypeError):
                 nid = str(nid)
 
-            is_inlet = bool(props.get('inlet', False) or props.get('is_inlet', False) or props.get('type') == 'inlet')
+            dist_apex = props.get('distance_from_apex')
+            if dist_apex is not None:
+                try:
+                    dist_apex = float(dist_apex)
+                except (ValueError, TypeError):
+                    dist_apex = None
+
+            is_inlet = (dist_apex == 0.0) or bool(props.get('inlet', False) or props.get('is_inlet', False) or props.get('type') == 'inlet')
             is_outlet = bool(props.get('outlet', False) or props.get('is_outlet', False) or props.get('type') == 'outlet')
 
             x = float(coords[0])
             y = float(coords[1])
 
-            node_type = 'internal'
-            if is_inlet:
-                node_type = 'apex'
-                apex_coord = (x, y)
-            elif is_outlet:
-                node_type = 'outlet'
+            node_type = 'apex' if is_inlet else ('outlet' if is_outlet else 'junction')
 
             G.add_node(
                 nid,
                 x=x,
                 y=y,
+                distance_from_apex=dist_apex,
                 is_apex=is_inlet,
                 is_outlet=is_outlet,
                 node_type=node_type,
                 properties=props
             )
 
-        if apex_coord is None and len(G) > 0:
-            first_node = list(G.nodes())[0]
-            apex_coord = (G.nodes[first_node]['x'], G.nodes[first_node]['y'])
-            G.nodes[first_node]['is_apex'] = True
-            G.nodes[first_node]['node_type'] = 'apex'
+        apex_node = None
+        for n in G.nodes():
+            if G.nodes[n].get('is_apex'):
+                apex_node = n
+                break
+
+        if apex_node is None:
+            valid_nodes = [
+                (n, G.nodes[n].get("distance_from_apex"))
+                for n in G.nodes()
+                if G.nodes[n].get("distance_from_apex") is not None
+            ]
+            if valid_nodes:
+                apex_node = min(valid_nodes, key=lambda item: item[1])[0]
+            elif len(G) > 0:
+                apex_node = list(G.nodes())[0]
+
+        if apex_node is not None and apex_node in G.nodes():
+            G.nodes[apex_node]['is_apex'] = True
+            G.nodes[apex_node]['node_type'] = 'apex'
+            apex_coord = (G.nodes[apex_node]['x'], G.nodes[apex_node]['y'])
+        else:
+            apex_coord = (0.0, 0.0)
 
         for n, d in G.nodes(data=True):
             dx = d['x'] - apex_coord[0]
             dy = d['y'] - apex_coord[1]
-            r = math.hypot(dx, dy)
-            theta = math.atan2(dy, dx)
-            d['r'] = r
-            d['theta'] = theta
+            d['r'] = float(math.hypot(dx, dy))
+            d['theta'] = float(math.atan2(dy, dx))
 
         for feat in links_geojson.get('features', []):
             props = feat.get('properties', {})
@@ -158,6 +177,12 @@ class DIDNTLoader:
 
             src = props.get('start_node', props.get('source', props.get('from')))
             tgt = props.get('end_node', props.get('target', props.get('to')))
+
+            if (src is None or tgt is None) and 'conn' in props:
+                conn_val = str(props['conn'])
+                parts = [p.strip() for p in conn_val.split(',')]
+                if len(parts) >= 2:
+                    src, tgt = parts[0], parts[1]
 
             if src is None or tgt is None:
                 continue
@@ -173,19 +198,37 @@ class DIDNTLoader:
             if not G.has_node(src) or not G.has_node(tgt):
                 continue
 
-            width = float(props.get('wid_med', props.get('width', props.get('wid', 10.0))))
-            length = float(props.get('len', props.get('length', 100.0)))
-            conductance = float(props.get('conductance', (max(0.1, width) ** 1.65) / (max(1.0, length) ** 0.50)))
+            raw_w = props.get('avgwidth', props.get('wid_med', props.get('width', props.get('wid', 10.0))))
+            width = float(raw_w) if raw_w is not None else 10.0
+            width = max(0.1, width)
+
+            raw_len = props.get('length', props.get('len', 100.0))
+            length = float(raw_len) if raw_len is not None else 100.0
+            length = max(1.0, length)
+
+            conductance = float(props.get('conductance', (width ** 1.65) / (length ** 0.50)))
 
             G.add_edge(
                 src,
                 tgt,
-                width=max(0.1, width),
-                length=max(1.0, length),
+                width=width,
+                length=length,
                 conductance=max(1e-6, conductance),
+                sinuosity=float(props.get('sinuosity', 1.0)),
                 edge_type='tree',
                 properties=props
             )
+
+        for n in G.nodes():
+            if G.out_degree(n) == 0 and n != apex_node:
+                G.nodes[n]["node_type"] = "outlet"
+                G.nodes[n]["is_outlet"] = True
+            else:
+                if n != apex_node:
+                    G.nodes[n]["node_type"] = "junction"
+                    G.nodes[n]["is_outlet"] = False
+                else:
+                    G.nodes[n]["is_outlet"] = False
 
         return G
 

@@ -83,15 +83,15 @@ def apply_emergent_hydraulics(
 
     rng = np.random.default_rng(seed)
 
-    w_apex = float(params.get('apex_width', 250.0))
+    w_apex = float(params.get('apex_width', params.get('w_apex', 250.0)))
     p_exp = float(params.get('murray_p', 1.70))
-    beta = float(params.get('width_beta', 0.745))
+    beta = float(params.get('width_beta', params.get('width_asymmetry', 0.745)))
     R_rt = float(params.get('R_rt', 0.5))
     r_shore = float(params.get('r_shore', 10000.0))
-    k_flare = float(params.get('tidal_flare_k', 1.40))
-    manning_eta = float(params.get('manning_eta', 1.65))
-    length_gamma = float(params.get('length_gamma', 0.50))
-    sigma_w = float(params.get('width_noise', 0.30))
+    k_flare = float(params.get('tidal_flare_k', params.get('k_flare', 1.40)))
+    manning_eta = float(params.get('manning_eta', params.get('eta', 1.65)))
+    length_gamma = float(params.get('length_gamma', params.get('gamma', 0.50)))
+    sigma_w = float(params.get('width_noise', params.get('width_noise_sigma', 0.30)))
     min_width = float(params.get('min_channel_width', 0.1))
     max_iter = int(params.get('relaxation_max_iter', 100))
     tol = float(params.get('relaxation_tol', 1e-6))
@@ -240,7 +240,7 @@ def solve_markov_flux(
     apex_idx = n_map[apex_node]
 
     routing_mode = params.get('routing_mode', 'width') if params else 'width'
-    eta = params.get('manning_eta', 1.65) if params else 1.65
+    eta = float(params.get('manning_eta', params.get('eta', 1.65)) if params else 1.65)
 
     # Conductance / Flow Partition Matrix C
     C = np.zeros((N, N))

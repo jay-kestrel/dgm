@@ -13,7 +13,7 @@ Quickstart:
 
 __version__ = "0.2.0"
 
-from .config import DGMConfig
+from .config import DGMConfig, ParameterBounds
 from .generator import (
     DeltaGenerator,
     EnsembleGenerator,
@@ -30,12 +30,30 @@ from .io.datasets import (
     get_empirical_deltas,
     get_empirical_deltas_dict,
     DELTA_FORCING_REGIMES,
+    CANONICAL_EMPIRICAL_DELTAS,
 )
 from .io.export import (
     to_graphml,
     to_geojson,
     metrics_to_csv,
     metrics_to_dataframe,
+)
+from .validation import (
+    EmpiricalBenchmark,
+    V2EmpiricalBenchmark,
+    FULL_20D_METRIC_KEYS,
+    FULL_20D_METRIC_LABELS,
+    EXPANDED_METRIC_KEYS,
+    EXPANDED_METRIC_LABELS,
+    EMPIRICAL_5D_KEYS,
+    EMPIRICAL_5D_LABELS,
+    get_empirical_vector,
+    get_empirical_5d_vector,
+    compute_goodness_of_fit,
+    compute_ks_test,
+    compute_mahalanobis_validation,
+    compute_mmd,
+    compute_permanova,
 )
 
 # Backwards compatibility alias
@@ -44,6 +62,7 @@ V2Config = DGMConfig
 __all__ = [
     "DGMConfig",
     "V2Config",
+    "ParameterBounds",
     "DeltaGenerator",
     "EnsembleGenerator",
     "V2DeltaGenerator",
@@ -58,8 +77,24 @@ __all__ = [
     "get_empirical_deltas",
     "get_empirical_deltas_dict",
     "DELTA_FORCING_REGIMES",
+    "CANONICAL_EMPIRICAL_DELTAS",
     "to_graphml",
     "to_geojson",
     "metrics_to_csv",
     "metrics_to_dataframe",
+    "EmpiricalBenchmark",
+    "V2EmpiricalBenchmark",
+    "FULL_20D_METRIC_KEYS",
+    "FULL_20D_METRIC_LABELS",
+    "EXPANDED_METRIC_KEYS",
+    "EXPANDED_METRIC_LABELS",
+    "EMPIRICAL_5D_KEYS",
+    "EMPIRICAL_5D_LABELS",
+    "get_empirical_vector",
+    "get_empirical_5d_vector",
+    "compute_goodness_of_fit",
+    "compute_ks_test",
+    "compute_mahalanobis_validation",
+    "compute_mmd",
+    "compute_permanova",
 ]

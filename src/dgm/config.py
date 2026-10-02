@@ -60,6 +60,57 @@ def sample_from_spec(spec: Dict[str, Any], rng: np.random.Generator) -> float:
 
 
 @dataclass
+class ParameterBounds:
+    """
+    Physical and hydraulic parameter bounds for uniform/stochastic sampling.
+    Maintained for backwards-compatibility with synthetic_graphs.v2.
+    """
+    murray_p_range: Tuple[float, float] = (1.2, 2.2)
+    width_beta_range: Tuple[float, float] = (0.50, 0.99)
+    manning_eta_range: Tuple[float, float] = (1.50, 1.80)
+    length_gamma_range: Tuple[float, float] = (0.40, 0.60)
+    apex_width_range: Tuple[float, float] = (50.0, 500.0)
+    r_shore_range: Tuple[float, float] = (5000.0, 15000.0)
+    theta_base_range: Tuple[float, float] = (30.0, 60.0)
+    theta_delta_range: Tuple[float, float] = (45.0, 90.0)
+    width_noise_range: Tuple[float, float] = (0.15, 0.50)
+    candidate_dist_scale_range: Tuple[float, float] = (0.15, 0.35)
+    tidal_flare_k_range: Tuple[float, float] = (0.8, 2.0)
+
+    def sample(self, rng: np.random.Generator) -> Dict[str, float]:
+        """Samples a single parameter set from uniform distributions within bounds."""
+        return {
+            'murray_p': float(rng.uniform(*self.murray_p_range)),
+            'width_beta': float(rng.uniform(*self.width_beta_range)),
+            'manning_eta': float(rng.uniform(*self.manning_eta_range)),
+            'length_gamma': float(rng.uniform(*self.length_gamma_range)),
+            'apex_width': float(rng.uniform(*self.apex_width_range)),
+            'r_shore': float(rng.uniform(*self.r_shore_range)),
+            'theta_base': float(rng.uniform(*self.theta_base_range)),
+            'theta_delta': float(rng.uniform(*self.theta_delta_range)),
+            'width_noise': float(rng.uniform(*self.width_noise_range)),
+            'candidate_dist_scale': float(rng.uniform(*self.candidate_dist_scale_range)),
+            'tidal_flare_k': float(rng.uniform(*self.tidal_flare_k_range)),
+        }
+
+    def default_values(self) -> Dict[str, float]:
+        """Returns deterministic mid-point values for standard baseline runs."""
+        return {
+            'murray_p': float(np.mean(self.murray_p_range)),
+            'width_beta': float(np.mean(self.width_beta_range)),
+            'manning_eta': float(np.mean(self.manning_eta_range)),
+            'length_gamma': float(np.mean(self.length_gamma_range)),
+            'apex_width': float(np.mean(self.apex_width_range)),
+            'r_shore': float(np.mean(self.r_shore_range)),
+            'theta_base': float(np.mean(self.theta_base_range)),
+            'theta_delta': float(np.mean(self.theta_delta_range)),
+            'width_noise': float(np.mean(self.width_noise_range)),
+            'candidate_dist_scale': float(np.mean(self.candidate_dist_scale_range)),
+            'tidal_flare_k': float(np.mean(self.tidal_flare_k_range)),
+        }
+
+
+@dataclass
 class DGMConfig:
     """
     Primary configuration container for DeltaGraphModel (DGM).
@@ -102,6 +153,7 @@ class DGMConfig:
     sa_max_steps: int = 250
 
     # Hydraulics section
+    routing_mode: str = "width"
     murray_p: float = 1.70
     width_beta: float = 0.745
     manning_eta: float = 1.65
@@ -136,6 +188,16 @@ class DGMConfig:
             raise ValueError("sa_max_steps must be > 0.")
         if self.sa_initial_temp <= 0:
             raise ValueError("sa_initial_temp must be > 0.")
+        if len(self.branching_weights) != 3 or any(w < 0 for w in self.branching_weights):
+            raise ValueError("branching_weights must be a 3-tuple of non-negative probabilities.")
+        if abs(sum(self.branching_weights) - 1.0) > 0.01:
+            raise ValueError(
+                f"branching_weights must sum to approximately 1.0 within 0.01 (received {sum(self.branching_weights)})."
+            )
+        if self.routing_mode not in ("width", "conductance"):
+            raise ValueError(
+                f"routing_mode must be 'width' or 'conductance' (received '{self.routing_mode}')."
+            )
         if self.r_shore <= 0:
             raise ValueError("r_shore must be > 0.")
         if self.murray_p <= 0:
@@ -185,7 +247,17 @@ class DGMConfig:
         # Apply direct user overrides
         kwargs.update(overrides)
 
-        return cls(**kwargs)
+        valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
+        filtered_kwargs: Dict[str, Any] = {}
+        extensions = dict(kwargs.get("extensions", {}))
+        for k, v in kwargs.items():
+            if k in valid_fields:
+                filtered_kwargs[k] = v
+            else:
+                extensions[k] = v
+        filtered_kwargs["extensions"] = extensions
+
+        return cls(**filtered_kwargs)
 
     def to_yaml(self, path: Union[str, Path]) -> None:
         """Serializes current configuration back to a structured YAML file."""
@@ -226,6 +298,7 @@ class DGMConfig:
                 "sa_max_steps": self.sa_max_steps,
             },
             "hydraulics": {
+                "routing_mode": self.routing_mode,
                 "murray_p": self.murray_p,
                 "width_beta": self.width_beta,
                 "manning_eta": self.manning_eta,
@@ -245,6 +318,11 @@ class DGMConfig:
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+
+    @property
+    def bounds(self) -> ParameterBounds:
+        """Returns a ParameterBounds instance for backwards-compatibility."""
+        return ParameterBounds()
 
     def sample_distribution_parameters(self, rng: Optional[np.random.Generator] = None) -> Dict[str, Any]:
         """
@@ -303,6 +381,7 @@ class DGMConfig:
             "sa_initial_temp": self.sa_initial_temp,
             "sa_cooling_rate": self.sa_cooling_rate,
             "sa_max_steps": self.sa_max_steps,
+            "routing_mode": self.routing_mode,
             "murray_p": self.murray_p,
             "width_beta": self.width_beta,
             "manning_eta": self.manning_eta,

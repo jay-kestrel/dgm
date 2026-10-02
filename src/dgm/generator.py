@@ -19,14 +19,18 @@ from .core.hydraulics import apply_emergent_hydraulics
 from .metrics import MetricsBattery
 
 
+_UNSET = object()
+
+
 class DeltaGenerator:
     """
     Primary generator for single synthetic delta graph realizations.
     """
 
     def __init__(self, config: Optional[DGMConfig] = None, **overrides):
+        import copy
         if config is not None:
-            self.config = config
+            self.config = copy.deepcopy(config)
         else:
             self.config = DGMConfig.load_default()
 
@@ -37,12 +41,13 @@ class DeltaGenerator:
 
         self.battery = MetricsBattery()
 
-    def generate(self, seed_override: Optional[int] = None) -> nx.DiGraph:
+    def generate(self, seed_override: Any = _UNSET) -> nx.DiGraph:
         """
         Generates a single synthetic delta graph realization given N and R_rt.
         """
-        seed = seed_override if seed_override is not None else self.config.seed
+        seed = self.config.seed if seed_override is _UNSET else seed_override
         rng = np.random.default_rng(seed)
+        sub_seed = int(rng.integers(0, 2**31 - 1)) if seed is None else seed
 
         # Get parameter set (sampled from distributions or deterministic defaults)
         params = self.config.get_active_parameters(rng)
@@ -71,14 +76,14 @@ class DeltaGenerator:
             mechanism=self.config.loop_mechanism,
             params=params,
             rng=rng,
-            seed=seed if seed is not None else 42
+            seed=sub_seed
         )
 
         # 4. Apply Emergent Hydraulics & Channel Widening
         G_final = apply_emergent_hydraulics(
             G=G_looped,
             params=params,
-            seed=seed if seed is not None else 42
+            seed=sub_seed
         )
 
         # Attach run metadata to graph
@@ -120,8 +125,9 @@ class EnsembleGenerator:
         self.sample_parameters = sample_parameters
         self.base_seed = base_seed
 
+        import copy
         if config is not None:
-            self.config = config
+            self.config = copy.deepcopy(config)
         else:
             self.config = DGMConfig.load_default()
 
@@ -142,15 +148,12 @@ class EnsembleGenerator:
         if self.base_seed is None:
             raise ValueError('base_seed must be an integer, got None')
 
+        import copy
         graphs = []
         for i in range(self.num_realizations):
             seed = self.base_seed + i * 1000
-            run_cfg = DGMConfig.from_yaml(
-                self.config.to_dict_path() if hasattr(self.config, '_tmp') else None
-            ) if False else None
 
             # Clone config with realization-specific seed
-            import copy
             cfg = copy.deepcopy(self.config)
             cfg.seed = seed
 
@@ -205,7 +208,7 @@ def generate(
     N: int = 50,
     R_rt: float = 0.5,
     config: Optional[Union[str, DGMConfig]] = None,
-    seed: Optional[int] = None,
+    seed: Any = _UNSET,
     **overrides
 ) -> nx.DiGraph:
     """
@@ -228,7 +231,7 @@ def generate(
             if hasattr(cfg, k):
                 setattr(cfg, k, v)
 
-    if seed is not None:
+    if seed is not _UNSET:
         cfg.seed = seed
 
     gen = DeltaGenerator(cfg)
@@ -252,6 +255,9 @@ def sample_ensemble(
         cfg = config
         cfg.N = N
         cfg.R_rt = R_rt
+        for k, v in overrides.items():
+            if hasattr(cfg, k):
+                setattr(cfg, k, v)
     else:
         cfg = DGMConfig.load_default()
         cfg.N = N
