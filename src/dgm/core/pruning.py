@@ -83,7 +83,7 @@ def prune_dead_end_spurs(
                     # Isolated orphan node
                     candidates_to_prune.append(n)
                 else:
-                    edge_len = float(in_edges[0][2].get('length', 0.0))
+                    edge_len = max(float(e[2].get('length', 0.0)) for e in in_edges)
                     if prune_inland_dead_ends or (min_spur_length > 0 and edge_len <= min_spur_length):
                         candidates_to_prune.append(n)
 
@@ -102,7 +102,8 @@ def prune_dead_end_spurs(
 
 def simplify_degree_two_chains(
     G: nx.DiGraph,
-    r_shore: float
+    r_shore: float,
+    outlet_tolerance: float = 0.05
 ) -> Tuple[nx.DiGraph, int]:
     """
     Contracts pass-through nodes with in_degree == 1 and out_degree == 1 into unified edges,
@@ -114,6 +115,7 @@ def simplify_degree_two_chains(
     """
     simplified_G = G.copy()
     contracted_count = 0
+    shore_cutoff = r_shore * (1.0 - outlet_tolerance)
 
     pass_through_nodes = [
         n for n in simplified_G.nodes()
@@ -121,6 +123,7 @@ def simplify_degree_two_chains(
         and simplified_G.out_degree(n) == 1
         and n != 0
         and simplified_G.nodes[n].get('node_type') not in ('apex', 'outlet')
+        and float(simplified_G.nodes[n].get('r', 0.0)) < shore_cutoff
     ]
 
     for n in pass_through_nodes:
@@ -141,8 +144,10 @@ def simplify_degree_two_chains(
             continue
 
         # Combine edge properties
-        x_p, y_p = float(simplified_G.nodes[p]['x']), float(simplified_G.nodes[p]['y'])
-        x_c, y_c = float(simplified_G.nodes[c]['x']), float(simplified_G.nodes[c]['y'])
+        x_p = float(simplified_G.nodes[p].get('x', 0.0))
+        y_p = float(simplified_G.nodes[p].get('y', 0.0))
+        x_c = float(simplified_G.nodes[c].get('x', 0.0))
+        y_c = float(simplified_G.nodes[c].get('y', 0.0))
         straight_dist = max(1.0, math.hypot(x_c - x_p, y_c - y_p))
 
         len_in = float(d_in.get('length', straight_dist / 2.0))
@@ -157,6 +162,12 @@ def simplify_degree_two_chains(
             coords_out = d_out['coordinates']
             # Concatenate coordinates avoiding duplicate joint point
             combined_coords = coords_in[:-1] + coords_out
+        elif 'coordinates' in d_in:
+            coords_in = d_in['coordinates']
+            combined_coords = coords_in + [[x_c, y_c]]
+        elif 'coordinates' in d_out:
+            coords_out = d_out['coordinates']
+            combined_coords = [[x_p, y_p]] + coords_out
 
         edge_type = 'tree' if (d_in.get('edge_type') == 'tree' and d_out.get('edge_type') == 'tree') else 'loop'
 
@@ -176,7 +187,7 @@ def simplify_degree_two_chains(
 
         contracted_count += 1
 
-    refresh_node_types(simplified_G, r_shore)
+    refresh_node_types(simplified_G, r_shore, outlet_tolerance)
     return simplified_G, contracted_count
 
 
@@ -197,6 +208,7 @@ def prune_and_simplify_network(
         return G
 
     r_shore = domain.r_shore if domain else float(params.get('r_shore', 10000.0))
+    outlet_tol = float(params.get('outlet_tolerance', 0.05))
     prune_inland = params.get('prune_inland_dead_ends', True)
     min_spur_len = float(params.get('min_spur_length', 0.0))
     simplify_chains = params.get('simplify_pass_through_nodes', False)
@@ -214,6 +226,7 @@ def prune_and_simplify_network(
     current_G, pruned_count = prune_dead_end_spurs(
         current_G,
         r_shore=r_shore,
+        outlet_tolerance=outlet_tol,
         max_iterations=max_iters,
         min_spur_length=min_spur_len,
         prune_inland_dead_ends=prune_inland
@@ -222,7 +235,11 @@ def prune_and_simplify_network(
 
     # Step 2: Contract pass-through chains
     if simplify_chains:
-        current_G, contracted_count = simplify_degree_two_chains(current_G, r_shore=r_shore)
+        current_G, contracted_count = simplify_degree_two_chains(
+            current_G,
+            r_shore=r_shore,
+            outlet_tolerance=outlet_tol
+        )
         stats['contracted_nodes'] = contracted_count
 
     stats['final_nodes'] = current_G.number_of_nodes()
