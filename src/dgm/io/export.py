@@ -70,10 +70,18 @@ def to_geojson(G: nx.DiGraph, path: Optional[Union[str, Path]] = None) -> Dict[s
             'sinuosity': float(d.get('sinuosity', 1.0)),
             'conductance': float(d.get('conductance', 1.0)),
         }
-        if 'clearance_distance' in d and not math.isinf(float(d['clearance_distance'])):
-            props['clearance_distance'] = float(d['clearance_distance'])
-        if 'meander_amplitude' in d and not math.isinf(float(d['meander_amplitude'])):
-            props['meander_amplitude'] = float(d['meander_amplitude'])
+        if 'clearance_distance' in d and d['clearance_distance'] is not None:
+            c_val = float(d['clearance_distance'])
+            if not math.isinf(c_val) and not math.isnan(c_val):
+                props['clearance_distance'] = c_val
+        if 'meander_amplitude' in d and d['meander_amplitude'] is not None:
+            m_val = float(d['meander_amplitude'])
+            if not math.isinf(m_val) and not math.isnan(m_val):
+                props['meander_amplitude'] = m_val
+        if 'max_meander_amplitude' in d and d['max_meander_amplitude'] is not None:
+            max_val = float(d['max_meander_amplitude'])
+            if not math.isinf(max_val) and not math.isnan(max_val):
+                props['max_meander_amplitude'] = max_val
 
         features.append({
             'type': 'Feature',

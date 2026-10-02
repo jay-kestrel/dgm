@@ -211,3 +211,107 @@ def test_cli_curved_flag(tmp_path):
     channel_features = [feat for feat in data["features"] if feat["properties"].get("feature_type") == "channel"]
     assert len(channel_features) > 0
     assert len(channel_features[0]["geometry"]["coordinates"]) >= 3
+
+
+def test_small_clearance_amplitude_cap():
+    """Verify that when clearance is very small (< 10m), meander amplitude is strictly capped below clearance."""
+    G = nx.DiGraph()
+    # Two channels only 5m apart
+    G.add_node(0, x=0.0, y=0.0)
+    G.add_node(1, x=1000.0, y=0.0)
+    G.add_edge(0, 1, straight_distance=1000.0, sinuosity=1.4)
+
+    G.add_node(2, x=0.0, y=5.0)
+    G.add_node(3, x=1000.0, y=5.0)
+    G.add_edge(2, 3, straight_distance=1000.0, sinuosity=1.4)
+
+    apply_channel_proximity_constraints(G, clearance_fraction=0.40)
+
+    # Clearance is 5.0m; max amplitude must be 5.0 * 0.40 = 2.0m (NOT floored at 10m!)
+    assert math.isclose(G.edges[0, 1]['clearance_distance'], 5.0, abs_tol=1e-4)
+    assert math.isclose(G.edges[0, 1]['max_meander_amplitude'], 2.0, abs_tol=1e-4)
+    expected_s_max = 1.0 + (math.pi * 2.0 / 1000.0) ** 2
+    assert math.isclose(G.edges[0, 1]['sinuosity'], expected_s_max, rel_tol=1e-5)
+    assert G.edges[0, 1]['sinuosity'] >= 1.0
+
+    # Also test curved generation produces max amplitude <= 2.0
+    generate_channel_centerlines(G, clearance_fraction=0.40)
+    assert G.edges[0, 1]['meander_amplitude'] <= 2.0 + 1e-6
+
+
+def test_touching_crossing_channels_clearance_zero():
+    """Verify crossing non-incident channels have 0 clearance, forcing sinuosity to 1.0 and amplitude to 0."""
+    G = nx.DiGraph()
+    # Channel 1: (0, 500) -> (1000, 500)
+    G.add_node(0, x=0.0, y=500.0)
+    G.add_node(1, x=1000.0, y=500.0)
+    G.add_edge(0, 1, straight_distance=1000.0, sinuosity=1.3)
+
+    # Channel 2 crossing Channel 1: (500, 0) -> (500, 1000)
+    G.add_node(2, x=500.0, y=0.0)
+    G.add_node(3, x=500.0, y=1000.0)
+    G.add_edge(2, 3, straight_distance=1000.0, sinuosity=1.3)
+
+    c = compute_edge_clearance(G, 0, 1)
+    assert c == 0.0
+
+    generate_channel_centerlines(G, clearance_fraction=0.40)
+    assert G.edges[0, 1]['sinuosity'] == 1.0
+    assert G.edges[0, 1]['meander_amplitude'] == 0.0
+
+
+def test_clearance_guided_meander_direction_second_half():
+    """Verify meander bends deflect away from obstacles located in the second half of the channel."""
+    G = nx.DiGraph()
+    # Edge 0->1 along x-axis
+    G.add_node(0, x=0.0, y=0.0)
+    G.add_node(1, x=1000.0, y=0.0)
+    G.add_edge(0, 1, straight_distance=1000.0, sinuosity=1.2)
+
+    # Non-incident obstacle in the second half (+y side): x in [600, 900], y = 50
+    G.add_node(2, x=600.0, y=50.0)
+    G.add_node(3, x=900.0, y=50.0)
+    G.add_edge(2, 3, straight_distance=300.0, sinuosity=1.0)
+
+    generate_channel_centerlines(G, num_points=25, seed=42)
+    coords = G.edges[0, 1]['coordinates']
+
+    # In the second half, meander must NOT swing into +y towards the obstacle
+    second_half_y = [pt[1] for pt in coords[len(coords) // 2:]]
+    assert max(second_half_y) <= 1e-4
+
+
+def test_generate_channel_centerlines_seed_none():
+    """Verify generate_channel_centerlines executes cleanly when seed=None."""
+    G = nx.DiGraph()
+    G.add_node(0, x=0.0, y=0.0)
+    G.add_node(1, x=500.0, y=0.0)
+    G.add_edge(0, 1, sinuosity=1.15)
+
+    generate_channel_centerlines(G, seed=None)
+    assert 'coordinates' in G.edges[0, 1]
+    assert len(G.edges[0, 1]['coordinates']) >= 3
+
+
+def test_degenerate_zero_length_edge():
+    """Verify zero-length edge (identical nodes) does not cause division by zero."""
+    G = nx.DiGraph()
+    G.add_node(0, x=100.0, y=100.0)
+    G.add_edge(0, 0, straight_distance=0.0, sinuosity=1.2)
+
+    generate_channel_centerlines(G)
+    assert G.edges[0, 0]['meander_amplitude'] == 0.0
+    assert G.edges[0, 0]['coordinates'] == [[100.0, 100.0], [100.0, 100.0]]
+
+
+def test_explicit_override_not_clobbered_by_sampling():
+    """Verify explicit min_channel_clearance override is not clobbered when sample_parameters=True."""
+    G = dgm.generate(N=20, R_rt=0.3, sample_parameters=True, min_channel_clearance=0.33, seed=42)
+    assert math.isclose(G.graph['min_channel_clearance'], 0.33, abs_tol=1e-5)
+    assert math.isclose(G.graph['params']['min_channel_clearance'], 0.33, abs_tol=1e-5)
+
+    ens = dgm.sample_ensemble(N=20, R_rt=0.3, num_realizations=3, min_channel_clearance=0.33, base_seed=42)
+    for g in ens:
+        assert math.isclose(g.graph['min_channel_clearance'], 0.33, abs_tol=1e-5)
+        assert math.isclose(g.graph['params']['min_channel_clearance'], 0.33, abs_tol=1e-5)
+

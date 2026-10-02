@@ -113,8 +113,11 @@ class DeltaGenerator:
         G_final.graph['lateral_valley_width'] = domain.lateral_valley_width
         G_final.graph['coastal_node_decay'] = params.get('coastal_node_decay', self.config.coastal_node_decay)
         G_final.graph['coastal_sinuosity_decay'] = params.get('coastal_sinuosity_decay', self.config.coastal_sinuosity_decay)
-        G_final.graph['enable_curved_centerlines'] = self.config.enable_curved_centerlines
+        curved_enabled = bool(self.config.enable_curved_centerlines or params.get('enable_curved_centerlines', False))
+        G_final.graph['enable_curved_centerlines'] = curved_enabled
         G_final.graph['min_channel_clearance'] = params.get('min_channel_clearance', self.config.min_channel_clearance)
+        G_final.graph['num_polyline_points'] = params.get('num_polyline_points', self.config.num_polyline_points)
+        G_final.graph['meander_bends'] = params.get('meander_bends', self.config.meander_bends)
         G_final.graph['loop_mechanism'] = self.config.loop_mechanism
         G_final.graph['params'] = params
         G_final.graph['seed'] = seed
@@ -257,6 +260,7 @@ def generate(
         for k, v in overrides.items():
             if hasattr(cfg, k):
                 setattr(cfg, k, v)
+            cfg.distributions.pop(k, None)
     else:
         cfg = DGMConfig.load_default()
         cfg.N = N
@@ -264,24 +268,30 @@ def generate(
         for k, v in overrides.items():
             if hasattr(cfg, k):
                 setattr(cfg, k, v)
+            cfg.distributions.pop(k, None)
 
     if confinement is not None:
         cfg.confinement = float(confinement)
+        cfg.distributions.pop("confinement", None)
 
     if lateral_valley_width is not None:
         cfg.lateral_valley_width = float(lateral_valley_width)
+        cfg.distributions.pop("lateral_valley_width", None)
 
     if coastal_node_decay is not None:
         cfg.coastal_node_decay = float(coastal_node_decay)
+        cfg.distributions.pop("coastal_node_decay", None)
 
     if coastal_sinuosity_decay is not None:
         cfg.coastal_sinuosity_decay = float(coastal_sinuosity_decay)
+        cfg.distributions.pop("coastal_sinuosity_decay", None)
 
     if enable_curved_centerlines is not None:
         cfg.enable_curved_centerlines = bool(enable_curved_centerlines)
 
     if min_channel_clearance is not None:
         cfg.min_channel_clearance = float(min_channel_clearance)
+        cfg.distributions.pop("min_channel_clearance", None)
 
     if seed is not _UNSET:
         cfg.seed = seed
@@ -316,6 +326,7 @@ def sample_ensemble(
         for k, v in overrides.items():
             if hasattr(cfg, k):
                 setattr(cfg, k, v)
+            cfg.distributions.pop(k, None)
     else:
         cfg = DGMConfig.load_default()
         cfg.N = N
@@ -323,6 +334,7 @@ def sample_ensemble(
         for k, v in overrides.items():
             if hasattr(cfg, k):
                 setattr(cfg, k, v)
+            cfg.distributions.pop(k, None)
 
     if confinement is not None:
         cfg.confinement = float(confinement)

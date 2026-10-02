@@ -5,8 +5,10 @@ Provides spatial clearance calculation, meander amplitude bounding, and 2D polyl
 
 from typing import Dict, Any, List, Tuple, Optional
 import math
+import zlib
 import numpy as np
 import networkx as nx
+from .geometry_utils import segments_intersect
 
 
 def point_to_segment_distance(
@@ -42,27 +44,39 @@ def compute_edge_clearance(
     v: Any
 ) -> float:
     """
-    Computes the minimum spatial clearance distance from the midpoint of edge (u, v)
-    to all other non-incident channel edges in the network.
+    Computes the minimum spatial clearance distance from edge (u, v) (sampled along
+    meander crests and midpoint) to all other non-incident channel edges in the network.
+    If any non-incident edges cross or touch, clearance is 0.0.
     """
-    p_u = (float(G.nodes[u]['x']), float(G.nodes[u]['y']))
-    p_v = (float(G.nodes[v]['x']), float(G.nodes[v]['y']))
-    midpoint = (0.5 * (p_u[0] + p_v[0]), 0.5 * (p_u[1] + p_v[1]))
+    p_u = (float(G.nodes[u].get('x', 0.0)), float(G.nodes[u].get('y', 0.0)))
+    p_v = (float(G.nodes[v].get('x', 0.0)), float(G.nodes[v].get('y', 0.0)))
 
     incident_nodes = {u, v}
     min_dist = float('inf')
+
+    # Sample interior points along (u, v) at quarter points (crests) and midpoint
+    sample_points = [
+        (0.5 * (p_u[0] + p_v[0]), 0.5 * (p_u[1] + p_v[1])),
+        (0.75 * p_u[0] + 0.25 * p_v[0], 0.75 * p_u[1] + 0.25 * p_v[1]),
+        (0.25 * p_u[0] + 0.75 * p_v[0], 0.25 * p_u[1] + 0.75 * p_v[1]),
+    ]
 
     for edge_u, edge_v in G.edges():
         # Skip identical or incident edges sharing a node
         if edge_u in incident_nodes or edge_v in incident_nodes:
             continue
 
-        a = (float(G.nodes[edge_u]['x']), float(G.nodes[edge_u]['y']))
-        b = (float(G.nodes[edge_v]['x']), float(G.nodes[edge_v]['y']))
+        a = (float(G.nodes[edge_u].get('x', 0.0)), float(G.nodes[edge_u].get('y', 0.0)))
+        b = (float(G.nodes[edge_v].get('x', 0.0)), float(G.nodes[edge_v].get('y', 0.0)))
 
-        dist = point_to_segment_distance(midpoint, a, b)
-        if dist < min_dist:
-            min_dist = dist
+        # If non-incident edges cross, clearance is immediately zero
+        if segments_intersect(p_u, p_v, a, b):
+            return 0.0
+
+        for pt in sample_points:
+            dist = point_to_segment_distance(pt, a, b)
+            if dist < min_dist:
+                min_dist = dist
 
     return min_dist
 
@@ -70,7 +84,7 @@ def compute_edge_clearance(
 def apply_channel_proximity_constraints(
     G: nx.DiGraph,
     clearance_fraction: float = 0.40,
-    min_amplitude_floor: float = 10.0
+    min_amplitude_floor: float = 0.0
 ) -> nx.DiGraph:
     """
     Constrains channel sinuosity based on proximity to neighboring non-incident channels.
@@ -83,12 +97,13 @@ def apply_channel_proximity_constraints(
       - 'length': updated physical length (straight_distance * sinuosity)
     """
     clearance_fraction = max(0.05, min(1.0, float(clearance_fraction)))
+    min_amplitude_floor = max(0.0, float(min_amplitude_floor))
 
     for u, v, d in G.edges(data=True):
         straight_dist = float(d.get('straight_distance', 0.0))
-        if straight_dist <= 0:
-            x_u, y_u = G.nodes[u]['x'], G.nodes[u]['y']
-            x_v, y_v = G.nodes[v]['x'], G.nodes[v]['y']
+        if straight_dist <= 1e-6:
+            x_u, y_u = float(G.nodes[u].get('x', 0.0)), float(G.nodes[u].get('y', 0.0))
+            x_v, y_v = float(G.nodes[v].get('x', 0.0)), float(G.nodes[v].get('y', 0.0))
             straight_dist = max(1.0, math.hypot(x_v - x_u, y_v - y_u))
             d['straight_distance'] = straight_dist
 
@@ -104,7 +119,8 @@ def apply_channel_proximity_constraints(
             effective_sin = max(1.0, target_sin)
         else:
             # Maximum allowed meander amplitude is bounded by clearance fraction
-            max_amp = max(min_amplitude_floor, clearance * clearance_fraction)
+            # If clearance <= 0.0 (intersecting/touching), amplitude is capped to 0.0
+            max_amp = max(min_amplitude_floor, max(0.0, clearance * clearance_fraction))
             d['max_meander_amplitude'] = max_amp
 
             # Analytical relationship: S_max = 1 + (pi * A_max / L)^2
@@ -122,7 +138,7 @@ def generate_channel_centerlines(
     clearance_fraction: float = 0.40,
     num_points: int = 21,
     num_bends: int = 1,
-    seed: int = 42
+    seed: Optional[int] = 42
 ) -> nx.DiGraph:
     """
     Generates smooth 2D polyline centerlines for all edges in G.
@@ -133,6 +149,7 @@ def generate_channel_centerlines(
     """
     num_points = max(3, int(num_points))
     num_bends = max(1, int(num_bends))
+    seed_int = 42 if seed is None else int(seed)
 
     # First apply proximity constraints to determine effective sinuosities
     apply_channel_proximity_constraints(G, clearance_fraction=clearance_fraction)
@@ -143,12 +160,16 @@ def generate_channel_centerlines(
     wave = np.sin(2.0 * np.pi * num_bends * s_values)
     profile = wave * window
 
-    for u, v, d in G.edges(data=True):
-        x_u, y_u = float(G.nodes[u]['x']), float(G.nodes[u]['y'])
-        x_v, y_v = float(G.nodes[v]['x']), float(G.nodes[v]['y'])
-        straight_dist = float(d.get('straight_distance', math.hypot(x_v - x_u, y_v - y_u)))
+    # Meander crest fractions for direction selection across all wave lobes
+    crest_s_values = [(2 * k - 1) / (4.0 * num_bends) for k in range(1, 2 * num_bends + 1)]
 
-        if straight_dist <= 1e-6:
+    for u, v, d in G.edges(data=True):
+        x_u, y_u = float(G.nodes[u].get('x', 0.0)), float(G.nodes[u].get('y', 0.0))
+        x_v, y_v = float(G.nodes[v].get('x', 0.0)), float(G.nodes[v].get('y', 0.0))
+        chord = math.hypot(x_v - x_u, y_v - y_u)
+        straight_dist = float(d.get('straight_distance', chord))
+
+        if chord <= 1e-6 or straight_dist <= 1e-6:
             d['coordinates'] = [[x_u, y_u], [x_v, y_v]]
             d['meander_amplitude'] = 0.0
             continue
@@ -158,6 +179,8 @@ def generate_channel_centerlines(
         if sinuosity <= 1.0001:
             # Straight channel
             pts = [[float(x_u + s * (x_v - x_u)), float(y_u + s * (y_v - y_u))] for s in s_values]
+            pts[0] = [x_u, y_u]
+            pts[-1] = [x_v, y_v]
             d['coordinates'] = pts
             d['meander_amplitude'] = 0.0
             continue
@@ -169,45 +192,53 @@ def generate_channel_centerlines(
             amp = min(amp, max_amp)
         d['meander_amplitude'] = amp
 
+        if amp <= 1e-6:
+            pts = [[float(x_u + s * (x_v - x_u)), float(y_u + s * (y_v - y_u))] for s in s_values]
+            pts[0] = [x_u, y_u]
+            pts[-1] = [x_v, y_v]
+            d['coordinates'] = pts
+            continue
+
         # Normal unit vector perpendicular to channel segment
-        tx = (x_v - x_u) / straight_dist
-        ty = (y_v - y_u) / straight_dist
+        tx = (x_v - x_u) / chord
+        ty = (y_v - y_u) / chord
         nx_val = -ty
         ny_val = tx
 
-        # Deterministic seed for meander direction check
+        # Deterministic seed for meander direction tie-breaking
         if isinstance(u, (int, np.integer)) and isinstance(v, (int, np.integer)):
-            edge_hash = (int(seed) + int(u) * 31337 + int(v) * 7919) % (2**31)
+            edge_hash = (seed_int + int(u) * 31337 + int(v) * 7919) % (2**31)
         else:
-            edge_hash = (int(seed) + abs(hash((str(u), str(v))))) % (2**31)
+            edge_hash = (seed_int + zlib.crc32(f"{u}_{v}".encode())) % (2**31)
 
-        # Test both normal signs (+/-) at crest (s = 0.5 / num_bends) to pick the direction
-        # with greater clearance to neighboring channels
-        crest_s = 0.25 / num_bends
-        mid_x = x_u + crest_s * (x_v - x_u)
-        mid_y = y_u + crest_s * (y_v - y_u)
-        crest_amp = amp * math.sin(np.pi * crest_s)
-
-        p_pos = (mid_x + crest_amp * nx_val, mid_y + crest_amp * ny_val)
-        p_neg = (mid_x - crest_amp * nx_val, mid_y - crest_amp * ny_val)
-
+        # Test both candidate signs (+1/-1) across all wave crests to pick the direction
+        # that maximizes clearance to neighboring channels (deflects into open floodplain)
         incident_nodes = {u, v}
         clearance_pos = float('inf')
         clearance_neg = float('inf')
 
-        for other_u, other_v in G.edges():
-            if other_u in incident_nodes or other_v in incident_nodes:
-                continue
-            seg_a = (float(G.nodes[other_u]['x']), float(G.nodes[other_u]['y']))
-            seg_b = (float(G.nodes[other_v]['x']), float(G.nodes[other_v]['y']))
-            d_pos = point_to_segment_distance(p_pos, seg_a, seg_b)
-            d_neg = point_to_segment_distance(p_neg, seg_a, seg_b)
-            if d_pos < clearance_pos:
-                clearance_pos = d_pos
-            if d_neg < clearance_neg:
-                clearance_neg = d_neg
+        for s_c in crest_s_values:
+            mid_x = x_u + s_c * (x_v - x_u)
+            mid_y = y_u + s_c * (y_v - y_u)
+            h_c = math.sin(2.0 * math.pi * num_bends * s_c) * math.sin(math.pi * s_c)
+            disp = amp * h_c
 
-        # Direct meander towards open space (larger clearance); if equal, use pseudo-random hash
+            p_pos = (mid_x + disp * nx_val, mid_y + disp * ny_val)
+            p_neg = (mid_x - disp * nx_val, mid_y - disp * ny_val)
+
+            for other_u, other_v in G.edges():
+                if other_u in incident_nodes or other_v in incident_nodes:
+                    continue
+                seg_a = (float(G.nodes[other_u].get('x', 0.0)), float(G.nodes[other_u].get('y', 0.0)))
+                seg_b = (float(G.nodes[other_v].get('x', 0.0)), float(G.nodes[other_v].get('y', 0.0)))
+                d_pos = point_to_segment_distance(p_pos, seg_a, seg_b)
+                d_neg = point_to_segment_distance(p_neg, seg_a, seg_b)
+                if d_pos < clearance_pos:
+                    clearance_pos = d_pos
+                if d_neg < clearance_neg:
+                    clearance_neg = d_neg
+
+        # Direct meander towards open space (larger clearance); if equal/symmetric, use pseudo-random hash
         if clearance_pos > clearance_neg + 1e-3:
             sign = 1.0
         elif clearance_neg > clearance_pos + 1e-3:
