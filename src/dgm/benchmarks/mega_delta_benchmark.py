@@ -86,6 +86,9 @@ class MegaDeltaScaleBenchmark:
                 if matched:
                     self.target_deltas.append(matched[0])
 
+        if not self.target_deltas:
+            raise ValueError(f"No valid mega-deltas found matching names: {self.delta_names}")
+
         self.battery = MetricsBattery()
         self.results: Dict[str, Any] = {}
 
@@ -207,8 +210,13 @@ class MegaDeltaScaleBenchmark:
 
         return self.results
 
+    def _check_results(self) -> None:
+        if not self.results or 'per_delta_summary' not in self.results:
+            raise RuntimeError("Benchmark has not been run yet. Call run() first.")
+
     def export_csv(self, output_path: Union[str, Path]) -> Path:
         """Exports tabular benchmark results to CSV."""
+        self._check_results()
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         df = pd.DataFrame(self.results['per_delta_summary'])
@@ -217,6 +225,7 @@ class MegaDeltaScaleBenchmark:
 
     def export_json(self, output_path: Union[str, Path]) -> Path:
         """Exports benchmark statistical results to JSON."""
+        self._check_results()
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, 'w', encoding='utf-8') as f:
@@ -225,6 +234,7 @@ class MegaDeltaScaleBenchmark:
 
     def export_plot(self, output_path: Union[str, Path]) -> Path:
         """Generates a publication-quality comparative figure for mega-deltas."""
+        self._check_results()
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -307,7 +317,7 @@ class MegaDeltaScaleBenchmark:
             ax4.annotate(
                 f"{r['delta_name']}",
                 (r['empirical_nER_star'] + 0.015, r['synthetic_nER_star_mean'] - 0.01),
-                fontsize=9, fontweight='semibold'
+                fontsize=9, fontweight='bold'
             )
 
         lims = [0.35, 0.85]
@@ -330,6 +340,7 @@ class MegaDeltaScaleBenchmark:
 
     def export_report(self, output_path: Union[str, Path]) -> Path:
         """Generates a detailed Markdown benchmark report."""
+        self._check_results()
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -396,16 +407,17 @@ class MegaDeltaScaleBenchmark:
             lbl = METRIC_LABELS.get(k, k)
             lines.append(f"| **{lbl}** | `{k}` | {g['mae']:.4f} | {g['rmse']:.4f} | {g['nrmse']:.4f} |")
 
+        parent_dir = path.parent
         lines.extend([
             "",
             "---",
             "",
             "## 4. Benchmark Artifacts & Deliverables",
             "",
-            "- **Tabular Data**: `dgm/outputs/mega_delta_benchmark_results.csv`",
-            "- **JSON Summary**: `dgm/outputs/mega_delta_benchmark_summary.json`",
-            "- **Comparative Figure**: `dgm/outputs/mega_delta_scale_benchmark.png`",
-            "- **Markdown Report**: `dgm/outputs/MEGA_DELTA_BENCHMARK_REPORT.md`",
+            f"- **Tabular Data**: `{parent_dir / 'mega_delta_benchmark_results.csv'}`",
+            f"- **JSON Summary**: `{parent_dir / 'mega_delta_benchmark_summary.json'}`",
+            f"- **Comparative Figure**: `{parent_dir / 'mega_delta_scale_benchmark.png'}`",
+            f"- **Markdown Report**: `{path}`",
         ])
 
         with open(path, 'w', encoding='utf-8') as f:
