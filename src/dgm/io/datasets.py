@@ -1,0 +1,333 @@
+"""
+Empirical datasets and DIDNT benchmark network loader for DGM.
+"""
+
+from dataclasses import dataclass, asdict
+from pathlib import Path
+from typing import Dict, Any, List, Optional, Union, Tuple
+import json
+import math
+import numpy as np
+import networkx as nx
+
+from ..metrics import MetricsBattery
+
+
+def _resolve_didnt_dir(dataset_dir: Optional[Union[str, Path]] = None) -> Path:
+    """Resolves path to DIDNT dataset directory containing NetworkNodesAndLinks."""
+    if dataset_dir is not None:
+        base_path = Path(dataset_dir)
+    else:
+        # Check standard locations in repo
+        cwd = Path.cwd()
+        candidates = [
+            cwd / "datasets" / "DIDNT",
+            cwd / "synthetic_graphs" / "v2" / "datasets" / "DIDNT",
+            cwd.parent / "synthetic_graphs" / "v2" / "datasets" / "DIDNT",
+            Path(__file__).resolve().parent.parent.parent.parent / "synthetic_graphs" / "v2" / "datasets" / "DIDNT",
+        ]
+        base_path = None
+        for cand in candidates:
+            if cand.exists():
+                base_path = cand
+                break
+        if base_path is None:
+            base_path = Path("datasets/DIDNT")
+
+    if (base_path / "NetworkNodesAndLinks").exists():
+        return base_path
+    elif (base_path / "DIDNT" / "NetworkNodesAndLinks").exists():
+        return base_path / "DIDNT"
+    elif (base_path / "DIDNT" / "DIDNT" / "NetworkNodesAndLinks").exists():
+        return base_path / "DIDNT" / "DIDNT"
+    return base_path
+
+
+class DIDNTLoader:
+    """
+    Loader for the empirical DIDNT dataset (Hariharan et al., 2021).
+    Parses GeoJSON node/link networks into NetworkX DiGraph objects.
+    """
+
+    def __init__(self, dataset_dir: Optional[Union[str, Path]] = None):
+        self.root_dir = _resolve_didnt_dir(dataset_dir)
+        self.nnl_dir = self.root_dir / "NetworkNodesAndLinks"
+        self.raw_dir = self.root_dir / "RawData"
+
+    def is_available(self) -> bool:
+        """Returns True if the DIDNT dataset files are present on disk."""
+        return self.nnl_dir.exists()
+
+    def list_available_deltas(self) -> List[str]:
+        """Returns a sorted list of all delta network names available in the dataset."""
+        if not self.nnl_dir.exists():
+            return []
+        nodes_files = list(self.nnl_dir.glob("*_nodes.json")) + list(self.nnl_dir.glob("*_nodes.geojson"))
+        return sorted(list(set(f.stem.replace("_nodes", "") for f in nodes_files)))
+
+    def load_graph(self, delta_name: str) -> nx.DiGraph:
+        """
+        Loads the directed channel network graph for a given delta.
+        """
+        if not self.nnl_dir.exists():
+            raise FileNotFoundError(
+                f"DIDNT dataset directory not found at {self.nnl_dir}. "
+                "Please ensure the dataset is downloaded or extracted."
+            )
+
+        nodes_file = self.nnl_dir / f"{delta_name}_nodes.json"
+        links_file = self.nnl_dir / f"{delta_name}_links.json"
+
+        if not nodes_file.exists():
+            nodes_file = self.nnl_dir / f"{delta_name}_nodes.geojson"
+            links_file = self.nnl_dir / f"{delta_name}_links.geojson"
+
+        if not nodes_file.exists():
+            matches = list(self.nnl_dir.glob(f"*{delta_name}*_nodes.*json*"))
+            if matches:
+                nodes_file = matches[0]
+                delta_name = nodes_file.stem.replace("_nodes", "")
+                ext = nodes_file.suffix
+                links_file = self.nnl_dir / f"{delta_name}_links{ext}"
+            else:
+                raise FileNotFoundError(f"Nodes file not found for delta: {delta_name}")
+
+        with open(nodes_file, 'r', encoding='utf-8') as f:
+            nodes_geojson = json.load(f)
+
+        with open(links_file, 'r', encoding='utf-8') as f:
+            links_geojson = json.load(f)
+
+        G = nx.DiGraph()
+        G.graph['name'] = delta_name
+
+        apex_coord = None
+        for feat in nodes_geojson.get('features', []):
+            props = feat.get('properties', {})
+            geom = feat.get('geometry', {})
+            coords = geom.get('coordinates', [0.0, 0.0])
+
+            nid = props.get('id', props.get('node_id', feat.get('id')))
+            if nid is None:
+                continue
+            try:
+                nid = int(nid)
+            except (ValueError, TypeError):
+                nid = str(nid)
+
+            is_inlet = bool(props.get('inlet', False) or props.get('is_inlet', False) or props.get('type') == 'inlet')
+            is_outlet = bool(props.get('outlet', False) or props.get('is_outlet', False) or props.get('type') == 'outlet')
+
+            x = float(coords[0])
+            y = float(coords[1])
+
+            node_type = 'internal'
+            if is_inlet:
+                node_type = 'apex'
+                apex_coord = (x, y)
+            elif is_outlet:
+                node_type = 'outlet'
+
+            G.add_node(
+                nid,
+                x=x,
+                y=y,
+                is_apex=is_inlet,
+                is_outlet=is_outlet,
+                node_type=node_type,
+                properties=props
+            )
+
+        if apex_coord is None and len(G) > 0:
+            first_node = list(G.nodes())[0]
+            apex_coord = (G.nodes[first_node]['x'], G.nodes[first_node]['y'])
+            G.nodes[first_node]['is_apex'] = True
+            G.nodes[first_node]['node_type'] = 'apex'
+
+        for n, d in G.nodes(data=True):
+            dx = d['x'] - apex_coord[0]
+            dy = d['y'] - apex_coord[1]
+            r = math.hypot(dx, dy)
+            theta = math.atan2(dy, dx)
+            d['r'] = r
+            d['theta'] = theta
+
+        for feat in links_geojson.get('features', []):
+            props = feat.get('properties', {})
+            geom = feat.get('geometry', {})
+
+            src = props.get('start_node', props.get('source', props.get('from')))
+            tgt = props.get('end_node', props.get('target', props.get('to')))
+
+            if src is None or tgt is None:
+                continue
+            try:
+                src = int(src)
+            except (ValueError, TypeError):
+                src = str(src)
+            try:
+                tgt = int(tgt)
+            except (ValueError, TypeError):
+                tgt = str(tgt)
+
+            if not G.has_node(src) or not G.has_node(tgt):
+                continue
+
+            width = float(props.get('wid_med', props.get('width', props.get('wid', 10.0))))
+            length = float(props.get('len', props.get('length', 100.0)))
+            conductance = float(props.get('conductance', (max(0.1, width) ** 1.65) / (max(1.0, length) ** 0.50)))
+
+            G.add_edge(
+                src,
+                tgt,
+                width=max(0.1, width),
+                length=max(1.0, length),
+                conductance=max(1e-6, conductance),
+                edge_type='tree',
+                properties=props
+            )
+
+        return G
+
+
+@dataclass
+class EmpiricalDelta:
+    name: str
+    nodes: int
+    edges: int
+    loops: int
+    alpha: float
+    betti_1_norm: float
+    vc_vb_ratio: float
+    topological_slope: float
+    horton_inversion: float
+    recombination_factor: float
+    nER_star: float
+    eBI: float
+    log_eBI: float
+    algebraic_connectivity: float
+    energy_dissipation: float
+    log_energy_dissipation: float
+    energy_entropy_ratio: float
+    global_vulnerability: float
+    outlet_flux_entropy: float
+    width_cv: float
+    radial_sinuosity: float
+    angular_dispersion: float
+    loop_length_anisotropy: float
+    num_outlets: int
+    log_num_outlets: float
+    resistance_distance: float
+    link_sharing_index: float
+    forcing_type: str
+    estimated_R_rt: float
+    source: str = "DIDNT Dataset (Hariharan et al., 2021)"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+DELTA_FORCING_REGIMES: Dict[str, Dict[str, Any]] = {
+    'Amazon': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.25},
+    'Colville': {'forcing_type': 'arctic', 'estimated_R_rt': 0.40},
+    'Danube': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.10},
+    'Dnieper': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.10},
+    'Fly': {'forcing_type': 'tide_influenced', 'estimated_R_rt': 0.85},
+    'GBMD': {'forcing_type': 'tide_influenced', 'estimated_R_rt': 0.80},
+    'Hay': {'forcing_type': 'lacustrine', 'estimated_R_rt': 0.05},
+    'Irrawaddy': {'forcing_type': 'tide_influenced', 'estimated_R_rt': 0.50},
+    'Krishna': {'forcing_type': 'tide_influenced', 'estimated_R_rt': 0.50},
+    'Lena': {'forcing_type': 'arctic', 'estimated_R_rt': 0.45},
+    'Mackenzie': {'forcing_type': 'arctic', 'estimated_R_rt': 0.40},
+    'Mahakam': {'forcing_type': 'tide_influenced', 'estimated_R_rt': 0.60},
+    'Mahanadi': {'forcing_type': 'tide_influenced', 'estimated_R_rt': 0.55},
+    'Mekong': {'forcing_type': 'tide_influenced', 'estimated_R_rt': 0.65},
+    'Mississippi': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.05},
+    'Mossy': {'forcing_type': 'lacustrine', 'estimated_R_rt': 0.05},
+    'Niger': {'forcing_type': 'tide_influenced', 'estimated_R_rt': 0.90},
+    'Orinoco': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.15},
+    'Parana': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.15},
+    'Pearl': {'forcing_type': 'tide_influenced', 'estimated_R_rt': 0.70},
+    'Po': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.15},
+    'Red': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.20},
+    'Rioni': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.10},
+    'Selenga': {'forcing_type': 'lacustrine', 'estimated_R_rt': 0.05},
+    'Wairau': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.10},
+    'Wax Lake': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.10, 'didnt_name': 'Wax'},
+    'Yangtze': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.25},
+    'Yukon': {'forcing_type': 'arctic', 'estimated_R_rt': 0.35},
+}
+
+
+_CACHED_EMPIRICAL_DELTAS: Optional[List[EmpiricalDelta]] = None
+
+
+def get_empirical_deltas(dataset_dir: Optional[Union[str, Path]] = None, force_reload: bool = False) -> List[EmpiricalDelta]:
+    """Loads empirical deltas from DIDNT dataset and evaluates their metrics."""
+    global _CACHED_EMPIRICAL_DELTAS
+    if _CACHED_EMPIRICAL_DELTAS is not None and not force_reload and dataset_dir is None:
+        return _CACHED_EMPIRICAL_DELTAS
+
+    loader = DIDNTLoader(dataset_dir)
+    if not loader.is_available():
+        return []
+
+    battery = MetricsBattery()
+    deltas = []
+
+    for name, info in DELTA_FORCING_REGIMES.items():
+        didnt_name = info.get('didnt_name', name)
+        try:
+            G = loader.load_graph(didnt_name)
+            m = battery.evaluate_all(G)
+
+            emp = EmpiricalDelta(
+                name=name,
+                nodes=int(m['num_nodes']),
+                edges=int(m['num_edges']),
+                loops=int(m['betti_1']),
+                alpha=float(m['alpha_index']),
+                betti_1_norm=float(m['betti_1_norm']),
+                vc_vb_ratio=float(m['ratio_vc_vb']),
+                topological_slope=float(m['topological_slope']),
+                horton_inversion=float(m['horton_inversion_index']),
+                recombination_factor=float(m.get('recombination_factor', m['ratio_vc_vb'])),
+                nER_star=float(m['nER_star']),
+                eBI=float(m['eBI']),
+                log_eBI=float(m.get('log_eBI', np.log1p(m['eBI']))),
+                algebraic_connectivity=float(m['algebraic_connectivity']),
+                energy_dissipation=float(m['energy_dissipation']),
+                log_energy_dissipation=float(m.get('log_energy_dissipation', np.log1p(m['energy_dissipation']))),
+                energy_entropy_ratio=float(m.get('energy_entropy_ratio', 0.0)),
+                global_vulnerability=float(m.get('global_vulnerability', 0.5)),
+                outlet_flux_entropy=float(m.get('outlet_flux_entropy', 0.0)),
+                width_cv=float(m['width_cv']),
+                radial_sinuosity=float(m.get('radial_sinuosity', 1.0)),
+                angular_dispersion=float(m.get('angular_dispersion', 0.5)),
+                loop_length_anisotropy=float(m.get('loop_length_anisotropy', 1.0)),
+                num_outlets=int(m['num_outlets']),
+                log_num_outlets=float(m.get('log_num_outlets', np.log1p(m['num_outlets']))),
+                resistance_distance=float(m['resistance_distance']),
+                link_sharing_index=float(m['link_sharing_index']),
+                forcing_type=info['forcing_type'],
+                estimated_R_rt=float(info['estimated_R_rt']),
+                source="DIDNT Dataset (Hariharan et al., 2021)"
+            )
+            deltas.append(emp)
+        except Exception:
+            continue
+
+    if dataset_dir is None:
+        _CACHED_EMPIRICAL_DELTAS = deltas
+    return deltas
+
+
+def get_empirical_deltas_dict(dataset_dir: Optional[Union[str, Path]] = None) -> Dict[str, Dict[str, Any]]:
+    """Export helper providing direct dictionary access to empirical data for deltas."""
+    return {d.name: d.to_dict() for d in get_empirical_deltas(dataset_dir=dataset_dir)}
+
+
+# Backwards compatibility aliases
+EmpiricalDeltaV2 = EmpiricalDelta
+get_empirical_deltas_v2 = get_empirical_deltas
+CANONICAL_EMPIRICAL_DELTAS = get_empirical_deltas_dict()

@@ -1,0 +1,318 @@
+"""
+Configuration and distribution sampling engine for DeltaGraphModel (DGM).
+Provides YAML-driven configuration, stochastic parameter distributions,
+and extensibility hooks.
+"""
+
+from dataclasses import dataclass, field, asdict
+from pathlib import Path
+from typing import Dict, Any, Optional, Union, List, Tuple
+import copy
+import yaml
+import numpy as np
+
+
+DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "default_config.yaml"
+
+
+def sample_from_spec(spec: Dict[str, Any], rng: np.random.Generator) -> float:
+    """Samples a scalar value from a distribution specification dict."""
+    dist_type = spec.get("type", "uniform").lower()
+
+    if dist_type == "uniform":
+        low = float(spec.get("low", 0.0))
+        high = float(spec.get("high", 1.0))
+        return float(rng.uniform(low, high))
+
+    elif dist_type in ("normal", "gaussian"):
+        mean = float(spec.get("mean", 0.0))
+        std = float(spec.get("std", 1.0))
+        val = rng.normal(mean, std)
+        if "min" in spec:
+            val = max(float(spec["min"]), val)
+        if "max" in spec:
+            val = min(float(spec["max"]), val)
+        return float(val)
+
+    elif dist_type == "lognormal":
+        mean = float(spec.get("mean", 0.0))
+        sigma = float(spec.get("sigma", 1.0))
+        val = rng.lognormal(mean, sigma)
+        if "min" in spec:
+            val = max(float(spec["min"]), val)
+        if "max" in spec:
+            val = min(float(spec["max"]), val)
+        return float(val)
+
+    elif dist_type in ("choice", "categorical"):
+        values = spec.get("values", [1.0])
+        weights = spec.get("weights", None)
+        if weights is not None:
+            weights = np.array(weights, dtype=float)
+            weights = weights / weights.sum()
+        return float(rng.choice(values, p=weights))
+
+    elif dist_type in ("fixed", "constant"):
+        return float(spec.get("value", 0.0))
+
+    else:
+        raise ValueError(f"Unsupported distribution type: {dist_type}")
+
+
+@dataclass
+class DGMConfig:
+    """
+    Primary configuration container for DeltaGraphModel (DGM).
+    Supports loading from/saving to YAML, accessing baseline parameters,
+    and sampling parameter clouds for ensemble generation.
+    """
+    # Model section
+    N: int = 50
+    R_rt: float = 0.5
+    loop_mechanism: str = "potential_field"
+    sample_parameters: bool = False
+    seed: Optional[int] = 42
+
+    # Domain section
+    r_shore: float = 10000.0
+    theta_base: float = 45.0
+    theta_delta: float = 60.0
+
+    # Backbone section
+    branching_weights: Tuple[float, float, float] = (0.50, 0.45, 0.05)
+    radial_step_scale_min: float = 0.65
+    radial_step_scale_max: float = 1.35
+    angular_spread_decay: float = 0.70
+    single_branch_spread_factor: float = 0.35
+    bifurcation_spread_min: float = 0.60
+    bifurcation_spread_max: float = 1.40
+
+    # Loops section
+    candidate_dist_scale: float = 0.25
+    reconnection_prob_base: float = 0.55
+    anastomosis_prob_base: float = 0.0
+    max_in_degree: int = 2
+    max_out_degree: int = 3
+    target_loop_fraction_slope: float = 0.25
+    target_loop_fraction_intercept: float = 0.08
+    target_max_loops_slope: float = 0.22
+    target_max_loops_intercept: float = 0.05
+    sa_initial_temp: float = 1.0
+    sa_cooling_rate: float = 0.975
+    sa_max_steps: int = 250
+
+    # Hydraulics section
+    murray_p: float = 1.70
+    width_beta: float = 0.745
+    manning_eta: float = 1.65
+    length_gamma: float = 0.50
+    apex_width: float = 250.0
+    width_noise: float = 0.30
+    tidal_flare_k: float = 1.40
+    min_channel_width: float = 0.1
+    relaxation_max_iter: int = 15
+    relaxation_tol: float = 1e-4
+
+    # Distributions & Extensions
+    distributions: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    extensions: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        self.validate()
+
+    def validate(self) -> None:
+        """Validates configuration parameters and invariants."""
+        if self.N < 4:
+            raise ValueError(f"Node budget N must be >= 4 (received {self.N}).")
+        if not (0.0 <= self.R_rt <= 1.0):
+            raise ValueError(f"River-to-Tidal forcing ratio R_rt must be in [0.0, 1.0] (received {self.R_rt}).")
+        if self.loop_mechanism not in ("potential_field", "ner_optimality"):
+            raise ValueError(
+                f"loop_mechanism must be 'potential_field' or 'ner_optimality' (received '{self.loop_mechanism}')."
+            )
+        if not (0.0 < self.sa_cooling_rate < 1.0):
+            raise ValueError(f"sa_cooling_rate must be in (0, 1) (received {self.sa_cooling_rate}).")
+        if self.sa_max_steps <= 0:
+            raise ValueError("sa_max_steps must be > 0.")
+        if self.sa_initial_temp <= 0:
+            raise ValueError("sa_initial_temp must be > 0.")
+        if self.r_shore <= 0:
+            raise ValueError("r_shore must be > 0.")
+        if self.murray_p <= 0:
+            raise ValueError("murray_p must be > 0.")
+
+    @classmethod
+    def load_default(cls) -> "DGMConfig":
+        """Loads configuration from the packaged default_config.yaml."""
+        if DEFAULT_CONFIG_PATH.exists():
+            return cls.from_yaml(DEFAULT_CONFIG_PATH)
+        return cls()
+
+    @classmethod
+    def from_yaml(cls, path: Union[str, Path], **overrides) -> "DGMConfig":
+        """
+        Loads configuration from a YAML file with optional keyword parameter overrides.
+        """
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(f"Configuration file not found: {path}")
+
+        with open(path, "r", encoding="utf-8") as f:
+            raw = yaml.safe_load(f) or {}
+
+        # Flatten sections into DGMConfig fields
+        model_sec = raw.get("model", {})
+        domain_sec = raw.get("domain", {})
+        backbone_sec = raw.get("backbone", {})
+        loops_sec = raw.get("loops", {})
+        hydraulics_sec = raw.get("hydraulics", {})
+        dists = raw.get("distributions", {})
+        exts = raw.get("extensions", {})
+
+        kwargs: Dict[str, Any] = {}
+        kwargs.update(model_sec)
+        kwargs.update(domain_sec)
+        kwargs.update(backbone_sec)
+        kwargs.update(loops_sec)
+        kwargs.update(hydraulics_sec)
+        kwargs["distributions"] = dists
+        kwargs["extensions"] = exts
+
+        # Convert branching_weights to tuple if list
+        if "branching_weights" in kwargs and isinstance(kwargs["branching_weights"], list):
+            kwargs["branching_weights"] = tuple(kwargs["branching_weights"])
+
+        # Apply direct user overrides
+        kwargs.update(overrides)
+
+        return cls(**kwargs)
+
+    def to_yaml(self, path: Union[str, Path]) -> None:
+        """Serializes current configuration back to a structured YAML file."""
+        data = {
+            "model": {
+                "N": self.N,
+                "R_rt": self.R_rt,
+                "loop_mechanism": self.loop_mechanism,
+                "sample_parameters": self.sample_parameters,
+                "seed": self.seed,
+            },
+            "domain": {
+                "r_shore": self.r_shore,
+                "theta_base": self.theta_base,
+                "theta_delta": self.theta_delta,
+            },
+            "backbone": {
+                "branching_weights": list(self.branching_weights),
+                "radial_step_scale_min": self.radial_step_scale_min,
+                "radial_step_scale_max": self.radial_step_scale_max,
+                "angular_spread_decay": self.angular_spread_decay,
+                "single_branch_spread_factor": self.single_branch_spread_factor,
+                "bifurcation_spread_min": self.bifurcation_spread_min,
+                "bifurcation_spread_max": self.bifurcation_spread_max,
+            },
+            "loops": {
+                "candidate_dist_scale": self.candidate_dist_scale,
+                "reconnection_prob_base": self.reconnection_prob_base,
+                "anastomosis_prob_base": self.anastomosis_prob_base,
+                "max_in_degree": self.max_in_degree,
+                "max_out_degree": self.max_out_degree,
+                "target_loop_fraction_slope": self.target_loop_fraction_slope,
+                "target_loop_fraction_intercept": self.target_loop_fraction_intercept,
+                "target_max_loops_slope": self.target_max_loops_slope,
+                "target_max_loops_intercept": self.target_max_loops_intercept,
+                "sa_initial_temp": self.sa_initial_temp,
+                "sa_cooling_rate": self.sa_cooling_rate,
+                "sa_max_steps": self.sa_max_steps,
+            },
+            "hydraulics": {
+                "murray_p": self.murray_p,
+                "width_beta": self.width_beta,
+                "manning_eta": self.manning_eta,
+                "length_gamma": self.length_gamma,
+                "apex_width": self.apex_width,
+                "width_noise": self.width_noise,
+                "tidal_flare_k": self.tidal_flare_k,
+                "min_channel_width": self.min_channel_width,
+                "relaxation_max_iter": self.relaxation_max_iter,
+                "relaxation_tol": self.relaxation_tol,
+            },
+            "distributions": copy.deepcopy(self.distributions),
+            "extensions": copy.deepcopy(self.extensions),
+        }
+
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+
+    def sample_distribution_parameters(self, rng: Optional[np.random.Generator] = None) -> Dict[str, Any]:
+        """
+        Samples active parameters from configured distributions.
+        For parameters not present in distributions, falls back to the instance baseline.
+        """
+        if rng is None:
+            rng = np.random.default_rng(self.seed)
+
+        params = self.get_active_parameters(sample=False)
+
+        for param_name, dist_spec in self.distributions.items():
+            if isinstance(dist_spec, dict) and "type" in dist_spec:
+                params[param_name] = sample_from_spec(dist_spec, rng)
+
+        return params
+
+    def get_active_parameters(
+        self,
+        rng: Optional[np.random.Generator] = None,
+        sample: Optional[bool] = None
+    ) -> Dict[str, Any]:
+        """
+        Returns the dictionary of active parameters for the generative pipeline.
+        If sample=True (or sample is None and self.sample_parameters is True),
+        stochastically samples from distributions.
+        """
+        do_sample = self.sample_parameters if sample is None else sample
+        if do_sample:
+            return self.sample_distribution_parameters(rng)
+
+        # Baseline deterministic parameters
+        params = {
+            "N": self.N,
+            "R_rt": self.R_rt,
+            "loop_mechanism": self.loop_mechanism,
+            "r_shore": self.r_shore,
+            "theta_base": self.theta_base,
+            "theta_delta": self.theta_delta,
+            "branching_weights": self.branching_weights,
+            "radial_step_scale_min": self.radial_step_scale_min,
+            "radial_step_scale_max": self.radial_step_scale_max,
+            "angular_spread_decay": self.angular_spread_decay,
+            "single_branch_spread_factor": self.single_branch_spread_factor,
+            "bifurcation_spread_min": self.bifurcation_spread_min,
+            "bifurcation_spread_max": self.bifurcation_spread_max,
+            "candidate_dist_scale": self.candidate_dist_scale,
+            "reconnection_prob_base": self.reconnection_prob_base,
+            "anastomosis_prob_base": self.anastomosis_prob_base,
+            "max_in_degree": self.max_in_degree,
+            "max_out_degree": self.max_out_degree,
+            "target_loop_fraction_slope": self.target_loop_fraction_slope,
+            "target_loop_fraction_intercept": self.target_loop_fraction_intercept,
+            "target_max_loops_slope": self.target_max_loops_slope,
+            "target_max_loops_intercept": self.target_max_loops_intercept,
+            "sa_initial_temp": self.sa_initial_temp,
+            "sa_cooling_rate": self.sa_cooling_rate,
+            "sa_max_steps": self.sa_max_steps,
+            "murray_p": self.murray_p,
+            "width_beta": self.width_beta,
+            "manning_eta": self.manning_eta,
+            "length_gamma": self.length_gamma,
+            "apex_width": self.apex_width,
+            "width_noise": self.width_noise,
+            "tidal_flare_k": self.tidal_flare_k,
+            "min_channel_width": self.min_channel_width,
+            "relaxation_max_iter": self.relaxation_max_iter,
+            "relaxation_tol": self.relaxation_tol,
+            "extensions": copy.deepcopy(self.extensions),
+        }
+        return params
