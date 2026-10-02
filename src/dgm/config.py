@@ -79,6 +79,7 @@ class ParameterBounds:
     confinement_range: Tuple[float, float] = (0.0, 0.60)
     coastal_node_decay_range: Tuple[float, float] = (0.0, 0.80)
     coastal_sinuosity_decay_range: Tuple[float, float] = (0.0, 0.90)
+    min_channel_clearance_range: Tuple[float, float] = (0.05, 0.80)
 
     def sample(self, rng: np.random.Generator) -> Dict[str, float]:
         """Samples a single parameter set from uniform distributions within bounds."""
@@ -97,6 +98,7 @@ class ParameterBounds:
             'confinement': float(rng.uniform(*self.confinement_range)),
             'coastal_node_decay': float(rng.uniform(*self.coastal_node_decay_range)),
             'coastal_sinuosity_decay': float(rng.uniform(*self.coastal_sinuosity_decay_range)),
+            'min_channel_clearance': float(rng.uniform(*self.min_channel_clearance_range)),
         }
 
     def default_values(self) -> Dict[str, float]:
@@ -116,6 +118,7 @@ class ParameterBounds:
             'confinement': float(np.mean(self.confinement_range)),
             'coastal_node_decay': float(np.mean(self.coastal_node_decay_range)),
             'coastal_sinuosity_decay': float(np.mean(self.coastal_sinuosity_decay_range)),
+            'min_channel_clearance': float(np.mean(self.min_channel_clearance_range)),
         }
 
 
@@ -180,6 +183,12 @@ class DGMConfig:
     relaxation_max_iter: int = 15
     relaxation_tol: float = 1e-4
 
+    # Channel geometry & proximity section
+    enable_curved_centerlines: bool = False
+    min_channel_clearance: float = 0.40
+    num_polyline_points: int = 21
+    meander_bends: int = 1
+
     # Distributions & Extensions
     distributions: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     extensions: Dict[str, Any] = field(default_factory=dict)
@@ -229,6 +238,12 @@ class DGMConfig:
             raise ValueError(f"base_sinuosity_mean must be >= 0.0 (received {self.base_sinuosity_mean}).")
         if self.base_sinuosity_std <= 0.0:
             raise ValueError(f"base_sinuosity_std must be > 0.0 (received {self.base_sinuosity_std}).")
+        if not (0.05 <= self.min_channel_clearance <= 1.0):
+            raise ValueError(f"min_channel_clearance must be in [0.05, 1.0] (received {self.min_channel_clearance}).")
+        if self.num_polyline_points < 3:
+            raise ValueError(f"num_polyline_points must be >= 3 (received {self.num_polyline_points}).")
+        if self.meander_bends < 1:
+            raise ValueError(f"meander_bends must be >= 1 (received {self.meander_bends}).")
         if "coastal_node_decay" in self.distributions:
             d = self.distributions["coastal_node_decay"]
             if isinstance(d, dict) and d.get("type") == "uniform":
@@ -239,6 +254,11 @@ class DGMConfig:
             if isinstance(d, dict) and d.get("type") == "uniform":
                 if d.get("low", 0.0) < 0.0 or d.get("high", 0.90) > 0.90:
                     raise ValueError("coastal_sinuosity_decay distribution must be within [0.0, 0.90].")
+        if "min_channel_clearance" in self.distributions:
+            d = self.distributions["min_channel_clearance"]
+            if isinstance(d, dict) and d.get("type") == "uniform":
+                if d.get("low", 0.05) < 0.05 or d.get("high", 1.0) > 1.0:
+                    raise ValueError("min_channel_clearance distribution must be within [0.05, 1.0].")
 
     @classmethod
     def load_default(cls) -> "DGMConfig":
@@ -265,6 +285,7 @@ class DGMConfig:
         backbone_sec = raw.get("backbone", {})
         loops_sec = raw.get("loops", {})
         hydraulics_sec = raw.get("hydraulics", {})
+        channel_geom_sec = raw.get("channel_geometry", {})
         dists = raw.get("distributions", {})
         exts = raw.get("extensions", {})
 
@@ -274,6 +295,7 @@ class DGMConfig:
         kwargs.update(backbone_sec)
         kwargs.update(loops_sec)
         kwargs.update(hydraulics_sec)
+        kwargs.update(channel_geom_sec)
         kwargs["distributions"] = dists
         kwargs["extensions"] = exts
 
@@ -352,6 +374,12 @@ class DGMConfig:
                 "min_channel_width": self.min_channel_width,
                 "relaxation_max_iter": self.relaxation_max_iter,
                 "relaxation_tol": self.relaxation_tol,
+            },
+            "channel_geometry": {
+                "enable_curved_centerlines": self.enable_curved_centerlines,
+                "min_channel_clearance": self.min_channel_clearance,
+                "num_polyline_points": self.num_polyline_points,
+                "meander_bends": self.meander_bends,
             },
             "distributions": copy.deepcopy(self.distributions),
             "extensions": copy.deepcopy(self.extensions),
@@ -441,6 +469,10 @@ class DGMConfig:
             "min_channel_width": self.min_channel_width,
             "relaxation_max_iter": self.relaxation_max_iter,
             "relaxation_tol": self.relaxation_tol,
+            "enable_curved_centerlines": self.enable_curved_centerlines,
+            "min_channel_clearance": self.min_channel_clearance,
+            "num_polyline_points": self.num_polyline_points,
+            "meander_bends": self.meander_bends,
             "extensions": copy.deepcopy(self.extensions),
         }
         return params

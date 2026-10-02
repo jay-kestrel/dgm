@@ -5,6 +5,7 @@ Export and serialization utilities for DeltaGraphModel (DGM).
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
 import json
+import math
 import networkx as nx
 import pandas as pd
 
@@ -58,6 +59,7 @@ def to_geojson(G: nx.DiGraph, path: Optional[Union[str, Path]] = None) -> Dict[s
     for u, v, d in G.edges(data=True):
         x_u, y_u = float(G.nodes[u].get('x', 0.0)), float(G.nodes[u].get('y', 0.0))
         x_v, y_v = float(G.nodes[v].get('x', 0.0)), float(G.nodes[v].get('y', 0.0))
+        coords = d.get('coordinates', [[x_u, y_u], [x_v, y_v]])
         props = {
             'source': u,
             'target': v,
@@ -65,13 +67,19 @@ def to_geojson(G: nx.DiGraph, path: Optional[Union[str, Path]] = None) -> Dict[s
             'edge_type': d.get('edge_type', 'tree'),
             'width': float(d.get('width', 1.0)),
             'length': float(d.get('length', 1.0)),
+            'sinuosity': float(d.get('sinuosity', 1.0)),
             'conductance': float(d.get('conductance', 1.0)),
         }
+        if 'clearance_distance' in d and not math.isinf(float(d['clearance_distance'])):
+            props['clearance_distance'] = float(d['clearance_distance'])
+        if 'meander_amplitude' in d and not math.isinf(float(d['meander_amplitude'])):
+            props['meander_amplitude'] = float(d['meander_amplitude'])
+
         features.append({
             'type': 'Feature',
             'geometry': {
                 'type': 'LineString',
-                'coordinates': [[x_u, y_u], [x_v, y_v]]
+                'coordinates': coords
             },
             'properties': props
         })

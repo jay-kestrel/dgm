@@ -26,6 +26,8 @@ def main(args=None):
     gen_parser.add_argument("-W", "--lateral-valley-width", type=float, default=None, help="Explicit maximum lateral valley corridor width in meters (default: unconstrained)")
     gen_parser.add_argument("--coastal-node-decay", type=float, default=None, help="Shoreward decay rate of radial node spacing in [0, 0.8]")
     gen_parser.add_argument("--coastal-sinuosity-decay", type=float, default=None, help="Shoreward decay rate of channel sinuosity excess in [0, 0.9]")
+    gen_parser.add_argument("--curved", "--enable-curved-centerlines", dest="curved", action="store_true", default=None, help="Generate curved polyline channel centerlines")
+    gen_parser.add_argument("--min-channel-clearance", type=float, default=None, help="Channel clearance fraction for meander amplitude in [0.05, 1.0]")
     gen_parser.add_argument("-m", "--mechanism", choices=["potential_field", "ner_optimality"], default="potential_field", help="Loop reconnection engine")
     gen_parser.add_argument("-c", "--config", type=str, default=None, help="Path to custom YAML configuration file")
     gen_parser.add_argument("-s", "--seed", type=int, default=42, help="Random seed (default: 42)")
@@ -39,6 +41,8 @@ def main(args=None):
     ens_parser.add_argument("-W", "--lateral-valley-width", type=float, default=None, help="Explicit maximum lateral valley corridor width in meters (default: unconstrained)")
     ens_parser.add_argument("--coastal-node-decay", type=float, default=None, help="Shoreward decay rate of radial node spacing in [0, 0.8]")
     ens_parser.add_argument("--coastal-sinuosity-decay", type=float, default=None, help="Shoreward decay rate of channel sinuosity excess in [0, 0.9]")
+    ens_parser.add_argument("--curved", "--enable-curved-centerlines", dest="curved", action="store_true", default=None, help="Generate curved polyline channel centerlines")
+    ens_parser.add_argument("--min-channel-clearance", type=float, default=None, help="Channel clearance fraction for meander amplitude in [0.05, 1.0]")
     ens_parser.add_argument("-n", "--num-realizations", type=int, default=30, help="Number of realizations to sample (default: 30)")
     ens_parser.add_argument("-m", "--mechanism", choices=["potential_field", "ner_optimality"], default="potential_field", help="Loop reconnection engine")
     ens_parser.add_argument("-c", "--config", type=str, default=None, help="Path to custom YAML configuration file")
@@ -66,6 +70,10 @@ def main(args=None):
             cfg.coastal_node_decay = parsed.coastal_node_decay
         if parsed.coastal_sinuosity_decay is not None:
             cfg.coastal_sinuosity_decay = parsed.coastal_sinuosity_decay
+        if parsed.curved is not None:
+            cfg.enable_curved_centerlines = parsed.curved
+        if parsed.min_channel_clearance is not None:
+            cfg.min_channel_clearance = parsed.min_channel_clearance
 
         gen = DeltaGenerator(cfg)
         G = gen.generate()
@@ -108,6 +116,11 @@ def main(args=None):
         if parsed.coastal_sinuosity_decay is not None:
             cfg.coastal_sinuosity_decay = parsed.coastal_sinuosity_decay
             cfg.distributions.pop("coastal_sinuosity_decay", None)
+        if parsed.curved is not None:
+            cfg.enable_curved_centerlines = parsed.curved
+        if parsed.min_channel_clearance is not None:
+            cfg.min_channel_clearance = parsed.min_channel_clearance
+            cfg.distributions.pop("min_channel_clearance", None)
 
         cfg.sample_parameters = parsed.sample_parameters
 

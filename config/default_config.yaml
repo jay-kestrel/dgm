@@ -78,6 +78,13 @@ hydraulics:
   relaxation_max_iter: 15        # Iterative relaxation max iterations for cyclic networks
   relaxation_tol: 0.0001         # Convergence tolerance for hydraulic relaxation
 
+# --- Step 6: Curved Polyline Channel Geometry & Proximity Constraints ---
+channel_geometry:
+  enable_curved_centerlines: false  # If true, generate 2D polyline meander coordinates on edges
+  min_channel_clearance: 0.40       # Maximum meander amplitude fraction relative to distance to adjacent channels in (0.05, 1.0]
+  num_polyline_points: 21           # Number of discretized vertices per curved channel polyline (>= 3)
+  meander_bends: 1                  # Number of meander wave cycles per channel segment (>= 1)
+
 # --- Bounded Parameter Distributions (for Ensemble Sampling) ---
 # Used when sample_parameters=true or in EnsembleGenerator.
 # Supported distribution types:
@@ -141,6 +148,10 @@ distributions:
   coastal_sinuosity_decay:
     type: "uniform"
     low: 0.10
+    high: 0.50
+  min_channel_clearance:
+    type: "uniform"
+    low: 0.20
     high: 0.50
 
 # --- Extensibility Hook ---
