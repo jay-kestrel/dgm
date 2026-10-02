@@ -40,6 +40,7 @@ class DeltaGenerator:
                     setattr(self.config, k, v)
                 self.config.distributions.pop(k, None)
 
+        self.config.validate()
         self.battery = MetricsBattery()
 
     def generate(self, seed_override: Any = _UNSET) -> nx.DiGraph:
@@ -149,6 +150,7 @@ class EnsembleGenerator:
                     setattr(self.config, k, v)
                 self.config.distributions.pop(k, None)
 
+        self.config.validate()
         self.battery = MetricsBattery()
 
     def generate_ensemble(self) -> List[nx.DiGraph]:

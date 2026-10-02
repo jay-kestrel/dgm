@@ -198,3 +198,95 @@ def test_cli_shoreward_scaling(tmp_path):
     ])
     assert out_file.exists()
     assert out_file.stat().st_size > 0
+
+
+def test_shoreward_scaling_extremes_and_boundaries():
+    """Verify graph generation under zero and maximum allowed boundary decay parameters."""
+    # Zero decay: no node contraction, no sinuosity reduction
+    G_zero = dgm.generate(N=30, R_rt=0.3, coastal_node_decay=0.0, coastal_sinuosity_decay=0.0, seed=11)
+    assert nx.is_weakly_connected(G_zero)
+    for u, v, d in G_zero.edges(data=True):
+        assert d.get('sinuosity', 1.0) >= 1.0
+        assert d['length'] >= d['straight_distance'] * 0.999
+
+    # Maximum decay boundary: 0.80 node decay, 0.90 sinuosity decay
+    G_max = dgm.generate(N=30, R_rt=0.7, coastal_node_decay=0.80, coastal_sinuosity_decay=0.90, seed=22)
+    assert nx.is_weakly_connected(G_max)
+    for u, v, d in G_max.edges(data=True):
+        assert d.get('sinuosity', 1.0) >= 1.0
+        assert d['length'] >= d['straight_distance'] * 0.999
+
+    # Check planarity at maximum decay
+    edges = [
+        ((G_max.nodes[u]['x'], G_max.nodes[u]['y']), (G_max.nodes[v]['x'], G_max.nodes[v]['y']))
+        for u, v in G_max.edges()
+    ]
+    crossings = sum(
+        1 for i in range(len(edges))
+        for j in range(i + 1, len(edges))
+        if segments_intersect(edges[i][0], edges[i][1], edges[j][0], edges[j][1])
+    )
+    assert crossings == 0
+
+
+def test_shoreward_scaling_extreme_network_sizes():
+    """Verify robust generation on boundary network sizes (N=4 minimal, N=100 large)."""
+    # Minimal graph N=4
+    G_min = dgm.generate(N=4, R_rt=0.5, coastal_node_decay=0.75, coastal_sinuosity_decay=0.85, seed=33)
+    assert G_min.number_of_nodes() >= 4
+    assert nx.is_weakly_connected(G_min)
+
+    # Larger graph N=100
+    G_large = dgm.generate(N=100, R_rt=0.4, coastal_node_decay=0.60, coastal_sinuosity_decay=0.50, seed=44)
+    assert G_large.number_of_nodes() >= 80
+    assert nx.is_weakly_connected(G_large)
+
+    edges = [
+        ((G_large.nodes[u]['x'], G_large.nodes[u]['y']), (G_large.nodes[v]['x'], G_large.nodes[v]['y']))
+        for u, v in G_large.edges()
+    ]
+    crossings = sum(
+        1 for i in range(len(edges))
+        for j in range(i + 1, len(edges))
+        if segments_intersect(edges[i][0], edges[i][1], edges[j][0], edges[j][1])
+    )
+    assert crossings == 0
+
+
+def test_direct_override_validation_error():
+    """Verify that passing out-of-bounds decay parameters to generate() and sample_ensemble() raises ValueError."""
+    # coastal_node_decay out of bounds
+    with pytest.raises(ValueError, match="coastal_node_decay must be in"):
+        dgm.generate(N=20, coastal_node_decay=-0.1)
+
+    with pytest.raises(ValueError, match="coastal_node_decay must be in"):
+        dgm.generate(N=20, coastal_node_decay=0.85)
+
+    with pytest.raises(ValueError, match="coastal_node_decay must be in"):
+        dgm.sample_ensemble(N=20, coastal_node_decay=1.5, num_realizations=2)
+
+    # coastal_sinuosity_decay out of bounds
+    with pytest.raises(ValueError, match="coastal_sinuosity_decay must be in"):
+        dgm.generate(N=20, coastal_sinuosity_decay=-0.05)
+
+    with pytest.raises(ValueError, match="coastal_sinuosity_decay must be in"):
+        dgm.generate(N=20, coastal_sinuosity_decay=0.95)
+
+    with pytest.raises(ValueError, match="coastal_sinuosity_decay must be in"):
+        dgm.sample_ensemble(N=20, coastal_sinuosity_decay=-0.5, num_realizations=2)
+
+
+def test_invalid_distribution_range_rejection():
+    """Verify that defining out-of-bounds distributions raises ValueError during validation."""
+    with pytest.raises(ValueError, match="coastal_node_decay distribution must be within"):
+        DGMConfig(distributions={"coastal_node_decay": {"type": "uniform", "low": -0.1, "high": 0.5}})
+
+    with pytest.raises(ValueError, match="coastal_node_decay distribution must be within"):
+        DGMConfig(distributions={"coastal_node_decay": {"type": "uniform", "low": 0.1, "high": 0.95}})
+
+    with pytest.raises(ValueError, match="coastal_sinuosity_decay distribution must be within"):
+        DGMConfig(distributions={"coastal_sinuosity_decay": {"type": "uniform", "low": -0.2, "high": 0.5}})
+
+    with pytest.raises(ValueError, match="coastal_sinuosity_decay distribution must be within"):
+        DGMConfig(distributions={"coastal_sinuosity_decay": {"type": "uniform", "low": 0.1, "high": 1.05}})
+

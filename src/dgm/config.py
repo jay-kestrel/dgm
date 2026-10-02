@@ -229,6 +229,16 @@ class DGMConfig:
             raise ValueError(f"base_sinuosity_mean must be >= 0.0 (received {self.base_sinuosity_mean}).")
         if self.base_sinuosity_std <= 0.0:
             raise ValueError(f"base_sinuosity_std must be > 0.0 (received {self.base_sinuosity_std}).")
+        if "coastal_node_decay" in self.distributions:
+            d = self.distributions["coastal_node_decay"]
+            if isinstance(d, dict) and d.get("type") == "uniform":
+                if d.get("low", 0.0) < 0.0 or d.get("high", 0.80) > 0.80:
+                    raise ValueError("coastal_node_decay distribution must be within [0.0, 0.80].")
+        if "coastal_sinuosity_decay" in self.distributions:
+            d = self.distributions["coastal_sinuosity_decay"]
+            if isinstance(d, dict) and d.get("type") == "uniform":
+                if d.get("low", 0.0) < 0.0 or d.get("high", 0.90) > 0.90:
+                    raise ValueError("coastal_sinuosity_decay distribution must be within [0.0, 0.90].")
 
     @classmethod
     def load_default(cls) -> "DGMConfig":
