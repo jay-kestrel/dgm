@@ -38,7 +38,10 @@ class DeltaGenerator:
 
         if overrides:
             for k, v in overrides.items():
-                if hasattr(self.config, k):
+                if k == 'target_nodes':
+                    self.config.N = int(v)
+                    self.config.distributions.pop('N', None)
+                elif hasattr(self.config, k):
                     setattr(self.config, k, v)
                 self.config.distributions.pop(k, None)
 

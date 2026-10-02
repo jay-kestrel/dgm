@@ -61,6 +61,11 @@ def compute_edge_clearance(
         (0.25 * p_u[0] + 0.75 * p_v[0], 0.25 * p_u[1] + 0.75 * p_v[1]),
     ]
 
+    min_pu_pv_x = min(p_u[0], p_v[0])
+    max_pu_pv_x = max(p_u[0], p_v[0])
+    min_pu_pv_y = min(p_u[1], p_v[1])
+    max_pu_pv_y = max(p_u[1], p_v[1])
+
     for edge_u, edge_v in G.edges():
         # Skip identical or incident edges sharing a node
         if edge_u in incident_nodes or edge_v in incident_nodes:
@@ -68,6 +73,17 @@ def compute_edge_clearance(
 
         a = (float(G.nodes[edge_u].get('x', 0.0)), float(G.nodes[edge_u].get('y', 0.0)))
         b = (float(G.nodes[edge_v].get('x', 0.0)), float(G.nodes[edge_v].get('y', 0.0)))
+
+        min_ab_x = min(a[0], b[0])
+        max_ab_x = max(a[0], b[0])
+        min_ab_y = min(a[1], b[1])
+        max_ab_y = max(a[1], b[1])
+
+        # Bounding box clearance rejection: if bbox distance exceeds min_dist, cannot be closer
+        if min_dist < float('inf'):
+            if (min_ab_x - max_pu_pv_x > min_dist) or (min_pu_pv_x - max_ab_x > min_dist) or \
+               (min_ab_y - max_pu_pv_y > min_dist) or (min_pu_pv_y - max_ab_y > min_dist):
+                continue
 
         # If non-incident edges cross, clearance is immediately zero
         if segments_intersect(p_u, p_v, a, b):

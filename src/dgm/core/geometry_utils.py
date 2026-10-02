@@ -26,14 +26,26 @@ def segments_intersect(
     Shared endpoints evaluate to False (valid non-intersecting junctions).
     Handles collinear overlaps and floating-point tolerances robustly.
     """
+    p1x, p1y = p1
+    p2x, p2y = p2
+    q1x, q1y = q1
+    q2x, q2y = q2
+
+    # Fast 2D Axis-Aligned Bounding Box (AABB) rejection
+    if (p1x < q1x and p1x < q2x and p2x < q1x and p2x < q2x) or \
+       (p1x > q1x and p1x > q2x and p2x > q1x and p2x > q2x) or \
+       (p1y < q1y and p1y < q2y and p2y < q1y and p2y < q2y) or \
+       (p1y > q1y and p1y > q2y and p2y > q1y and p2y > q2y):
+        return False
+
     # Shared endpoints are valid topological junctions, not planar crossings
     if is_close_point(p1, q1) or is_close_point(p1, q2) or is_close_point(p2, q1) or is_close_point(p2, q2):
         return False
 
     def orientation(p: Tuple[float, float], q: Tuple[float, float], r: Tuple[float, float]) -> int:
         val = (q[1] - p[1]) * (r[0] - q[0]) - (q[0] - p[0]) * (r[1] - q[1])
-        coord_scale = max(1.0, max(abs(x) for pt in (p, q, r) for x in pt))
-        tol = 1e-9 * max(1.0, coord_scale ** 2)
+        coord_scale = max(1.0, abs(p[0]), abs(p[1]), abs(q[0]), abs(q[1]), abs(r[0]), abs(r[1]))
+        tol = 1e-9 * (coord_scale * coord_scale)
         if abs(val) < tol:
             return 0  # Collinear
         return 1 if val > 0 else 2  # 1 = Clockwise, 2 = Counter-clockwise
