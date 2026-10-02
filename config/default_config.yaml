@@ -26,6 +26,11 @@ domain:
   r_shore: 10000.0               # Shoreline radius in meters (apex at r=0)
   theta_base: 45.0               # Baseline opening angle in degrees (at R_rt=0)
   theta_delta: 60.0              # Tidal/wave angular spreading expansion in degrees
+  confinement: 0.0               # Lateral valley confinement factor in [0.0, 0.95]:
+                                 # 0.0 = completely unconfined open marine fan
+                                 # 0.5 = moderately confined valley / levee corridor
+                                 # 0.8+ = strongly confined canyon / bedrock graben
+  lateral_valley_width: null     # Optional explicit maximum corridor width in meters (null = unconstrained)
 
 # --- Step 2: Polar Tree Backbone Growth ---
 backbone:
@@ -119,6 +124,10 @@ distributions:
     type: "uniform"
     low: 0.80
     high: 2.00
+  confinement:
+    type: "uniform"
+    low: 0.0
+    high: 0.50
 
 # --- Extensibility Hook ---
 # Custom module parameters for future physical extensions (sediment transport,

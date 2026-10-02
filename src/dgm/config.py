@@ -76,6 +76,7 @@ class ParameterBounds:
     width_noise_range: Tuple[float, float] = (0.15, 0.50)
     candidate_dist_scale_range: Tuple[float, float] = (0.15, 0.35)
     tidal_flare_k_range: Tuple[float, float] = (0.8, 2.0)
+    confinement_range: Tuple[float, float] = (0.0, 0.60)
 
     def sample(self, rng: np.random.Generator) -> Dict[str, float]:
         """Samples a single parameter set from uniform distributions within bounds."""
@@ -91,6 +92,7 @@ class ParameterBounds:
             'width_noise': float(rng.uniform(*self.width_noise_range)),
             'candidate_dist_scale': float(rng.uniform(*self.candidate_dist_scale_range)),
             'tidal_flare_k': float(rng.uniform(*self.tidal_flare_k_range)),
+            'confinement': float(rng.uniform(*self.confinement_range)),
         }
 
     def default_values(self) -> Dict[str, float]:
@@ -107,6 +109,7 @@ class ParameterBounds:
             'width_noise': float(np.mean(self.width_noise_range)),
             'candidate_dist_scale': float(np.mean(self.candidate_dist_scale_range)),
             'tidal_flare_k': float(np.mean(self.tidal_flare_k_range)),
+            'confinement': float(np.mean(self.confinement_range)),
         }
 
 
@@ -128,6 +131,8 @@ class DGMConfig:
     r_shore: float = 10000.0
     theta_base: float = 45.0
     theta_delta: float = 60.0
+    confinement: float = 0.0
+    lateral_valley_width: Optional[float] = None
 
     # Backbone section
     branching_weights: Tuple[float, float, float] = (0.50, 0.45, 0.05)
@@ -202,6 +207,10 @@ class DGMConfig:
             raise ValueError("r_shore must be > 0.")
         if self.murray_p <= 0:
             raise ValueError("murray_p must be > 0.")
+        if not (0.0 <= self.confinement < 1.0):
+            raise ValueError(f"confinement parameter must be in [0.0, 1.0) (received {self.confinement}).")
+        if self.lateral_valley_width is not None and self.lateral_valley_width <= 0:
+            raise ValueError(f"lateral_valley_width must be > 0 (received {self.lateral_valley_width}).")
 
     @classmethod
     def load_default(cls) -> "DGMConfig":
@@ -273,6 +282,8 @@ class DGMConfig:
                 "r_shore": self.r_shore,
                 "theta_base": self.theta_base,
                 "theta_delta": self.theta_delta,
+                "confinement": self.confinement,
+                "lateral_valley_width": self.lateral_valley_width,
             },
             "backbone": {
                 "branching_weights": list(self.branching_weights),
@@ -362,6 +373,8 @@ class DGMConfig:
             "r_shore": self.r_shore,
             "theta_base": self.theta_base,
             "theta_delta": self.theta_delta,
+            "confinement": self.confinement,
+            "lateral_valley_width": self.lateral_valley_width,
             "branching_weights": self.branching_weights,
             "radial_step_scale_min": self.radial_step_scale_min,
             "radial_step_scale_max": self.radial_step_scale_max,

@@ -57,7 +57,9 @@ class DeltaGenerator:
             r_shore=params['r_shore'],
             theta_base=params['theta_base'],
             theta_delta=params['theta_delta'],
-            R_rt=self.config.R_rt
+            R_rt=self.config.R_rt,
+            confinement=params.get('confinement', self.config.confinement),
+            lateral_valley_width=params.get('lateral_valley_width', self.config.lateral_valley_width)
         )
 
         # 2. Generate Polar Growth Tree Backbone
@@ -89,6 +91,8 @@ class DeltaGenerator:
         # Attach run metadata to graph
         G_final.graph['N_input'] = self.config.N
         G_final.graph['R_rt'] = self.config.R_rt
+        G_final.graph['confinement'] = domain.confinement
+        G_final.graph['lateral_valley_width'] = domain.lateral_valley_width
         G_final.graph['loop_mechanism'] = self.config.loop_mechanism
         G_final.graph['params'] = params
         G_final.graph['seed'] = seed
@@ -207,6 +211,7 @@ class EnsembleGenerator:
 def generate(
     N: int = 50,
     R_rt: float = 0.5,
+    confinement: Optional[float] = None,
     config: Optional[Union[str, DGMConfig]] = None,
     seed: Any = _UNSET,
     **overrides
@@ -217,7 +222,7 @@ def generate(
     if isinstance(config, str):
         cfg = DGMConfig.from_yaml(config, N=N, R_rt=R_rt, **overrides)
     elif isinstance(config, DGMConfig):
-        cfg = config
+        cfg = copy.deepcopy(config)
         cfg.N = N
         cfg.R_rt = R_rt
         for k, v in overrides.items():
@@ -230,6 +235,9 @@ def generate(
         for k, v in overrides.items():
             if hasattr(cfg, k):
                 setattr(cfg, k, v)
+
+    if confinement is not None:
+        cfg.confinement = float(confinement)
 
     if seed is not _UNSET:
         cfg.seed = seed
@@ -241,6 +249,7 @@ def generate(
 def sample_ensemble(
     N: int = 50,
     R_rt: float = 0.5,
+    confinement: Optional[float] = None,
     num_realizations: int = 50,
     config: Optional[Union[str, DGMConfig]] = None,
     base_seed: int = 42,
@@ -252,7 +261,7 @@ def sample_ensemble(
     if isinstance(config, str):
         cfg = DGMConfig.from_yaml(config, N=N, R_rt=R_rt, **overrides)
     elif isinstance(config, DGMConfig):
-        cfg = config
+        cfg = copy.deepcopy(config)
         cfg.N = N
         cfg.R_rt = R_rt
         for k, v in overrides.items():
@@ -265,6 +274,9 @@ def sample_ensemble(
         for k, v in overrides.items():
             if hasattr(cfg, k):
                 setattr(cfg, k, v)
+
+    if confinement is not None:
+        cfg.confinement = float(confinement)
 
     ens = EnsembleGenerator(
         N=N,

@@ -112,7 +112,7 @@ def extend_leaf_to_shoreline(
                 orig_theta = G.nodes[n]['theta']
                 extended = False
                 for t_offset in [0.0, 0.02, -0.02, 0.05, -0.05, 0.1, -0.1]:
-                    cand_theta = max(domain.min_theta, min(domain.max_theta, orig_theta + t_offset))
+                    cand_theta = domain.clamp_theta(orig_theta + t_offset, domain.r_shore)
                     cx, cy = domain.polar_to_cartesian(domain.r_shore, cand_theta)
                     if par_pos is None or not edge_intersects_graph(par_pos, (cx, cy), other_edges):
                         G.nodes[n]['r'] = domain.r_shore
@@ -132,7 +132,7 @@ def extend_leaf_to_shoreline(
 
                 if not extended:
                     # Fallback: force extension along original theta
-                    cand_theta = max(domain.min_theta, min(domain.max_theta, orig_theta))
+                    cand_theta = domain.clamp_theta(orig_theta, domain.r_shore)
                     cx, cy = domain.polar_to_cartesian(domain.r_shore, cand_theta)
                     G.nodes[n]['r'] = domain.r_shore
                     G.nodes[n]['theta'] = cand_theta

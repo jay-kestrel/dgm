@@ -116,11 +116,11 @@ def generate_polar_tree_backbone(
 
             for factor in [1.0, 0.8, 1.2, 0.6, 1.4, 0.4, 1.6, 0.2, 0.0]:
                 angle_offset = base_angle * factor
-                cand_theta = max(domain.min_theta, min(domain.max_theta, p_theta + angle_offset))
+                cand_theta = domain.clamp_theta(p_theta + angle_offset, child_r)
                 cx, cy = domain.polar_to_cartesian(child_r, cand_theta)
                 cand_pos = (cx, cy)
 
-                if not edge_intersects_graph(parent_pos, cand_pos, existing_edges):
+                if domain.is_in_domain(child_r, cand_theta) and not edge_intersects_graph(parent_pos, cand_pos, existing_edges):
                     child_theta = cand_theta
                     child_pos = cand_pos
                     placed = True
@@ -129,9 +129,9 @@ def generate_polar_tree_backbone(
             if not placed:
                 for r_fac in [0.8, 1.1, 0.7, 1.2]:
                     alt_r = min(domain.r_shore * 0.95, p_r + r_step * r_fac)
-                    cand_theta = max(domain.min_theta, min(domain.max_theta, p_theta + base_angle))
+                    cand_theta = domain.clamp_theta(p_theta + base_angle, alt_r)
                     cx, cy = domain.polar_to_cartesian(alt_r, cand_theta)
-                    if not edge_intersects_graph(parent_pos, (cx, cy), existing_edges):
+                    if domain.is_in_domain(alt_r, cand_theta) and not edge_intersects_graph(parent_pos, (cx, cy), existing_edges):
                         child_r = alt_r
                         child_theta = cand_theta
                         child_pos = (cx, cy)

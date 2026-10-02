@@ -22,6 +22,7 @@ def main(args=None):
     gen_parser = subparsers.add_parser("generate", help="Generate a single synthetic delta graph realization")
     gen_parser.add_argument("-N", "--nodes", type=int, default=50, help="Target number of nodes/junctions (default: 50)")
     gen_parser.add_argument("-R", "--r-rt", type=float, default=0.5, help="River-to-Tidal forcing ratio in [0, 1] (default: 0.5)")
+    gen_parser.add_argument("-C", "--confinement", type=float, default=None, help="Lateral valley confinement in [0, 0.95] (default: 0.0)")
     gen_parser.add_argument("-m", "--mechanism", choices=["potential_field", "ner_optimality"], default="potential_field", help="Loop reconnection engine")
     gen_parser.add_argument("-c", "--config", type=str, default=None, help="Path to custom YAML configuration file")
     gen_parser.add_argument("-s", "--seed", type=int, default=42, help="Random seed (default: 42)")
@@ -31,6 +32,7 @@ def main(args=None):
     ens_parser = subparsers.add_parser("ensemble", help="Sample an ensemble cloud of delta realizations")
     ens_parser.add_argument("-N", "--nodes", type=int, default=50, help="Target number of nodes/junctions (default: 50)")
     ens_parser.add_argument("-R", "--r-rt", type=float, default=0.5, help="River-to-Tidal forcing ratio in [0, 1] (default: 0.5)")
+    ens_parser.add_argument("-C", "--confinement", type=float, default=None, help="Lateral valley confinement in [0, 0.95] (default: 0.0)")
     ens_parser.add_argument("-n", "--num-realizations", type=int, default=30, help="Number of realizations to sample (default: 30)")
     ens_parser.add_argument("-m", "--mechanism", choices=["potential_field", "ner_optimality"], default="potential_field", help="Loop reconnection engine")
     ens_parser.add_argument("-c", "--config", type=str, default=None, help="Path to custom YAML configuration file")
@@ -49,6 +51,9 @@ def main(args=None):
             cfg.R_rt = parsed.r_rt
             cfg.loop_mechanism = parsed.mechanism
             cfg.seed = parsed.seed
+
+        if parsed.confinement is not None:
+            cfg.confinement = parsed.confinement
 
         gen = DeltaGenerator(cfg)
         G = gen.generate()
@@ -78,6 +83,9 @@ def main(args=None):
             cfg.N = parsed.nodes
             cfg.R_rt = parsed.r_rt
             cfg.loop_mechanism = parsed.mechanism
+
+        if parsed.confinement is not None:
+            cfg.confinement = parsed.confinement
 
         cfg.sample_parameters = parsed.sample_parameters
 
