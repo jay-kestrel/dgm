@@ -24,6 +24,8 @@ def main(args=None):
     gen_parser.add_argument("-R", "--r-rt", type=float, default=0.5, help="River-to-Tidal forcing ratio in [0, 1] (default: 0.5)")
     gen_parser.add_argument("-C", "--confinement", type=float, default=None, help="Lateral valley confinement in [0, 0.95] (default: 0.0)")
     gen_parser.add_argument("-W", "--lateral-valley-width", type=float, default=None, help="Explicit maximum lateral valley corridor width in meters (default: unconstrained)")
+    gen_parser.add_argument("--coastal-node-decay", type=float, default=None, help="Shoreward decay rate of radial node spacing in [0, 0.8]")
+    gen_parser.add_argument("--coastal-sinuosity-decay", type=float, default=None, help="Shoreward decay rate of channel sinuosity excess in [0, 0.9]")
     gen_parser.add_argument("-m", "--mechanism", choices=["potential_field", "ner_optimality"], default="potential_field", help="Loop reconnection engine")
     gen_parser.add_argument("-c", "--config", type=str, default=None, help="Path to custom YAML configuration file")
     gen_parser.add_argument("-s", "--seed", type=int, default=42, help="Random seed (default: 42)")
@@ -35,6 +37,8 @@ def main(args=None):
     ens_parser.add_argument("-R", "--r-rt", type=float, default=0.5, help="River-to-Tidal forcing ratio in [0, 1] (default: 0.5)")
     ens_parser.add_argument("-C", "--confinement", type=float, default=None, help="Lateral valley confinement in [0, 0.95] (default: 0.0)")
     ens_parser.add_argument("-W", "--lateral-valley-width", type=float, default=None, help="Explicit maximum lateral valley corridor width in meters (default: unconstrained)")
+    ens_parser.add_argument("--coastal-node-decay", type=float, default=None, help="Shoreward decay rate of radial node spacing in [0, 0.8]")
+    ens_parser.add_argument("--coastal-sinuosity-decay", type=float, default=None, help="Shoreward decay rate of channel sinuosity excess in [0, 0.9]")
     ens_parser.add_argument("-n", "--num-realizations", type=int, default=30, help="Number of realizations to sample (default: 30)")
     ens_parser.add_argument("-m", "--mechanism", choices=["potential_field", "ner_optimality"], default="potential_field", help="Loop reconnection engine")
     ens_parser.add_argument("-c", "--config", type=str, default=None, help="Path to custom YAML configuration file")
@@ -58,6 +62,10 @@ def main(args=None):
             cfg.confinement = parsed.confinement
         if parsed.lateral_valley_width is not None:
             cfg.lateral_valley_width = parsed.lateral_valley_width
+        if parsed.coastal_node_decay is not None:
+            cfg.coastal_node_decay = parsed.coastal_node_decay
+        if parsed.coastal_sinuosity_decay is not None:
+            cfg.coastal_sinuosity_decay = parsed.coastal_sinuosity_decay
 
         gen = DeltaGenerator(cfg)
         G = gen.generate()
@@ -94,6 +102,12 @@ def main(args=None):
         if parsed.lateral_valley_width is not None:
             cfg.lateral_valley_width = parsed.lateral_valley_width
             cfg.distributions.pop("lateral_valley_width", None)
+        if parsed.coastal_node_decay is not None:
+            cfg.coastal_node_decay = parsed.coastal_node_decay
+            cfg.distributions.pop("coastal_node_decay", None)
+        if parsed.coastal_sinuosity_decay is not None:
+            cfg.coastal_sinuosity_decay = parsed.coastal_sinuosity_decay
+            cfg.distributions.pop("coastal_sinuosity_decay", None)
 
         cfg.sample_parameters = parsed.sample_parameters
 

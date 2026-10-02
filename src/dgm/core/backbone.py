@@ -59,10 +59,14 @@ def generate_polar_tree_backbone(
 
     step_min = params.get('radial_step_scale_min', 0.65)
     step_max = params.get('radial_step_scale_max', 1.35)
+    coastal_node_decay = float(params.get('coastal_node_decay', 0.40))
     spread_decay = params.get('angular_spread_decay', 0.70)
     single_spread_fac = params.get('single_branch_spread_factor', 0.35)
     bifurc_min = params.get('bifurcation_spread_min', 0.60)
     bifurc_max = params.get('bifurcation_spread_max', 1.40)
+    base_sin_mu = float(params.get('base_sinuosity_mean', 0.25))
+    base_sin_sigma = float(params.get('base_sinuosity_std', 0.15))
+    coastal_sin_decay = float(params.get('coastal_sinuosity_decay', 0.30))
 
     while queue and current_node_id < N_tree:
         parent = queue.popleft()
@@ -90,8 +94,10 @@ def generate_polar_tree_backbone(
             if current_node_id >= N_tree:
                 break
 
-            # Asymmetric radial step per child branch
-            r_step = r_step_base * rng.uniform(step_min, step_max)
+            # Asymmetric radial step per child branch with shoreward spatial contraction
+            r_frac = min(1.0, max(0.0, p_r / max(1.0, domain.r_shore)))
+            decay_factor = max(0.20, 1.0 - coastal_node_decay * r_frac)
+            r_step = r_step_base * rng.uniform(step_min, step_max) * decay_factor
             child_r = min(domain.r_shore * 0.95, p_r + r_step)
 
             # Angular spreading depending on branching order
@@ -157,9 +163,13 @@ def generate_polar_tree_backbone(
                 level=p_level + 1
             )
 
-            # Compute Euclidean length and sinuosity
+            # Compute Euclidean length and sinuosity with shoreward straightening
             straight_distance = max(10.0, math.hypot(cx - parent_pos[0], cy - parent_pos[1]))
-            sinuosity = float(rng.lognormal(0.25, 0.15))
+            raw_sin = float(rng.lognormal(base_sin_mu, base_sin_sigma))
+            r_mid = 0.5 * (p_r + child_r)
+            r_ratio = min(1.0, max(0.0, r_mid / max(1.0, domain.r_shore)))
+            sin_decay_mult = max(0.0, 1.0 - coastal_sin_decay * r_ratio)
+            sinuosity = max(1.0, 1.0 + (raw_sin - 1.0) * sin_decay_mult)
             length = straight_distance * sinuosity
 
             G.add_edge(

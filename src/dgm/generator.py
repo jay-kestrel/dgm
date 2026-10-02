@@ -94,6 +94,8 @@ class DeltaGenerator:
         G_final.graph['R_rt'] = self.config.R_rt
         G_final.graph['confinement'] = domain.confinement
         G_final.graph['lateral_valley_width'] = domain.lateral_valley_width
+        G_final.graph['coastal_node_decay'] = params.get('coastal_node_decay', self.config.coastal_node_decay)
+        G_final.graph['coastal_sinuosity_decay'] = params.get('coastal_sinuosity_decay', self.config.coastal_sinuosity_decay)
         G_final.graph['loop_mechanism'] = self.config.loop_mechanism
         G_final.graph['params'] = params
         G_final.graph['seed'] = seed
@@ -215,6 +217,8 @@ def generate(
     R_rt: float = 0.5,
     confinement: Optional[float] = None,
     lateral_valley_width: Optional[float] = None,
+    coastal_node_decay: Optional[float] = None,
+    coastal_sinuosity_decay: Optional[float] = None,
     config: Optional[Union[str, DGMConfig]] = None,
     seed: Any = _UNSET,
     **overrides
@@ -245,6 +249,12 @@ def generate(
     if lateral_valley_width is not None:
         cfg.lateral_valley_width = float(lateral_valley_width)
 
+    if coastal_node_decay is not None:
+        cfg.coastal_node_decay = float(coastal_node_decay)
+
+    if coastal_sinuosity_decay is not None:
+        cfg.coastal_sinuosity_decay = float(coastal_sinuosity_decay)
+
     if seed is not _UNSET:
         cfg.seed = seed
 
@@ -257,6 +267,8 @@ def sample_ensemble(
     R_rt: float = 0.5,
     confinement: Optional[float] = None,
     lateral_valley_width: Optional[float] = None,
+    coastal_node_decay: Optional[float] = None,
+    coastal_sinuosity_decay: Optional[float] = None,
     num_realizations: int = 50,
     config: Optional[Union[str, DGMConfig]] = None,
     base_seed: int = 42,
@@ -289,6 +301,14 @@ def sample_ensemble(
     if lateral_valley_width is not None:
         cfg.lateral_valley_width = float(lateral_valley_width)
         cfg.distributions.pop("lateral_valley_width", None)
+
+    if coastal_node_decay is not None:
+        cfg.coastal_node_decay = float(coastal_node_decay)
+        cfg.distributions.pop("coastal_node_decay", None)
+
+    if coastal_sinuosity_decay is not None:
+        cfg.coastal_sinuosity_decay = float(coastal_sinuosity_decay)
+        cfg.distributions.pop("coastal_sinuosity_decay", None)
 
     ens = EnsembleGenerator(
         N=N,

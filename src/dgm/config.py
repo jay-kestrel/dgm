@@ -77,6 +77,8 @@ class ParameterBounds:
     candidate_dist_scale_range: Tuple[float, float] = (0.15, 0.35)
     tidal_flare_k_range: Tuple[float, float] = (0.8, 2.0)
     confinement_range: Tuple[float, float] = (0.0, 0.60)
+    coastal_node_decay_range: Tuple[float, float] = (0.0, 0.80)
+    coastal_sinuosity_decay_range: Tuple[float, float] = (0.0, 0.90)
 
     def sample(self, rng: np.random.Generator) -> Dict[str, float]:
         """Samples a single parameter set from uniform distributions within bounds."""
@@ -93,6 +95,8 @@ class ParameterBounds:
             'candidate_dist_scale': float(rng.uniform(*self.candidate_dist_scale_range)),
             'tidal_flare_k': float(rng.uniform(*self.tidal_flare_k_range)),
             'confinement': float(rng.uniform(*self.confinement_range)),
+            'coastal_node_decay': float(rng.uniform(*self.coastal_node_decay_range)),
+            'coastal_sinuosity_decay': float(rng.uniform(*self.coastal_sinuosity_decay_range)),
         }
 
     def default_values(self) -> Dict[str, float]:
@@ -110,6 +114,8 @@ class ParameterBounds:
             'candidate_dist_scale': float(np.mean(self.candidate_dist_scale_range)),
             'tidal_flare_k': float(np.mean(self.tidal_flare_k_range)),
             'confinement': float(np.mean(self.confinement_range)),
+            'coastal_node_decay': float(np.mean(self.coastal_node_decay_range)),
+            'coastal_sinuosity_decay': float(np.mean(self.coastal_sinuosity_decay_range)),
         }
 
 
@@ -138,10 +144,14 @@ class DGMConfig:
     branching_weights: Tuple[float, float, float] = (0.50, 0.45, 0.05)
     radial_step_scale_min: float = 0.65
     radial_step_scale_max: float = 1.35
+    coastal_node_decay: float = 0.40
     angular_spread_decay: float = 0.70
     single_branch_spread_factor: float = 0.35
     bifurcation_spread_min: float = 0.60
     bifurcation_spread_max: float = 1.40
+    base_sinuosity_mean: float = 0.25
+    base_sinuosity_std: float = 0.15
+    coastal_sinuosity_decay: float = 0.30
 
     # Loops section
     candidate_dist_scale: float = 0.25
@@ -211,6 +221,14 @@ class DGMConfig:
             raise ValueError(f"confinement parameter must be in [0.0, 0.95] (received {self.confinement}).")
         if self.lateral_valley_width is not None and self.lateral_valley_width <= 0:
             raise ValueError(f"lateral_valley_width must be > 0 (received {self.lateral_valley_width}).")
+        if not (0.0 <= self.coastal_node_decay <= 0.80):
+            raise ValueError(f"coastal_node_decay must be in [0.0, 0.80] (received {self.coastal_node_decay}).")
+        if not (0.0 <= self.coastal_sinuosity_decay <= 0.90):
+            raise ValueError(f"coastal_sinuosity_decay must be in [0.0, 0.90] (received {self.coastal_sinuosity_decay}).")
+        if self.base_sinuosity_mean < 0.0:
+            raise ValueError(f"base_sinuosity_mean must be >= 0.0 (received {self.base_sinuosity_mean}).")
+        if self.base_sinuosity_std <= 0.0:
+            raise ValueError(f"base_sinuosity_std must be > 0.0 (received {self.base_sinuosity_std}).")
 
     @classmethod
     def load_default(cls) -> "DGMConfig":
@@ -289,10 +307,14 @@ class DGMConfig:
                 "branching_weights": list(self.branching_weights),
                 "radial_step_scale_min": self.radial_step_scale_min,
                 "radial_step_scale_max": self.radial_step_scale_max,
+                "coastal_node_decay": self.coastal_node_decay,
                 "angular_spread_decay": self.angular_spread_decay,
                 "single_branch_spread_factor": self.single_branch_spread_factor,
                 "bifurcation_spread_min": self.bifurcation_spread_min,
                 "bifurcation_spread_max": self.bifurcation_spread_max,
+                "base_sinuosity_mean": self.base_sinuosity_mean,
+                "base_sinuosity_std": self.base_sinuosity_std,
+                "coastal_sinuosity_decay": self.coastal_sinuosity_decay,
             },
             "loops": {
                 "candidate_dist_scale": self.candidate_dist_scale,
@@ -378,10 +400,14 @@ class DGMConfig:
             "branching_weights": self.branching_weights,
             "radial_step_scale_min": self.radial_step_scale_min,
             "radial_step_scale_max": self.radial_step_scale_max,
+            "coastal_node_decay": self.coastal_node_decay,
             "angular_spread_decay": self.angular_spread_decay,
             "single_branch_spread_factor": self.single_branch_spread_factor,
             "bifurcation_spread_min": self.bifurcation_spread_min,
             "bifurcation_spread_max": self.bifurcation_spread_max,
+            "base_sinuosity_mean": self.base_sinuosity_mean,
+            "base_sinuosity_std": self.base_sinuosity_std,
+            "coastal_sinuosity_decay": self.coastal_sinuosity_decay,
             "candidate_dist_scale": self.candidate_dist_scale,
             "reconnection_prob_base": self.reconnection_prob_base,
             "anastomosis_prob_base": self.anastomosis_prob_base,

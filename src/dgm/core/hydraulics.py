@@ -95,6 +95,9 @@ def apply_emergent_hydraulics(
     min_width = float(params.get('min_channel_width', 0.1))
     max_iter = int(params.get('relaxation_max_iter', 100))
     tol = float(params.get('relaxation_tol', 1e-6))
+    base_sin_mu = float(params.get('base_sinuosity_mean', 0.25))
+    base_sin_sigma = float(params.get('base_sinuosity_std', 0.15))
+    coastal_sin_decay = float(params.get('coastal_sinuosity_decay', 0.30))
 
     # Identify exact apex node
     apex_nodes = [n for n in G.nodes() if G.nodes[n].get('node_type') == 'apex']
@@ -200,7 +203,10 @@ def apply_emergent_hydraulics(
         if 'sinuosity' in d:
             sinuosity = float(d['sinuosity'])
         else:
-            sinuosity = float(edge_rng.lognormal(0.25, 0.15))
+            r_ratio = min(1.0, max(0.0, r_mid / max(1.0, r_shore)))
+            raw_sin = float(edge_rng.lognormal(base_sin_mu, base_sin_sigma))
+            sin_decay_mult = max(0.0, 1.0 - coastal_sin_decay * r_ratio)
+            sinuosity = max(1.0, 1.0 + (raw_sin - 1.0) * sin_decay_mult)
             d['sinuosity'] = sinuosity
 
         length = max(1.0, straight_dist * sinuosity)

@@ -37,10 +37,16 @@ backbone:
   branching_weights: [0.50, 0.45, 0.05] # Stochastic branch order probabilities for {1, 2, 3} children
   radial_step_scale_min: 0.65    # Minimum radial step factor
   radial_step_scale_max: 1.35    # Maximum radial step factor
+  coastal_node_decay: 0.40       # Shoreward decay rate of radial node spacing in [0.0, 0.8]:
+                                 # Higher values produce denser branching / smaller islands near shore
   angular_spread_decay: 0.70     # Depth decay factor for angular spreading
   single_branch_spread_factor: 0.35 # Angular spread scaling for single-continuation branches
   bifurcation_spread_min: 0.60   # Minimum bifurcation angle scaling
   bifurcation_spread_max: 1.40   # Maximum bifurcation angle scaling
+  base_sinuosity_mean: 0.25      # Baseline channel sinuosity lognormal mu (median ~ 1.28)
+  base_sinuosity_std: 0.15       # Baseline channel sinuosity lognormal sigma
+  coastal_sinuosity_decay: 0.30  # Shoreward sinuosity reduction rate in [0.0, 0.9]:
+                                 # Channels straighten out as they approach the shoreline
 
 # --- Step 3: Emergent Loop Engine ---
 loops:
@@ -127,6 +133,14 @@ distributions:
   confinement:
     type: "uniform"
     low: 0.0
+    high: 0.50
+  coastal_node_decay:
+    type: "uniform"
+    low: 0.10
+    high: 0.60
+  coastal_sinuosity_decay:
+    type: "uniform"
+    low: 0.10
     high: 0.50
 
 # --- Extensibility Hook ---
