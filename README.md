@@ -139,6 +139,7 @@ uv run --extra dev pytest tests -v
 Comprehensive documentation is available in the [`docs/`](docs/) directory:
 - [Architecture & Mathematical Model](docs/architecture.md)
 - [Configuration & YAML Schema](docs/configuration.md)
+- [Parameter Assumptions & Literature Justifications](docs/parameter_justifications.md)
 - [Python API Reference](docs/api_reference.md)
 - [Tutorial 1: Quickstart](docs/tutorials/01_quickstart.md)
 - [Tutorial 2: Ensemble Sampling](docs/tutorials/02_ensemble_clouds.md)

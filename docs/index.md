@@ -22,6 +22,7 @@
 
 - [Architecture & Mathematical Formulation](architecture.md)
 - [Configuration Guide & YAML Schema](configuration.md)
+- [Parameter Assumptions & Literature Justifications](parameter_justifications.md)
 - [Python API Reference](api_reference.md)
 - [Tutorial 1: Quickstart](tutorials/01_quickstart.md)
 - [Tutorial 2: Sampling Ensembles](tutorials/02_ensemble_clouds.md)

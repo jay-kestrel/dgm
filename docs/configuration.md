@@ -80,3 +80,8 @@ cfg = dgm.DGMConfig.from_yaml("my_run.yaml", N=75, R_rt=0.8)
 # Sample active parameters
 sampled = cfg.sample_distribution_parameters()
 ```
+
+## Physical Assumptions & Literature Citations
+
+For an in-depth table listing every parameter, its default value, underlying geomorphic assumptions, bounded distribution ranges, and formal academic literature citations justifying each parameter choice, see [Parameter Assumptions & Literature Justifications](parameter_justifications.md).
+
