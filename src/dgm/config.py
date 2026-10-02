@@ -80,6 +80,7 @@ class ParameterBounds:
     coastal_node_decay_range: Tuple[float, float] = (0.0, 0.80)
     coastal_sinuosity_decay_range: Tuple[float, float] = (0.0, 0.90)
     min_channel_clearance_range: Tuple[float, float] = (0.05, 0.80)
+    min_spur_length_range: Tuple[float, float] = (0.0, 500.0)
 
     def sample(self, rng: np.random.Generator) -> Dict[str, float]:
         """Samples a single parameter set from uniform distributions within bounds."""
@@ -99,6 +100,7 @@ class ParameterBounds:
             'coastal_node_decay': float(rng.uniform(*self.coastal_node_decay_range)),
             'coastal_sinuosity_decay': float(rng.uniform(*self.coastal_sinuosity_decay_range)),
             'min_channel_clearance': float(rng.uniform(*self.min_channel_clearance_range)),
+            'min_spur_length': float(rng.uniform(*self.min_spur_length_range)),
         }
 
     def default_values(self) -> Dict[str, float]:
@@ -119,6 +121,7 @@ class ParameterBounds:
             'coastal_node_decay': float(np.mean(self.coastal_node_decay_range)),
             'coastal_sinuosity_decay': float(np.mean(self.coastal_sinuosity_decay_range)),
             'min_channel_clearance': float(np.mean(self.min_channel_clearance_range)),
+            'min_spur_length': float(np.mean(self.min_spur_length_range)),
         }
 
 
@@ -169,6 +172,13 @@ class DGMConfig:
     sa_initial_temp: float = 1.0
     sa_cooling_rate: float = 0.975
     sa_max_steps: int = 250
+
+    # Pruning & topological simplification section
+    enable_pruning: bool = False
+    prune_inland_dead_ends: bool = True
+    min_spur_length: float = 0.0
+    simplify_pass_through_nodes: bool = False
+    max_prune_iterations: int = 5
 
     # Hydraulics section
     routing_mode: str = "width"
@@ -244,6 +254,10 @@ class DGMConfig:
             raise ValueError(f"num_polyline_points must be >= 3 (received {self.num_polyline_points}).")
         if self.meander_bends < 1:
             raise ValueError(f"meander_bends must be >= 1 (received {self.meander_bends}).")
+        if self.min_spur_length < 0.0:
+            raise ValueError(f"min_spur_length must be >= 0.0 (received {self.min_spur_length}).")
+        if self.max_prune_iterations < 1:
+            raise ValueError(f"max_prune_iterations must be >= 1 (received {self.max_prune_iterations}).")
         if "coastal_node_decay" in self.distributions:
             d = self.distributions["coastal_node_decay"]
             if isinstance(d, dict) and d.get("type") == "uniform":
@@ -259,6 +273,11 @@ class DGMConfig:
             if isinstance(d, dict) and d.get("type") == "uniform":
                 if d.get("low", 0.05) < 0.05 or d.get("high", 1.0) > 1.0:
                     raise ValueError("min_channel_clearance distribution must be within [0.05, 1.0].")
+        if "min_spur_length" in self.distributions:
+            d = self.distributions["min_spur_length"]
+            if isinstance(d, dict) and d.get("type") == "uniform":
+                if d.get("low", 0.0) < 0.0:
+                    raise ValueError("min_spur_length distribution low bound must be >= 0.0.")
 
     @classmethod
     def load_default(cls) -> "DGMConfig":
@@ -284,6 +303,7 @@ class DGMConfig:
         domain_sec = raw.get("domain", {})
         backbone_sec = raw.get("backbone", {})
         loops_sec = raw.get("loops", {})
+        pruning_sec = raw.get("pruning", {})
         hydraulics_sec = raw.get("hydraulics", {})
         channel_geom_sec = raw.get("channel_geometry", {})
         dists = raw.get("distributions", {})
@@ -294,6 +314,7 @@ class DGMConfig:
         kwargs.update(domain_sec)
         kwargs.update(backbone_sec)
         kwargs.update(loops_sec)
+        kwargs.update(pruning_sec)
         kwargs.update(hydraulics_sec)
         kwargs.update(channel_geom_sec)
         kwargs["distributions"] = dists
@@ -361,6 +382,13 @@ class DGMConfig:
                 "sa_initial_temp": self.sa_initial_temp,
                 "sa_cooling_rate": self.sa_cooling_rate,
                 "sa_max_steps": self.sa_max_steps,
+            },
+            "pruning": {
+                "enable_pruning": self.enable_pruning,
+                "prune_inland_dead_ends": self.prune_inland_dead_ends,
+                "min_spur_length": self.min_spur_length,
+                "simplify_pass_through_nodes": self.simplify_pass_through_nodes,
+                "max_prune_iterations": self.max_prune_iterations,
             },
             "hydraulics": {
                 "routing_mode": self.routing_mode,
@@ -458,6 +486,11 @@ class DGMConfig:
             "sa_initial_temp": self.sa_initial_temp,
             "sa_cooling_rate": self.sa_cooling_rate,
             "sa_max_steps": self.sa_max_steps,
+            "enable_pruning": self.enable_pruning,
+            "prune_inland_dead_ends": self.prune_inland_dead_ends,
+            "min_spur_length": self.min_spur_length,
+            "simplify_pass_through_nodes": self.simplify_pass_through_nodes,
+            "max_prune_iterations": self.max_prune_iterations,
             "routing_mode": self.routing_mode,
             "murray_p": self.murray_p,
             "width_beta": self.width_beta,

@@ -28,6 +28,9 @@ def main(args=None):
     gen_parser.add_argument("--coastal-sinuosity-decay", type=float, default=None, help="Shoreward decay rate of channel sinuosity excess in [0, 0.9]")
     gen_parser.add_argument("--curved", "--enable-curved-centerlines", dest="curved", action="store_true", default=None, help="Generate curved polyline channel centerlines")
     gen_parser.add_argument("--min-channel-clearance", type=float, default=None, help="Channel clearance fraction for meander amplitude in [0.05, 1.0]")
+    gen_parser.add_argument("--enable-pruning", dest="enable_pruning", action="store_true", default=None, help="Enable pre-hydraulic dead-end spur pruning")
+    gen_parser.add_argument("--simplify-chains", dest="simplify_chains", action="store_true", default=None, help="Simplify degree-2 pass-through node chains")
+    gen_parser.add_argument("--min-spur-length", type=float, default=None, help="Minimum channel length for inland spurs to be retained")
     gen_parser.add_argument("-m", "--mechanism", choices=["potential_field", "ner_optimality"], default="potential_field", help="Loop reconnection engine")
     gen_parser.add_argument("-c", "--config", type=str, default=None, help="Path to custom YAML configuration file")
     gen_parser.add_argument("-s", "--seed", type=int, default=42, help="Random seed (default: 42)")
@@ -43,6 +46,9 @@ def main(args=None):
     ens_parser.add_argument("--coastal-sinuosity-decay", type=float, default=None, help="Shoreward decay rate of channel sinuosity excess in [0, 0.9]")
     ens_parser.add_argument("--curved", "--enable-curved-centerlines", dest="curved", action="store_true", default=None, help="Generate curved polyline channel centerlines")
     ens_parser.add_argument("--min-channel-clearance", type=float, default=None, help="Channel clearance fraction for meander amplitude in [0.05, 1.0]")
+    ens_parser.add_argument("--enable-pruning", dest="enable_pruning", action="store_true", default=None, help="Enable pre-hydraulic dead-end spur pruning")
+    ens_parser.add_argument("--simplify-chains", dest="simplify_chains", action="store_true", default=None, help="Simplify degree-2 pass-through node chains")
+    ens_parser.add_argument("--min-spur-length", type=float, default=None, help="Minimum channel length for inland spurs to be retained")
     ens_parser.add_argument("-n", "--num-realizations", type=int, default=30, help="Number of realizations to sample (default: 30)")
     ens_parser.add_argument("-m", "--mechanism", choices=["potential_field", "ner_optimality"], default="potential_field", help="Loop reconnection engine")
     ens_parser.add_argument("-c", "--config", type=str, default=None, help="Path to custom YAML configuration file")
@@ -74,6 +80,12 @@ def main(args=None):
             cfg.enable_curved_centerlines = parsed.curved
         if parsed.min_channel_clearance is not None:
             cfg.min_channel_clearance = parsed.min_channel_clearance
+        if parsed.enable_pruning is not None:
+            cfg.enable_pruning = parsed.enable_pruning
+        if parsed.simplify_chains is not None:
+            cfg.simplify_pass_through_nodes = parsed.simplify_chains
+        if parsed.min_spur_length is not None:
+            cfg.min_spur_length = parsed.min_spur_length
 
         gen = DeltaGenerator(cfg)
         G = gen.generate()
@@ -121,6 +133,13 @@ def main(args=None):
         if parsed.min_channel_clearance is not None:
             cfg.min_channel_clearance = parsed.min_channel_clearance
             cfg.distributions.pop("min_channel_clearance", None)
+        if parsed.enable_pruning is not None:
+            cfg.enable_pruning = parsed.enable_pruning
+        if parsed.simplify_chains is not None:
+            cfg.simplify_pass_through_nodes = parsed.simplify_chains
+        if parsed.min_spur_length is not None:
+            cfg.min_spur_length = parsed.min_spur_length
+            cfg.distributions.pop("min_spur_length", None)
 
         cfg.sample_parameters = parsed.sample_parameters
 

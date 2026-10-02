@@ -15,6 +15,7 @@ from .config import DGMConfig
 from .core.domain import PolarDomain
 from .core.backbone import generate_polar_tree_backbone
 from .core.loops import apply_loop_mechanism
+from .core.pruning import prune_and_simplify_network
 from .core.hydraulics import apply_emergent_hydraulics
 from .core.channel_geometry import generate_channel_centerlines, apply_channel_proximity_constraints
 from .metrics import MetricsBattery
@@ -84,14 +85,24 @@ class DeltaGenerator:
             seed=sub_seed
         )
 
-        # 4. Apply Emergent Hydraulics & Channel Widening
+        # 4. Apply Pre-Hydraulic Network Pruning & Simplification
+        if self.config.enable_pruning or params.get('enable_pruning', False):
+            G_pruned = prune_and_simplify_network(
+                G=G_looped,
+                domain=domain,
+                params=params
+            )
+        else:
+            G_pruned = G_looped
+
+        # 5. Apply Emergent Hydraulics & Channel Widening
         G_final = apply_emergent_hydraulics(
-            G=G_looped,
+            G=G_pruned,
             params=params,
             seed=sub_seed
         )
 
-        # 5. Apply Channel Proximity Constraints & Curved Polyline Geometry
+        # 6. Apply Channel Proximity Constraints & Curved Polyline Geometry
         if self.config.enable_curved_centerlines or params.get('enable_curved_centerlines', False):
             G_final = generate_channel_centerlines(
                 G=G_final,
@@ -113,6 +124,12 @@ class DeltaGenerator:
         G_final.graph['lateral_valley_width'] = domain.lateral_valley_width
         G_final.graph['coastal_node_decay'] = params.get('coastal_node_decay', self.config.coastal_node_decay)
         G_final.graph['coastal_sinuosity_decay'] = params.get('coastal_sinuosity_decay', self.config.coastal_sinuosity_decay)
+        pruning_enabled = bool(self.config.enable_pruning or params.get('enable_pruning', False))
+        G_final.graph['enable_pruning'] = pruning_enabled
+        G_final.graph['prune_inland_dead_ends'] = params.get('prune_inland_dead_ends', self.config.prune_inland_dead_ends)
+        G_final.graph['min_spur_length'] = params.get('min_spur_length', self.config.min_spur_length)
+        G_final.graph['simplify_pass_through_nodes'] = params.get('simplify_pass_through_nodes', self.config.simplify_pass_through_nodes)
+        G_final.graph['max_prune_iterations'] = params.get('max_prune_iterations', self.config.max_prune_iterations)
         curved_enabled = bool(self.config.enable_curved_centerlines or params.get('enable_curved_centerlines', False))
         G_final.graph['enable_curved_centerlines'] = curved_enabled
         G_final.graph['min_channel_clearance'] = params.get('min_channel_clearance', self.config.min_channel_clearance)
@@ -244,6 +261,10 @@ def generate(
     coastal_sinuosity_decay: Optional[float] = None,
     enable_curved_centerlines: Optional[bool] = None,
     min_channel_clearance: Optional[float] = None,
+    enable_pruning: Optional[bool] = None,
+    prune_inland_dead_ends: Optional[bool] = None,
+    min_spur_length: Optional[float] = None,
+    simplify_pass_through_nodes: Optional[bool] = None,
     config: Optional[Union[str, DGMConfig]] = None,
     seed: Any = _UNSET,
     **overrides
@@ -293,6 +314,19 @@ def generate(
         cfg.min_channel_clearance = float(min_channel_clearance)
         cfg.distributions.pop("min_channel_clearance", None)
 
+    if enable_pruning is not None:
+        cfg.enable_pruning = bool(enable_pruning)
+
+    if prune_inland_dead_ends is not None:
+        cfg.prune_inland_dead_ends = bool(prune_inland_dead_ends)
+
+    if min_spur_length is not None:
+        cfg.min_spur_length = float(min_spur_length)
+        cfg.distributions.pop("min_spur_length", None)
+
+    if simplify_pass_through_nodes is not None:
+        cfg.simplify_pass_through_nodes = bool(simplify_pass_through_nodes)
+
     if seed is not _UNSET:
         cfg.seed = seed
 
@@ -309,6 +343,10 @@ def sample_ensemble(
     coastal_sinuosity_decay: Optional[float] = None,
     enable_curved_centerlines: Optional[bool] = None,
     min_channel_clearance: Optional[float] = None,
+    enable_pruning: Optional[bool] = None,
+    prune_inland_dead_ends: Optional[bool] = None,
+    min_spur_length: Optional[float] = None,
+    simplify_pass_through_nodes: Optional[bool] = None,
     num_realizations: int = 50,
     config: Optional[Union[str, DGMConfig]] = None,
     base_seed: int = 42,
@@ -358,6 +396,19 @@ def sample_ensemble(
     if min_channel_clearance is not None:
         cfg.min_channel_clearance = float(min_channel_clearance)
         cfg.distributions.pop("min_channel_clearance", None)
+
+    if enable_pruning is not None:
+        cfg.enable_pruning = bool(enable_pruning)
+
+    if prune_inland_dead_ends is not None:
+        cfg.prune_inland_dead_ends = bool(prune_inland_dead_ends)
+
+    if min_spur_length is not None:
+        cfg.min_spur_length = float(min_spur_length)
+        cfg.distributions.pop("min_spur_length", None)
+
+    if simplify_pass_through_nodes is not None:
+        cfg.simplify_pass_through_nodes = bool(simplify_pass_through_nodes)
 
     ens = EnsembleGenerator(
         N=N,

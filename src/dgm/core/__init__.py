@@ -13,6 +13,12 @@ from .channel_geometry import (
     apply_channel_proximity_constraints,
     generate_channel_centerlines,
 )
+from .pruning import (
+    prune_and_simplify_network,
+    prune_dead_end_spurs,
+    simplify_degree_two_chains,
+    refresh_node_types,
+)
 
 __all__ = [
     "PolarDomain",
@@ -23,6 +29,10 @@ __all__ = [
     "apply_loop_mechanism",
     "generate_loops_potential_field",
     "generate_loops_ner_optimality",
+    "prune_and_simplify_network",
+    "prune_dead_end_spurs",
+    "simplify_degree_two_chains",
+    "refresh_node_types",
     "apply_emergent_hydraulics",
     "solve_markov_flux",
     "solve_markov_hydraulics",
