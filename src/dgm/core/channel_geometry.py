@@ -174,6 +174,11 @@ def generate_channel_centerlines(
             d['meander_amplitude'] = 0.0
             continue
 
+        # If edge already has an explicit multi-vertex polyline from reach simplification,
+        # preserve its trajectory
+        if 'coordinates' in d and len(d['coordinates']) > 2:
+            continue
+
         sinuosity = float(d.get('sinuosity', 1.0))
 
         if sinuosity <= 1.0001:

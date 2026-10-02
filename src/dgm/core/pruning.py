@@ -106,86 +106,91 @@ def simplify_degree_two_chains(
     outlet_tolerance: float = 0.05
 ) -> Tuple[nx.DiGraph, int]:
     """
-    Contracts pass-through nodes with in_degree == 1 and out_degree == 1 into unified edges,
-    accumulating lengths and merging polyline coordinates if present.
-    Never contracts apex, outlets, or junctions.
+    Contracts all non-branching pass-through nodes (in_degree == 1 and out_degree == 1)
+    into direct links between morphological junctions, inlets, and outlets.
+    Accumulates channel reach length, recomputes consistent reach sinuosity,
+    and preserves continuous polyline centerline coordinates through intermediate vertices.
+    Consistent with RivGraph reach delineation standards.
+
+    Never contracts apex, outlets (out_degree == 0), confluences (in_degree >= 2),
+    or bifurcations (out_degree >= 2).
 
     Returns:
       (simplified_G, count_of_contracted_nodes)
     """
     simplified_G = G.copy()
     contracted_count = 0
-    shore_cutoff = r_shore * (1.0 - outlet_tolerance)
 
-    pass_through_nodes = [
-        n for n in simplified_G.nodes()
-        if simplified_G.in_degree(n) == 1
-        and simplified_G.out_degree(n) == 1
-        and n != 0
-        and simplified_G.nodes[n].get('node_type') not in ('apex', 'outlet')
-        and float(simplified_G.nodes[n].get('r', 0.0)) < shore_cutoff
-    ]
+    while True:
+        candidates = [
+            n for n in simplified_G.nodes()
+            if simplified_G.in_degree(n) == 1
+            and simplified_G.out_degree(n) == 1
+            and n != 0
+            and simplified_G.nodes[n].get('node_type') != 'apex'
+        ]
 
-    for n in pass_through_nodes:
-        if n not in simplified_G:
-            continue
+        contracted_in_pass = 0
+        for n in candidates:
+            if n not in simplified_G:
+                continue
 
-        in_edges = list(simplified_G.in_edges(n, data=True))
-        out_edges = list(simplified_G.out_edges(n, data=True))
+            if simplified_G.in_degree(n) != 1 or simplified_G.out_degree(n) != 1:
+                continue
 
-        if len(in_edges) != 1 or len(out_edges) != 1:
-            continue
+            in_edges = list(simplified_G.in_edges(n, data=True))
+            out_edges = list(simplified_G.out_edges(n, data=True))
 
-        p, _, d_in = in_edges[0]
-        _, c, d_out = out_edges[0]
+            if len(in_edges) != 1 or len(out_edges) != 1:
+                continue
 
-        # Prevent multi-edges or self-loops
-        if p == c or simplified_G.has_edge(p, c):
-            continue
+            p, _, d_in = in_edges[0]
+            _, c, d_out = out_edges[0]
 
-        # Combine edge properties
-        x_p = float(simplified_G.nodes[p].get('x', 0.0))
-        y_p = float(simplified_G.nodes[p].get('y', 0.0))
-        x_c = float(simplified_G.nodes[c].get('x', 0.0))
-        y_c = float(simplified_G.nodes[c].get('y', 0.0))
-        straight_dist = max(1.0, math.hypot(x_c - x_p, y_c - y_p))
+            # Prevent multi-edges or self-loops
+            if p == c or simplified_G.has_edge(p, c):
+                continue
 
-        len_in = float(d_in.get('length', straight_dist / 2.0))
-        len_out = float(d_out.get('length', straight_dist / 2.0))
-        total_len = len_in + len_out
-        combined_sin = max(1.0, total_len / straight_dist)
+            # Node coordinates
+            x_p = float(simplified_G.nodes[p].get('x', 0.0))
+            y_p = float(simplified_G.nodes[p].get('y', 0.0))
+            x_n = float(simplified_G.nodes[n].get('x', 0.0))
+            y_n = float(simplified_G.nodes[n].get('y', 0.0))
+            x_c = float(simplified_G.nodes[c].get('x', 0.0))
+            y_c = float(simplified_G.nodes[c].get('y', 0.0))
 
-        # Merge polyline coordinates if available
-        combined_coords = None
-        if 'coordinates' in d_in and 'coordinates' in d_out:
-            coords_in = d_in['coordinates']
-            coords_out = d_out['coordinates']
-            # Concatenate coordinates avoiding duplicate joint point
+            straight_dist = max(1.0, math.hypot(x_c - x_p, y_c - y_p))
+
+            len_in = float(d_in.get('length', math.hypot(x_n - x_p, y_n - y_p)))
+            len_out = float(d_out.get('length', math.hypot(x_c - x_n, y_c - y_n)))
+            total_len = len_in + len_out
+            combined_sin = max(1.0, total_len / straight_dist)
+
+            # Preserve continuous polyline coordinates through vertex n
+            coords_in = d_in.get('coordinates', [[x_p, y_p], [x_n, y_n]])
+            coords_out = d_out.get('coordinates', [[x_n, y_n], [x_c, y_c]])
             combined_coords = coords_in[:-1] + coords_out
-        elif 'coordinates' in d_in:
-            coords_in = d_in['coordinates']
-            combined_coords = coords_in + [[x_c, y_c]]
-        elif 'coordinates' in d_out:
-            coords_out = d_out['coordinates']
-            combined_coords = [[x_p, y_p]] + coords_out
 
-        edge_type = 'tree' if (d_in.get('edge_type') == 'tree' and d_out.get('edge_type') == 'tree') else 'loop'
+            edge_type = 'tree' if (d_in.get('edge_type') == 'tree' and d_out.get('edge_type') == 'tree') else 'loop'
 
-        # Remove node n and add direct edge p -> c
-        simplified_G.remove_node(n)
-        simplified_G.add_edge(
-            p,
-            c,
-            length=total_len,
-            straight_distance=straight_dist,
-            sinuosity=combined_sin,
-            edge_type=edge_type,
-            width=d_in.get('width', d_out.get('width', 1.0))
-        )
-        if combined_coords:
-            simplified_G.edges[p, c]['coordinates'] = combined_coords
+            # Remove node n and add direct edge p -> c
+            simplified_G.remove_node(n)
+            simplified_G.add_edge(
+                p,
+                c,
+                length=total_len,
+                straight_distance=straight_dist,
+                sinuosity=combined_sin,
+                edge_type=edge_type,
+                width=d_in.get('width', d_out.get('width', 1.0)),
+                coordinates=combined_coords,
+            )
 
-        contracted_count += 1
+            contracted_in_pass += 1
+            contracted_count += 1
+
+        if contracted_in_pass == 0:
+            break
 
     refresh_node_types(simplified_G, r_shore, outlet_tolerance)
     return simplified_G, contracted_count

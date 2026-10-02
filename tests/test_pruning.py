@@ -372,19 +372,26 @@ def test_simplify_hybrid_polyline_coordinates():
     assert edge_data['coordinates'] == [[0.0, 0.0], [1000.0, 50.0], [2000.0, 100.0], [4000.0, 0.0]]
 
 
-def test_simplify_protects_shoreline_nodes():
-    """Verify chain simplification strictly protects nodes near the shoreline even if in=1, out=1."""
+def test_simplify_contracts_to_terminal_outlet():
+    """Verify chain simplification contracts pass-through nodes into a direct link to terminal outlet."""
     G = nx.DiGraph()
     G.add_node(0, x=0.0, y=0.0, r=0.0, theta=0.0, node_type='apex')
-    # Near shoreline node (r = 9600 >= 9500 for r_shore=10000)
+    # Near shoreline intermediate pass-through node
     G.add_node(1, x=9600.0, y=0.0, r=9600.0, theta=0.0)
-    G.add_node(2, x=9900.0, y=0.0, r=9900.0, theta=0.0)
+    # Terminal outlet (out=0)
+    G.add_node(2, x=10000.0, y=0.0, r=10000.0, theta=0.0, node_type='outlet')
 
     G.add_edge(0, 1, length=9600.0, straight_distance=9600.0, sinuosity=1.0)
-    G.add_edge(1, 2, length=300.0, straight_distance=300.0, sinuosity=1.0)
+    G.add_edge(1, 2, length=400.0, straight_distance=400.0, sinuosity=1.0)
 
     simplified_G, count = simplify_degree_two_chains(G, r_shore=10000.0, outlet_tolerance=0.05)
-    # Node 1 is at r=9600 >= 9500, so it must NOT be contracted
-    assert count == 0
-    assert 1 in simplified_G
+    # Node 1 is contracted, apex 0 and terminal outlet 2 are preserved!
+    assert count == 1
+    assert 1 not in simplified_G
+    assert 0 in simplified_G
+    assert 2 in simplified_G
+    assert simplified_G.has_edge(0, 2)
+    assert simplified_G.edges[0, 2]['length'] == 10000.0
+    assert simplified_G.edges[0, 2]['straight_distance'] == 10000.0
+    assert simplified_G.edges[0, 2]['sinuosity'] == 1.0
 
