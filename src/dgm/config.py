@@ -12,7 +12,9 @@ import yaml
 import numpy as np
 
 
-DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "default_config.yaml"
+PKG_CONFIG_PATH = Path(__file__).resolve().parent / "default_config.yaml"
+REPO_CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "default_config.yaml"
+DEFAULT_CONFIG_PATH = PKG_CONFIG_PATH if PKG_CONFIG_PATH.exists() else REPO_CONFIG_PATH
 
 
 def sample_from_spec(spec: Dict[str, Any], rng: np.random.Generator) -> float:
@@ -22,11 +24,15 @@ def sample_from_spec(spec: Dict[str, Any], rng: np.random.Generator) -> float:
     if dist_type == "uniform":
         low = float(spec.get("low", 0.0))
         high = float(spec.get("high", 1.0))
+        if low > high:
+            raise ValueError(f"Uniform distribution low bound ({low}) cannot exceed high bound ({high}).")
         return float(rng.uniform(low, high))
 
     elif dist_type in ("normal", "gaussian"):
         mean = float(spec.get("mean", 0.0))
         std = float(spec.get("std", 1.0))
+        if std <= 0:
+            raise ValueError(f"Normal distribution std must be > 0 (received {std}).")
         val = rng.normal(mean, std)
         if "min" in spec:
             val = max(float(spec["min"]), val)
@@ -37,6 +43,8 @@ def sample_from_spec(spec: Dict[str, Any], rng: np.random.Generator) -> float:
     elif dist_type == "lognormal":
         mean = float(spec.get("mean", 0.0))
         sigma = float(spec.get("sigma", 1.0))
+        if sigma <= 0:
+            raise ValueError(f"Lognormal distribution sigma must be > 0 (received {sigma}).")
         val = rng.lognormal(mean, sigma)
         if "min" in spec:
             val = max(float(spec["min"]), val)
@@ -46,9 +54,13 @@ def sample_from_spec(spec: Dict[str, Any], rng: np.random.Generator) -> float:
 
     elif dist_type in ("choice", "categorical"):
         values = spec.get("values", [1.0])
+        if not values:
+            raise ValueError("Choice distribution values list cannot be empty.")
         weights = spec.get("weights", None)
         if weights is not None:
             weights = np.array(weights, dtype=float)
+            if weights.sum() <= 0 or (weights < 0).any():
+                raise ValueError("Distribution weights must be non-negative and sum to > 0.")
             weights = weights / weights.sum()
         return float(rng.choice(values, p=weights))
 
@@ -258,6 +270,40 @@ class DGMConfig:
             raise ValueError(f"min_spur_length must be >= 0.0 (received {self.min_spur_length}).")
         if self.max_prune_iterations < 1:
             raise ValueError(f"max_prune_iterations must be >= 1 (received {self.max_prune_iterations}).")
+        if self.apex_width <= 0:
+            raise ValueError(f"apex_width must be > 0 (received {self.apex_width}).")
+        if self.theta_base <= 0:
+            raise ValueError(f"theta_base must be > 0 (received {self.theta_base}).")
+        if self.theta_delta < 0:
+            raise ValueError(f"theta_delta must be >= 0 (received {self.theta_delta}).")
+        if not (0.0 < self.width_beta < 1.0):
+            raise ValueError(f"width_beta must be in (0.0, 1.0) (received {self.width_beta}).")
+        if self.manning_eta <= 0:
+            raise ValueError(f"manning_eta must be > 0 (received {self.manning_eta}).")
+        if self.length_gamma <= 0:
+            raise ValueError(f"length_gamma must be > 0 (received {self.length_gamma}).")
+        if self.min_channel_width <= 0:
+            raise ValueError(f"min_channel_width must be > 0 (received {self.min_channel_width}).")
+        if self.relaxation_tol <= 0:
+            raise ValueError(f"relaxation_tol must be > 0 (received {self.relaxation_tol}).")
+        if self.relaxation_max_iter < 1:
+            raise ValueError(f"relaxation_max_iter must be >= 1 (received {self.relaxation_max_iter}).")
+        if self.radial_step_scale_min <= 0 or self.radial_step_scale_min > self.radial_step_scale_max:
+            raise ValueError("radial_step_scale_min must be positive and <= radial_step_scale_max.")
+        if "murray_p" in self.distributions:
+            d = self.distributions["murray_p"]
+            if isinstance(d, dict) and d.get("type") == "uniform" and d.get("low", 1.0) <= 0.0:
+                raise ValueError("murray_p distribution low bound must be > 0.")
+        if "confinement" in self.distributions:
+            d = self.distributions["confinement"]
+            if isinstance(d, dict) and d.get("type") == "uniform":
+                if d.get("low", 0.0) < 0.0 or d.get("high", 0.95) > 0.95:
+                    raise ValueError("confinement distribution must be within [0.0, 0.95].")
+        if "width_beta" in self.distributions:
+            d = self.distributions["width_beta"]
+            if isinstance(d, dict) and d.get("type") == "uniform":
+                if d.get("low", 0.5) <= 0.0 or d.get("high", 0.99) >= 1.0:
+                    raise ValueError("width_beta distribution must be within (0.0, 1.0).")
         if "coastal_node_decay" in self.distributions:
             d = self.distributions["coastal_node_decay"]
             if isinstance(d, dict) and d.get("type") == "uniform":
@@ -432,10 +478,18 @@ class DGMConfig:
             rng = np.random.default_rng(self.seed)
 
         params = self.get_active_parameters(sample=False)
+        int_params = {
+            "N", "max_in_degree", "max_out_degree", "num_polyline_points",
+            "meander_bends", "max_prune_iterations", "relaxation_max_iter", "sa_max_steps"
+        }
 
         for param_name, dist_spec in self.distributions.items():
             if isinstance(dist_spec, dict) and "type" in dist_spec:
-                params[param_name] = sample_from_spec(dist_spec, rng)
+                val = sample_from_spec(dist_spec, rng)
+                if param_name in int_params:
+                    params[param_name] = int(round(val))
+                else:
+                    params[param_name] = val
 
         return params
 

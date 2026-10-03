@@ -39,3 +39,13 @@ dgm.metrics_to_csv(summary, "ensemble_100.csv")
 ```bash
 uv run dgm ensemble -N 50 -R 0.65 -n 100 --sample-parameters -o ensemble_50.csv
 ```
+
+---
+
+## Next Steps
+
+- Explore the [Configuration Guide & YAML Schema](../configuration.md) to customize parameter distributions.
+- Inspect the [Parameter Literature Justifications](../parameter_justifications.md) for empirical bounds and citations.
+- View real-world validation in the [Global Empirical Validation Report](../../outputs/VALIDATION_REPORT.md).
+- Return to [Tutorial 1: Quickstart](01_quickstart.md) or the [Documentation Index](../index.md).
+

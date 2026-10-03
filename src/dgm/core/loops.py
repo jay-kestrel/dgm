@@ -127,17 +127,20 @@ def generate_loops_potential_field(
         if p_loop <= 0.02:
             continue
 
-        if nx.has_path(current_G, tgt, src):
+        # Downstream monotonicity: since delta channels flow downstream (r_src < r_tgt),
+        # directed cycles are impossible unless radial coordinates are equal within tolerance.
+        same_r = abs(r_u - r_v) < 1e-4
+        if same_r and nx.has_path(current_G, tgt, src):
             continue
 
-        candidates.append((src, tgt, p_loop, dist))
+        candidates.append((src, tgt, p_loop, dist, same_r))
 
     candidates.sort(key=lambda x: x[2], reverse=True)
 
-    for src, tgt, p_loop, dist in candidates:
+    for src, tgt, p_loop, dist, same_r in candidates:
         if current_G.out_degree(src) >= max_out or current_G.in_degree(tgt) >= max_in:
             continue
-        if nx.has_path(current_G, tgt, src):
+        if same_r and nx.has_path(current_G, tgt, src):
             continue
         if rng.uniform(0.0, 1.0) <= p_loop:
             p1 = (current_G.nodes[src]['x'], current_G.nodes[src]['y'])
@@ -244,16 +247,15 @@ def generate_loops_ner_optimality(
     _, W, phi = solve_markov_flux(current_G, params)
 
     def calc_ner_star(W_mat, phi_vec):
-        ner = 0.0
-        max_ner = 0.0
-        N_nodes = len(phi_vec)
-        for i in range(N_nodes):
-            out_deg = np.count_nonzero(W_mat[i, :])
-            if out_deg > 1:
-                max_ner += phi_vec[i] * math.log2(out_deg)
-            for j in range(N_nodes):
-                if W_mat[i, j] > 1e-12:
-                    ner -= phi_vec[i] * W_mat[i, j] * math.log2(W_mat[i, j])
+        nonzero_mask = W_mat > 1e-12
+        out_degrees = np.sum(nonzero_mask, axis=1)
+        valid_branching = out_degrees > 1
+        max_ner = float(np.sum(phi_vec[valid_branching] * np.log2(out_degrees[valid_branching])))
+
+        i_indices, j_indices = np.nonzero(nonzero_mask)
+        w_vals = W_mat[i_indices, j_indices]
+        phi_vals = phi_vec[i_indices]
+        ner = -float(np.sum(phi_vals * w_vals * np.log2(w_vals)))
         return (ner / max_ner) if max_ner > 1e-6 else 0.0
 
     current_ner_star = calc_ner_star(W, phi)

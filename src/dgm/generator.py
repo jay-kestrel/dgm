@@ -286,7 +286,10 @@ def generate(
         cfg.N = N
         cfg.R_rt = R_rt
         for k, v in overrides.items():
-            if hasattr(cfg, k):
+            if k == 'target_nodes':
+                cfg.N = int(v)
+                cfg.distributions.pop('N', None)
+            elif hasattr(cfg, k):
                 setattr(cfg, k, v)
             cfg.distributions.pop(k, None)
     else:
@@ -294,7 +297,10 @@ def generate(
         cfg.N = N
         cfg.R_rt = R_rt
         for k, v in overrides.items():
-            if hasattr(cfg, k):
+            if k == 'target_nodes':
+                cfg.N = int(v)
+                cfg.distributions.pop('N', None)
+            elif hasattr(cfg, k):
                 setattr(cfg, k, v)
             cfg.distributions.pop(k, None)
 
@@ -369,7 +375,10 @@ def sample_ensemble(
         cfg.N = N
         cfg.R_rt = R_rt
         for k, v in overrides.items():
-            if hasattr(cfg, k):
+            if k == 'target_nodes':
+                cfg.N = int(v)
+                cfg.distributions.pop('N', None)
+            elif hasattr(cfg, k):
                 setattr(cfg, k, v)
             cfg.distributions.pop(k, None)
     else:
@@ -377,7 +386,10 @@ def sample_ensemble(
         cfg.N = N
         cfg.R_rt = R_rt
         for k, v in overrides.items():
-            if hasattr(cfg, k):
+            if k == 'target_nodes':
+                cfg.N = int(v)
+                cfg.distributions.pop('N', None)
+            elif hasattr(cfg, k):
                 setattr(cfg, k, v)
             cfg.distributions.pop(k, None)
 

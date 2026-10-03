@@ -6,6 +6,7 @@ from typing import Dict, Any, Tuple, Optional, List
 import math
 import warnings
 import numpy as np
+import scipy.linalg
 import networkx as nx
 
 warnings.filterwarnings('ignore', category=RuntimeWarning)
@@ -285,9 +286,16 @@ def solve_markov_flux(
         try:
             phi_T = np.linalg.solve(I_Q_T, S0_T)
             if not np.all(np.isfinite(phi_T)):
-                phi_T = np.dot(np.linalg.pinv(I_Q_T), S0_T)
+                phi_T = scipy.linalg.lstsq(I_Q_T, S0_T, rcond=None)[0]
         except np.linalg.LinAlgError:
-            phi_T = np.dot(np.linalg.pinv(I_Q_T), S0_T)
+            try:
+                # Fast regularized solve for near-singular Markov submatrices
+                reg = 1e-12 * np.eye(len(T_indices))
+                phi_T = np.linalg.solve(I_Q_T.T @ I_Q_T + reg, I_Q_T.T @ S0_T)
+                if not np.all(np.isfinite(phi_T)):
+                    phi_T = scipy.linalg.lstsq(I_Q_T, S0_T, rcond=None)[0]
+            except Exception:
+                phi_T = scipy.linalg.lstsq(I_Q_T, S0_T, rcond=None)[0]
 
         phi_T = np.nan_to_num(phi_T, nan=0.0, posinf=1.0, neginf=0.0)
 

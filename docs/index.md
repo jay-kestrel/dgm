@@ -26,3 +26,10 @@
 - [Python API Reference](api_reference.md)
 - [Tutorial 1: Quickstart](tutorials/01_quickstart.md)
 - [Tutorial 2: Sampling Ensembles](tutorials/02_ensemble_clouds.md)
+
+## Developer & Benchmark Ecosystem
+
+- [Developer & Agent Guide (AGENTS.md)](../AGENTS.md)
+- [Global Empirical Validation Report (28 Real Deltas)](../outputs/VALIDATION_REPORT.md)
+- [Planetary Mega-Delta Benchmark Report (Lena, GBMD, Amazon, Niger)](../outputs/MEGA_DELTA_BENCHMARK_REPORT.md)
+

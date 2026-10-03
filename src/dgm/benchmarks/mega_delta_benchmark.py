@@ -314,13 +314,20 @@ class MegaDeltaScaleBenchmark:
                 yerr=r['synthetic_nER_star_std'],
                 fmt='none', ecolor=col, capsize=3, alpha=0.7
             )
+            y_off = 0.012 if r['synthetic_nER_star_mean'] < 0.35 else -0.010
             ax4.annotate(
                 f"{r['delta_name']}",
-                (r['empirical_nER_star'] + 0.015, r['synthetic_nER_star_mean'] - 0.01),
+                (r['empirical_nER_star'] + 0.015, r['synthetic_nER_star_mean'] + y_off),
                 fontsize=9, fontweight='bold'
             )
 
-        lims = [0.35, 0.85]
+        all_emp_ner = [r['empirical_nER_star'] for r in rows]
+        all_synth_ner = [r['synthetic_nER_star_mean'] for r in rows]
+        min_v = min(min(all_emp_ner), min(all_synth_ner))
+        max_v = max(max(all_emp_ner), max(all_synth_ner))
+        lim_low = min(0.20, max(0.0, float(np.floor((min_v - 0.05) * 10) / 10.0)))
+        lim_high = max(0.85, min(1.0, float(np.ceil((max_v + 0.05) * 10) / 10.0)))
+        lims = [lim_low, lim_high]
         ax4.plot(lims, lims, 'k--', alpha=0.6, label='1:1 Parity Line')
         ax4.fill_between(lims, [x - 0.1 for x in lims], [x + 0.1 for x in lims], color='gray', alpha=0.12, label=r'$\pm 0.10$ Error Band')
         ax4.set_xlim(lims)
@@ -328,7 +335,7 @@ class MegaDeltaScaleBenchmark:
         ax4.set_xlabel(r'Empirical $\text{nER}^*$ (DIDNT)', fontsize=11, fontweight='bold')
         ax4.set_ylabel(r'DGM Synthetic $\text{nER}^*$', fontsize=11, fontweight='bold')
         ax4.set_title(r'(d) Mega-Scale Flow Entropy Parity', fontsize=12, fontweight='bold', pad=8)
-        ax4.legend(loc='lower right', fontsize=8.5, frameon=True)
+        ax4.legend(loc='upper left', fontsize=8.5, frameon=True, facecolor='white', framealpha=0.9)
         ax4.grid(True, linestyle='--', alpha=0.4)
 
         plt.suptitle("DGM Mega-Scale Delta Benchmark: Validation Against Planetary Giants (N >= 600 - 3,000)",
@@ -407,17 +414,16 @@ class MegaDeltaScaleBenchmark:
             lbl = METRIC_LABELS.get(k, k)
             lines.append(f"| **{lbl}** | `{k}` | {g['mae']:.4f} | {g['rmse']:.4f} | {g['nrmse']:.4f} |")
 
-        parent_dir = path.parent
         lines.extend([
             "",
             "---",
             "",
             "## 4. Benchmark Artifacts & Deliverables",
             "",
-            f"- **Tabular Data**: `{parent_dir / 'mega_delta_benchmark_results.csv'}`",
-            f"- **JSON Summary**: `{parent_dir / 'mega_delta_benchmark_summary.json'}`",
-            f"- **Comparative Figure**: `{parent_dir / 'mega_delta_scale_benchmark.png'}`",
-            f"- **Markdown Report**: `{path}`",
+            "- **Tabular Data**: [`mega_delta_benchmark_results.csv`](mega_delta_benchmark_results.csv)",
+            "- **JSON Summary**: [`mega_delta_benchmark_summary.json`](mega_delta_benchmark_summary.json)",
+            "- **Comparative Figure**: [`mega_delta_scale_benchmark.png`](mega_delta_scale_benchmark.png)",
+            "- **Markdown Report**: [`MEGA_DELTA_BENCHMARK_REPORT.md`](MEGA_DELTA_BENCHMARK_REPORT.md)",
         ])
 
         with open(path, 'w', encoding='utf-8') as f:

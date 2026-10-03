@@ -124,6 +124,24 @@ See [docs/configuration.md](docs/configuration.md) for the complete schema and p
 
 ---
 
+## Empirical Validation & Benchmarks
+
+DGM includes rigorous benchmarking suites validating synthetic networks against real-world observations:
+
+- **28-Delta Global Empirical Validation**: Exercises DGM across the complete DIDNT dataset ([Hariharan et al., 2021](https://doi.org/10.1029/2021WR030026)), verifying that 89.3% of empirical deltas fall within the 95% PCA confidence ellipse.
+  ```bash
+  uv run python examples/04_empirical_validation_benchmark.py --enable-pruning --simplify-chains
+  ```
+  Full Report: [outputs/VALIDATION_REPORT.md](outputs/VALIDATION_REPORT.md)
+
+- **Planetary Mega-Delta Scale Benchmark**: Exercises DGM at full empirical scale ($N \ge 600 - 3,000$ nodes) across Earth's four largest distributary systems: Lena ($N=2,914$), GBMD ($N=2,488$), Amazon ($N=1,094$), and Niger ($N=651$).
+  ```bash
+  uv run python examples/05_mega_delta_scale_benchmark.py --realizations 2
+  ```
+  Full Report: [outputs/MEGA_DELTA_BENCHMARK_REPORT.md](outputs/MEGA_DELTA_BENCHMARK_REPORT.md)
+
+---
+
 ## Running Tests
 
 Run the full pytest suite with `uv`:
@@ -144,6 +162,9 @@ Comprehensive documentation is available in the [`docs/`](docs/) directory:
 - [Tutorial 1: Quickstart](docs/tutorials/01_quickstart.md)
 - [Tutorial 2: Ensemble Sampling](docs/tutorials/02_ensemble_clouds.md)
 - [Developer & Agent Guide](AGENTS.md)
+- [Global Empirical Validation Report](outputs/VALIDATION_REPORT.md)
+- [Planetary Mega-Delta Benchmark Report](outputs/MEGA_DELTA_BENCHMARK_REPORT.md)
+
 
 ---
 

@@ -71,6 +71,9 @@ uv run --extra dev pytest tests --cov=dgm
 # Run single realization example
 uv run python examples/01_single_realization.py
 
+# Run custom YAML stochastic ensemble example
+uv run python examples/02_custom_yaml_ensemble.py
+
 # Run river vs tide comparison
 uv run python examples/03_compare_river_vs_tide.py
 
@@ -83,8 +86,9 @@ uv run python examples/05_mega_delta_scale_benchmark.py --realizations 2
 # Run physical module reality check diagnostics
 uv run python -m dgm.benchmarks.reality_check_diagnostics
 
-# Use DGM CLI
+# Use DGM CLI (single realization or ensemble sampling)
 uv run dgm generate -N 45 -R 0.5 -s 42 -o delta.graphml
+uv run dgm ensemble -N 50 -R 0.5 -n 30 --sample-parameters -o ensemble.csv
 ```
 
 ---

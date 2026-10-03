@@ -92,6 +92,15 @@ def to_geojson(G: nx.DiGraph, path: Optional[Union[str, Path]] = None) -> Dict[s
             'properties': props
         })
 
+    def _json_serialize_fallback(obj: Any) -> Any:
+        if hasattr(obj, "tolist"):
+            return obj.tolist()
+        if isinstance(obj, (set, frozenset)):
+            return list(obj)
+        if isinstance(obj, Path):
+            return str(obj)
+        return str(obj)
+
     fc = {
         'type': 'FeatureCollection',
         'features': features,
@@ -102,7 +111,7 @@ def to_geojson(G: nx.DiGraph, path: Optional[Union[str, Path]] = None) -> Dict[s
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, 'w', encoding='utf-8') as f:
-            json.dump(fc, f, indent=2)
+            json.dump(fc, f, indent=2, default=_json_serialize_fallback)
 
     return fc
 

@@ -2,7 +2,7 @@
 Jordan Curve Theorem planarity filtering and geometric graph utilities for DGM.
 """
 
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Any
 import math
 import networkx as nx
 
@@ -81,12 +81,32 @@ def segments_intersect(
 def edge_intersects_graph(
     p1: Tuple[float, float],
     p2: Tuple[float, float],
-    existing_edges: List[Tuple[Tuple[float, float], Tuple[float, float]]]
+    existing_edges: List[Any]
 ) -> bool:
     """
     Checks if a candidate line segment (p1, p2) intersects any existing edge in the graph.
+    Employs fast inlined 2D AABB bounding-box rejection before Jordan Curve evaluation.
     """
-    for e_q1, e_q2 in existing_edges:
+    p1x, p1y = p1
+    p2x, p2y = p2
+    min_px = p1x if p1x < p2x else p2x
+    max_px = p2x if p1x < p2x else p1x
+    min_py = p1y if p1y < p2y else p2y
+    max_py = p2y if p1y < p2y else p1y
+
+    for edge in existing_edges:
+        e_q1, e_q2 = edge[0], edge[1]
+        q1x, q1y = e_q1
+        q2x, q2y = e_q2
+        min_qx = q1x if q1x < q2x else q2x
+        max_qx = q2x if q1x < q2x else q1x
+        min_qy = q1y if q1y < q2y else q2y
+        max_qy = q2y if q1y < q2y else q1y
+
+        # Fast inlined AABB rejection: disjoint bounding boxes cannot intersect
+        if max_px < min_qx or min_px > max_qx or max_py < min_qy or min_py > max_qy:
+            continue
+
         if segments_intersect(p1, p2, e_q1, e_q2):
             return True
     return False

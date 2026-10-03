@@ -41,43 +41,51 @@ def point_to_segment_distance(
 def compute_edge_clearance(
     G: nx.DiGraph,
     u: Any,
-    v: Any
+    v: Any,
+    edge_records: Optional[List[Any]] = None,
+    node_coords: Optional[Dict[Any, Tuple[float, float]]] = None
 ) -> float:
     """
     Computes the minimum spatial clearance distance from edge (u, v) (sampled along
     meander crests and midpoint) to all other non-incident channel edges in the network.
     If any non-incident edges cross or touch, clearance is 0.0.
     """
-    p_u = (float(G.nodes[u].get('x', 0.0)), float(G.nodes[u].get('y', 0.0)))
-    p_v = (float(G.nodes[v].get('x', 0.0)), float(G.nodes[v].get('y', 0.0)))
+    if node_coords is None:
+        p_u = (float(G.nodes[u].get('x', 0.0)), float(G.nodes[u].get('y', 0.0)))
+        p_v = (float(G.nodes[v].get('x', 0.0)), float(G.nodes[v].get('y', 0.0)))
+    else:
+        p_u = node_coords[u]
+        p_v = node_coords[v]
 
-    incident_nodes = {u, v}
     min_dist = float('inf')
 
     # Sample interior points along (u, v) at quarter points (crests) and midpoint
-    sample_points = [
+    sample_points = (
         (0.5 * (p_u[0] + p_v[0]), 0.5 * (p_u[1] + p_v[1])),
         (0.75 * p_u[0] + 0.25 * p_v[0], 0.75 * p_u[1] + 0.25 * p_v[1]),
         (0.25 * p_u[0] + 0.75 * p_v[0], 0.25 * p_u[1] + 0.75 * p_v[1]),
-    ]
+    )
 
-    min_pu_pv_x = min(p_u[0], p_v[0])
-    max_pu_pv_x = max(p_u[0], p_v[0])
-    min_pu_pv_y = min(p_u[1], p_v[1])
-    max_pu_pv_y = max(p_u[1], p_v[1])
+    min_pu_pv_x = p_u[0] if p_u[0] < p_v[0] else p_v[0]
+    max_pu_pv_x = p_v[0] if p_u[0] < p_v[0] else p_u[0]
+    min_pu_pv_y = p_u[1] if p_u[1] < p_v[1] else p_v[1]
+    max_pu_pv_y = p_v[1] if p_u[1] < p_v[1] else p_u[1]
 
-    for edge_u, edge_v in G.edges():
-        # Skip identical or incident edges sharing a node
-        if edge_u in incident_nodes or edge_v in incident_nodes:
+    if edge_records is None:
+        if node_coords is None:
+            node_coords = {n: (float(d.get('x', 0.0)), float(d.get('y', 0.0))) for n, d in G.nodes(data=True)}
+        edge_records = []
+        for edge_u, edge_v in G.edges():
+            a = node_coords[edge_u]
+            b = node_coords[edge_v]
+            edge_records.append((
+                edge_u, edge_v, a, b,
+                min(a[0], b[0]), max(a[0], b[0]), min(a[1], b[1]), max(a[1], b[1])
+            ))
+
+    for edge_u, edge_v, a, b, min_ab_x, max_ab_x, min_ab_y, max_ab_y in edge_records:
+        if edge_u == u or edge_u == v or edge_v == u or edge_v == v:
             continue
-
-        a = (float(G.nodes[edge_u].get('x', 0.0)), float(G.nodes[edge_u].get('y', 0.0)))
-        b = (float(G.nodes[edge_v].get('x', 0.0)), float(G.nodes[edge_v].get('y', 0.0)))
-
-        min_ab_x = min(a[0], b[0])
-        max_ab_x = max(a[0], b[0])
-        min_ab_y = min(a[1], b[1])
-        max_ab_y = max(a[1], b[1])
 
         # Bounding box clearance rejection: if bbox distance exceeds min_dist, cannot be closer
         if min_dist < float('inf'):
@@ -115,18 +123,29 @@ def apply_channel_proximity_constraints(
     clearance_fraction = max(0.05, min(1.0, float(clearance_fraction)))
     min_amplitude_floor = max(0.0, float(min_amplitude_floor))
 
+    # Pre-extract all node coordinates and edge bounding boxes once for O(E^2) acceleration
+    node_coords = {n: (float(d.get('x', 0.0)), float(d.get('y', 0.0))) for n, d in G.nodes(data=True)}
+    edge_records = []
+    for edge_u, edge_v in G.edges():
+        a = node_coords[edge_u]
+        b = node_coords[edge_v]
+        edge_records.append((
+            edge_u, edge_v, a, b,
+            min(a[0], b[0]), max(a[0], b[0]), min(a[1], b[1]), max(a[1], b[1])
+        ))
+
     for u, v, d in G.edges(data=True):
         straight_dist = float(d.get('straight_distance', 0.0))
         if straight_dist <= 1e-6:
-            x_u, y_u = float(G.nodes[u].get('x', 0.0)), float(G.nodes[u].get('y', 0.0))
-            x_v, y_v = float(G.nodes[v].get('x', 0.0)), float(G.nodes[v].get('y', 0.0))
-            straight_dist = max(1.0, math.hypot(x_v - x_u, y_v - y_u))
+            p_u = node_coords[u]
+            p_v = node_coords[v]
+            straight_dist = max(1.0, math.hypot(p_v[0] - p_u[0], p_v[1] - p_u[1]))
             d['straight_distance'] = straight_dist
 
         target_sin = float(d.get('sinuosity', 1.0))
 
-        # Compute clearance to non-incident channels
-        clearance = compute_edge_clearance(G, u, v)
+        # Compute clearance to non-incident channels with precomputed records
+        clearance = compute_edge_clearance(G, u, v, edge_records=edge_records, node_coords=node_coords)
         d['clearance_distance'] = clearance
 
         if math.isinf(clearance):
@@ -179,9 +198,20 @@ def generate_channel_centerlines(
     # Meander crest fractions for direction selection across all wave lobes
     crest_s_values = [(2 * k - 1) / (4.0 * num_bends) for k in range(1, 2 * num_bends + 1)]
 
+    # Pre-extract all node coordinates and edge bounding boxes once
+    node_coords = {n: (float(d.get('x', 0.0)), float(d.get('y', 0.0))) for n, d in G.nodes(data=True)}
+    edge_records = []
+    for edge_u, edge_v in G.edges():
+        a = node_coords[edge_u]
+        b = node_coords[edge_v]
+        edge_records.append((
+            edge_u, edge_v, a, b,
+            min(a[0], b[0]), max(a[0], b[0]), min(a[1], b[1]), max(a[1], b[1])
+        ))
+
     for u, v, d in G.edges(data=True):
-        x_u, y_u = float(G.nodes[u].get('x', 0.0)), float(G.nodes[u].get('y', 0.0))
-        x_v, y_v = float(G.nodes[v].get('x', 0.0)), float(G.nodes[v].get('y', 0.0))
+        x_u, y_u = node_coords[u]
+        x_v, y_v = node_coords[v]
         chord = math.hypot(x_v - x_u, y_v - y_u)
         straight_dist = float(d.get('straight_distance', chord))
 
@@ -247,11 +277,9 @@ def generate_channel_centerlines(
             p_pos = (mid_x + disp * nx_val, mid_y + disp * ny_val)
             p_neg = (mid_x - disp * nx_val, mid_y - disp * ny_val)
 
-            for other_u, other_v in G.edges():
+            for other_u, other_v, seg_a, seg_b, min_ab_x, max_ab_x, min_ab_y, max_ab_y in edge_records:
                 if other_u in incident_nodes or other_v in incident_nodes:
                     continue
-                seg_a = (float(G.nodes[other_u].get('x', 0.0)), float(G.nodes[other_u].get('y', 0.0)))
-                seg_b = (float(G.nodes[other_v].get('x', 0.0)), float(G.nodes[other_v].get('y', 0.0)))
                 d_pos = point_to_segment_distance(p_pos, seg_a, seg_b)
                 d_neg = point_to_segment_distance(p_neg, seg_a, seg_b)
                 if d_pos < clearance_pos:

@@ -44,6 +44,9 @@ dgm = "dgm.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+dgm = ["*.yaml", "config/*.yaml"]
+
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra -q --import-mode=importlib"

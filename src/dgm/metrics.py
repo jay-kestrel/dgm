@@ -146,16 +146,16 @@ class MetricsBattery:
         C, W, phi = solve_markov_flux(G, params)
         n_map = {n: idx for idx, n in enumerate(nodes)}
 
-        # Non-Local Entropy Rate (nER)
-        ner = 0.0
-        max_ner = 0.0
-        for i in range(N):
-            out_degrees = np.count_nonzero(W[i, :])
-            if out_degrees > 1:
-                max_ner += phi[i] * math.log2(out_degrees)
-            for j in range(N):
-                if W[i, j] > 1e-12:
-                    ner -= phi[i] * W[i, j] * math.log2(W[i, j])
+        # Non-Local Entropy Rate (nER) - Vectorized over non-zero transitions
+        nonzero_mask = W > 1e-12
+        out_degrees = np.sum(nonzero_mask, axis=1)
+        valid_branching = out_degrees > 1
+        max_ner = float(np.sum(phi[valid_branching] * np.log2(out_degrees[valid_branching])))
+
+        i_indices, j_indices = np.nonzero(nonzero_mask)
+        w_vals = W[i_indices, j_indices]
+        phi_vals = phi[i_indices]
+        ner = -float(np.sum(phi_vals * w_vals * np.log2(w_vals)))
 
         ner_star = float(ner / max_ner) if max_ner > 1e-12 else 0.0
         ner_star = min(1.0, max(0.0, ner_star))
