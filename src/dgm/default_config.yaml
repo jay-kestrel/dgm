@@ -24,7 +24,7 @@ model:
 # --- Step 1: Polar Domain Geometry ---
 domain:
   r_shore: 10000.0               # Shoreline radius in meters (apex at r=0)
-  theta_base: 45.0               # Baseline opening angle in degrees (at R_rt=0)
+  theta_base: 65.0               # Baseline opening angle in degrees (at R_rt=0)
   theta_delta: 60.0              # Tidal/wave angular spreading expansion in degrees
   confinement: 0.0               # Lateral valley confinement factor in [0.0, 0.95]:
                                  # 0.0 = completely unconfined open marine fan
@@ -68,6 +68,7 @@ loops:
 pruning:
   enable_pruning: false              # If true, prune dead-end inland spurs and simplify chains before hydraulics
   prune_inland_dead_ends: true       # Remove blind channels that terminate inland without reaching shoreline
+  outlet_tolerance: 0.05             # Proximity tolerance fraction for shoreline delivery (r >= r_shore * (1 - outlet_tolerance))
   min_spur_length: 0.0               # Minimum length in meters below which terminal spurs are pruned (0.0 = all inland dead-ends)
   simplify_pass_through_nodes: false # If true, contract degree-2 pass-through nodes into unified edges
   max_prune_iterations: 5            # Maximum recursive iterations for cascading spur removal
@@ -82,6 +83,8 @@ hydraulics:
   apex_width: 250.0              # Apex feeder channel width in meters
   width_noise: 0.30              # Erodibility / vegetation width heterogeneity (log-normal sigma)
   tidal_flare_k: 1.40            # Exponential shoreline mouth flaring rate
+  tidal_flare_onset: 0.30        # Seaward radial fraction (r/r_shore) where tidal mouth flaring initiates
+  loop_flow_penalty: 0.40        # Relative conveyance penalty factor for cross-tie loop channels vs tree branches
   min_channel_width: 0.1         # Minimum physical channel width cutoff in meters
   relaxation_max_iter: 15        # Iterative relaxation max iterations for cyclic networks
   relaxation_tol: 0.0001         # Convergence tolerance for hydraulic relaxation
@@ -127,8 +130,8 @@ distributions:
     high: 15000.0
   theta_base:
     type: "uniform"
-    low: 30.0
-    high: 60.0
+    low: 50.0
+    high: 80.0
   theta_delta:
     type: "uniform"
     low: 45.0
@@ -145,6 +148,14 @@ distributions:
     type: "uniform"
     low: 0.80
     high: 2.00
+  tidal_flare_onset:
+    type: "uniform"
+    low: 0.10
+    high: 0.50
+  loop_flow_penalty:
+    type: "uniform"
+    low: 0.20
+    high: 0.70
   confinement:
     type: "uniform"
     low: 0.0
@@ -161,6 +172,10 @@ distributions:
     type: "uniform"
     low: 0.20
     high: 0.50
+  outlet_tolerance:
+    type: "uniform"
+    low: 0.02
+    high: 0.10
   min_spur_length:
     type: "uniform"
     low: 0.0

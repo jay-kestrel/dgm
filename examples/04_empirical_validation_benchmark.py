@@ -1,13 +1,15 @@
 """
 Example 04: Empirical Validation Benchmark Against Real-World Deltas.
 Demonstrates:
-  1. Loading the 28 empirical real-world deltas from the DIDNT dataset
+  1. Loading the 28 empirical real-world deltas from the DIDNT dataset (Hariharan et al., 2021)
   2. Conditioning DGM on empirical node count N and marine forcing ratio R_rt
-  3. Generating stochastic ensemble clouds with parameter sampling enabled
-  4. Evaluating the 20-metric geomorphic battery across empirical and synthetic networks
-  5. Computing quantitative goodness-of-fit (MAE, RMSE, NRMSE, R²)
-  6. Verifying cloud coverage via [p10, p90] envelopes and 95% Mahalanobis hyper-ellipsoid
-  7. Exporting presentation-ready CSV, JSON, PNG, and Markdown deliverables to dgm/outputs/
+  3. Broadening parameter space exploration across physical distributions, forcing uncertainty (R_rt ± ΔR),
+     network extraction resolution jitter (N ± δ_N), and stochastic spur pruning
+  4. Generating stochastic ensemble clouds with multi-realization sampling (e.g., 30-50+ realizations/delta)
+  5. Evaluating the 20-metric geomorphic battery across empirical and synthetic networks
+  6. Computing quantitative goodness-of-fit (MAE, RMSE, NRMSE, R²)
+  7. Verifying empirical cloud encapsulation via [p10, p90] envelopes, [min, max] coverage, and 95% Mahalanobis hyper-ellipsoids
+  8. Exporting presentation-ready CSV, JSON, PNG, and Markdown deliverables to dgm/outputs/
 """
 
 import argparse
@@ -62,17 +64,39 @@ def main():
         description="Run DGM Empirical Real-World Delta Validation Benchmark Suite"
     )
     parser.add_argument(
-        "--realizations", "-r", type=int, default=10,
-        help="Number of stochastic realizations per empirical delta (default: 10)"
+        "--realizations", "-r", type=int, default=30,
+        help="Number of stochastic realizations per empirical delta (default: 30)"
     )
     parser.add_argument(
-        "--max-nodes", "-m", type=int, default=75,
-        help="Node budget cap for synthetic realization generation (default: 75)"
+        "--max-nodes", "-m", type=int, default=85,
+        help="Node budget cap for synthetic realization generation (default: 85)"
+    )
+    parser.add_argument(
+        "--exploration-mode", "--mode", type=str, default="broad",
+        choices=["broad", "regime_aware", "standard"],
+        help="Parameter space exploration mode: 'broad' (wide stochastic cloud across physics), "
+             "'regime_aware' (hydrodynamic regime priors), or 'standard' (point-estimate baseline) (default: broad)"
+    )
+    parser.add_argument(
+        "--r-rt-uncertainty", type=float, default=0.15,
+        help="Hydrodynamic forcing ratio uncertainty window half-width (default: 0.15)"
+    )
+    parser.add_argument(
+        "--node-jitter", type=float, default=0.15,
+        help="Extraction resolution node budget jitter fraction (default: 0.15)"
     )
     parser.add_argument(
         "--mechanism", type=str, default="potential_field",
-        choices=["potential_field", "ner_optimality"],
-        help="Loop creation mechanism (default: potential_field)"
+        choices=["potential_field", "ner_optimality", "ensemble"],
+        help="Loop creation mechanism: 'potential_field', 'ner_optimality', or 'ensemble' (default: potential_field)"
+    )
+    parser.add_argument(
+        "--sample-pruning", dest="sample_pruning", action="store_true", default=True,
+        help="Stochastically vary spur pruning and chain simplification across realizations (default: True)"
+    )
+    parser.add_argument(
+        "--no-sample-pruning", dest="sample_pruning", action="store_false",
+        help="Disable stochastic pruning exploration across realizations"
     )
     parser.add_argument(
         "--seed", "-s", type=int, default=42,
@@ -80,7 +104,7 @@ def main():
     )
     parser.add_argument(
         "--enable-pruning", action="store_true", default=False,
-        help="Enable pre-hydraulic dead-end spur pruning (default: False)"
+        help="Enable baseline pre-hydraulic dead-end spur pruning (default: False)"
     )
     parser.add_argument(
         "--simplify-chains", action="store_true", default=False,
@@ -112,9 +136,11 @@ def main():
     print(f"Output Directory:      {out_dir}")
     print(f"Realizations / Delta:  {args.realizations}")
     print(f"Node Budget Cap:       {args.max_nodes}")
+    print(f"Exploration Mode:      {args.exploration_mode}")
+    print(f"R_rt Uncertainty:      +/-{args.r_rt_uncertainty:.2f}")
+    print(f"Node Budget Jitter:    +/-{args.node_jitter*100:.0f}%")
     print(f"Loop Mechanism:        {args.mechanism}")
-    print(f"Pruning Enabled:       {args.enable_pruning}")
-    print(f"Simplify Chains:       {args.simplify_chains}")
+    print(f"Stochastic Pruning:    {args.sample_pruning}")
     print(f"Base Random Seed:      {args.seed}")
     print("-" * 78)
 
@@ -137,6 +163,10 @@ def main():
         max_nodes=args.max_nodes,
         loop_mechanism=args.mechanism,
         sample_parameters=True,
+        exploration_mode=args.exploration_mode,
+        r_rt_uncertainty=args.r_rt_uncertainty,
+        node_jitter=args.node_jitter,
+        sample_pruning=args.sample_pruning,
         base_seed=args.seed,
         config=args.config,
         **overrides,

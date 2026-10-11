@@ -29,6 +29,15 @@ def test_config_validation():
     with pytest.raises(ValueError, match="loop_mechanism must be"):
         DGMConfig(loop_mechanism="invalid_mech")
 
+    with pytest.raises(ValueError, match="outlet_tolerance must be in"):
+        DGMConfig(outlet_tolerance=0.9)
+
+    with pytest.raises(ValueError, match="tidal_flare_onset must be in"):
+        DGMConfig(tidal_flare_onset=1.5)
+
+    with pytest.raises(ValueError, match="loop_flow_penalty must be in"):
+        DGMConfig(loop_flow_penalty=0.0)
+
 
 def test_config_yaml_roundtrip():
     cfg = DGMConfig(N=64, R_rt=0.75, loop_mechanism="ner_optimality", seed=999)
@@ -68,3 +77,43 @@ def test_sample_parameters_from_config():
     assert 1.20 <= sampled["murray_p"] <= 2.20
     assert 0.50 <= sampled["width_beta"] <= 0.99
     assert 5000.0 <= sampled["r_shore"] <= 15000.0
+    assert 0.10 <= sampled["tidal_flare_onset"] <= 0.50
+    assert 0.20 <= sampled["loop_flow_penalty"] <= 0.70
+    assert 0.02 <= sampled["outlet_tolerance"] <= 0.10
+
+
+def test_set_parameter_scalar_and_distributions():
+    cfg = DGMConfig.load_default()
+
+    # 1. Setting fixed scalar removes from distributions so it stays fixed during sampling
+    cfg.set_parameter("tidal_flare_onset", 0.55)
+    assert cfg.tidal_flare_onset == 0.55
+    assert "tidal_flare_onset" not in cfg.distributions
+    sampled = cfg.sample_distribution_parameters()
+    assert sampled["tidal_flare_onset"] == 0.55
+
+    # 2. Setting uniform tuple adds to distributions and sets baseline to midpoint
+    cfg.set_parameter("tidal_flare_onset", (0.40, 0.60))
+    assert cfg.tidal_flare_onset == 0.50
+    assert "tidal_flare_onset" in cfg.distributions
+    assert cfg.distributions["tidal_flare_onset"] == {"type": "uniform", "low": 0.40, "high": 0.60}
+
+    # 3. Setting distribution spec dict
+    spec = {"type": "normal", "mean": 0.55, "std": 0.05, "min": 0.30, "max": 0.80}
+    cfg.set_parameter("tidal_flare_onset", spec)
+    assert cfg.tidal_flare_onset == 0.55
+    assert cfg.distributions["tidal_flare_onset"] == spec
+
+
+def test_load_default_with_tuple_and_scalar_overrides():
+    # Test tuple range override
+    cfg_tuple = DGMConfig.load_default(tidal_flare_onset=(0.35, 0.65))
+    assert cfg_tuple.tidal_flare_onset == 0.50
+    assert cfg_tuple.distributions["tidal_flare_onset"]["low"] == 0.35
+    assert cfg_tuple.distributions["tidal_flare_onset"]["high"] == 0.65
+
+    # Test fixed scalar override
+    cfg_scalar = DGMConfig.load_default(tidal_flare_onset=0.55)
+    assert cfg_scalar.tidal_flare_onset == 0.55
+    assert "tidal_flare_onset" not in cfg_scalar.distributions
+

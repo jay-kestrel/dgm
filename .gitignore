@@ -49,3 +49,7 @@ htmlcov/
 outputs/
 figures_cache/
 *.log
+
+# writeup
+writeup/
+writeup/*

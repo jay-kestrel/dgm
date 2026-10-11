@@ -83,7 +83,7 @@ class ParameterBounds:
     length_gamma_range: Tuple[float, float] = (0.40, 0.60)
     apex_width_range: Tuple[float, float] = (50.0, 500.0)
     r_shore_range: Tuple[float, float] = (5000.0, 15000.0)
-    theta_base_range: Tuple[float, float] = (30.0, 60.0)
+    theta_base_range: Tuple[float, float] = (50.0, 80.0)
     theta_delta_range: Tuple[float, float] = (45.0, 90.0)
     width_noise_range: Tuple[float, float] = (0.15, 0.50)
     candidate_dist_scale_range: Tuple[float, float] = (0.15, 0.35)
@@ -93,6 +93,9 @@ class ParameterBounds:
     coastal_sinuosity_decay_range: Tuple[float, float] = (0.0, 0.90)
     min_channel_clearance_range: Tuple[float, float] = (0.05, 0.80)
     min_spur_length_range: Tuple[float, float] = (0.0, 500.0)
+    tidal_flare_onset_range: Tuple[float, float] = (0.10, 0.50)
+    loop_flow_penalty_range: Tuple[float, float] = (0.20, 0.70)
+    outlet_tolerance_range: Tuple[float, float] = (0.02, 0.10)
 
     def sample(self, rng: np.random.Generator) -> Dict[str, float]:
         """Samples a single parameter set from uniform distributions within bounds."""
@@ -108,10 +111,13 @@ class ParameterBounds:
             'width_noise': float(rng.uniform(*self.width_noise_range)),
             'candidate_dist_scale': float(rng.uniform(*self.candidate_dist_scale_range)),
             'tidal_flare_k': float(rng.uniform(*self.tidal_flare_k_range)),
+            'tidal_flare_onset': float(rng.uniform(*self.tidal_flare_onset_range)),
+            'loop_flow_penalty': float(rng.uniform(*self.loop_flow_penalty_range)),
             'confinement': float(rng.uniform(*self.confinement_range)),
             'coastal_node_decay': float(rng.uniform(*self.coastal_node_decay_range)),
             'coastal_sinuosity_decay': float(rng.uniform(*self.coastal_sinuosity_decay_range)),
             'min_channel_clearance': float(rng.uniform(*self.min_channel_clearance_range)),
+            'outlet_tolerance': float(rng.uniform(*self.outlet_tolerance_range)),
             'min_spur_length': float(rng.uniform(*self.min_spur_length_range)),
         }
 
@@ -129,10 +135,13 @@ class ParameterBounds:
             'width_noise': float(np.mean(self.width_noise_range)),
             'candidate_dist_scale': float(np.mean(self.candidate_dist_scale_range)),
             'tidal_flare_k': float(np.mean(self.tidal_flare_k_range)),
+            'tidal_flare_onset': float(np.mean(self.tidal_flare_onset_range)),
+            'loop_flow_penalty': float(np.mean(self.loop_flow_penalty_range)),
             'confinement': float(np.mean(self.confinement_range)),
             'coastal_node_decay': float(np.mean(self.coastal_node_decay_range)),
             'coastal_sinuosity_decay': float(np.mean(self.coastal_sinuosity_decay_range)),
             'min_channel_clearance': float(np.mean(self.min_channel_clearance_range)),
+            'outlet_tolerance': float(np.mean(self.outlet_tolerance_range)),
             'min_spur_length': float(np.mean(self.min_spur_length_range)),
         }
 
@@ -153,7 +162,7 @@ class DGMConfig:
 
     # Domain section
     r_shore: float = 10000.0
-    theta_base: float = 45.0
+    theta_base: float = 65.0
     theta_delta: float = 60.0
     confinement: float = 0.0
     lateral_valley_width: Optional[float] = None
@@ -188,6 +197,7 @@ class DGMConfig:
     # Pruning & topological simplification section
     enable_pruning: bool = False
     prune_inland_dead_ends: bool = True
+    outlet_tolerance: float = 0.05
     min_spur_length: float = 0.0
     simplify_pass_through_nodes: bool = False
     max_prune_iterations: int = 5
@@ -201,6 +211,8 @@ class DGMConfig:
     apex_width: float = 250.0
     width_noise: float = 0.30
     tidal_flare_k: float = 1.40
+    tidal_flare_onset: float = 0.30
+    loop_flow_penalty: float = 0.40
     min_channel_width: float = 0.1
     relaxation_max_iter: int = 15
     relaxation_tol: float = 1e-4
@@ -268,8 +280,14 @@ class DGMConfig:
             raise ValueError(f"meander_bends must be >= 1 (received {self.meander_bends}).")
         if self.min_spur_length < 0.0:
             raise ValueError(f"min_spur_length must be >= 0.0 (received {self.min_spur_length}).")
+        if not (0.001 <= self.outlet_tolerance <= 0.50):
+            raise ValueError(f"outlet_tolerance must be in [0.001, 0.50] (received {self.outlet_tolerance}).")
         if self.max_prune_iterations < 1:
             raise ValueError(f"max_prune_iterations must be >= 1 (received {self.max_prune_iterations}).")
+        if not (0.0 <= self.tidal_flare_onset < 1.0):
+            raise ValueError(f"tidal_flare_onset must be in [0.0, 1.0) (received {self.tidal_flare_onset}).")
+        if not (0.0 < self.loop_flow_penalty <= 1.0):
+            raise ValueError(f"loop_flow_penalty must be in (0.0, 1.0] (received {self.loop_flow_penalty}).")
         if self.apex_width <= 0:
             raise ValueError(f"apex_width must be > 0 (received {self.apex_width}).")
         if self.theta_base <= 0:
@@ -370,8 +388,44 @@ class DGMConfig:
         if "branching_weights" in kwargs and isinstance(kwargs["branching_weights"], list):
             kwargs["branching_weights"] = tuple(kwargs["branching_weights"])
 
+        # Check section parameters for inline distribution specifications
+        dists = dict(kwargs.get("distributions", {}))
+        for sec_name in (model_sec, domain_sec, backbone_sec, loops_sec, pruning_sec, hydraulics_sec, channel_geom_sec):
+            for k, v in sec_name.items():
+                if isinstance(v, dict) and "type" in v:
+                    dists[k] = copy.deepcopy(v)
+                    if v["type"] == "uniform":
+                        kwargs[k] = (float(v.get("low", 0.0)) + float(v.get("high", 1.0))) / 2.0
+                    elif v["type"] in ("normal", "gaussian", "lognormal"):
+                        kwargs[k] = float(v.get("mean", 0.0))
+                    elif v["type"] in ("fixed", "constant"):
+                        kwargs[k] = float(v.get("value", 0.0))
+                elif isinstance(v, (tuple, list)) and len(v) == 2 and k != "branching_weights" and all(isinstance(x, (int, float)) for x in v):
+                    low, high = float(v[0]), float(v[1])
+                    dists[k] = {"type": "uniform", "low": low, "high": high}
+                    kwargs[k] = (low + high) / 2.0
+
         # Apply direct user overrides
-        kwargs.update(overrides)
+        for k, v in overrides.items():
+            if k == "distributions" and isinstance(v, dict):
+                dists.update(v)
+            elif isinstance(v, dict) and "type" in v:
+                dists[k] = copy.deepcopy(v)
+                if v["type"] == "uniform":
+                    kwargs[k] = (float(v.get("low", 0.0)) + float(v.get("high", 1.0))) / 2.0
+                elif v["type"] in ("normal", "gaussian", "lognormal"):
+                    kwargs[k] = float(v.get("mean", 0.0))
+                elif v["type"] in ("fixed", "constant"):
+                    kwargs[k] = float(v.get("value", 0.0))
+            elif isinstance(v, (tuple, list)) and len(v) == 2 and k != "branching_weights" and all(isinstance(x, (int, float)) for x in v):
+                low, high = float(v[0]), float(v[1])
+                dists[k] = {"type": "uniform", "low": low, "high": high}
+                kwargs[k] = (low + high) / 2.0
+            else:
+                kwargs[k] = v
+                dists.pop(k, None)
+
+        kwargs["distributions"] = dists
 
         valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
         filtered_kwargs: Dict[str, Any] = {}
@@ -432,6 +486,7 @@ class DGMConfig:
             "pruning": {
                 "enable_pruning": self.enable_pruning,
                 "prune_inland_dead_ends": self.prune_inland_dead_ends,
+                "outlet_tolerance": self.outlet_tolerance,
                 "min_spur_length": self.min_spur_length,
                 "simplify_pass_through_nodes": self.simplify_pass_through_nodes,
                 "max_prune_iterations": self.max_prune_iterations,
@@ -445,6 +500,8 @@ class DGMConfig:
                 "apex_width": self.apex_width,
                 "width_noise": self.width_noise,
                 "tidal_flare_k": self.tidal_flare_k,
+                "tidal_flare_onset": self.tidal_flare_onset,
+                "loop_flow_penalty": self.loop_flow_penalty,
                 "min_channel_width": self.min_channel_width,
                 "relaxation_max_iter": self.relaxation_max_iter,
                 "relaxation_tol": self.relaxation_tol,
@@ -542,6 +599,7 @@ class DGMConfig:
             "sa_max_steps": self.sa_max_steps,
             "enable_pruning": self.enable_pruning,
             "prune_inland_dead_ends": self.prune_inland_dead_ends,
+            "outlet_tolerance": self.outlet_tolerance,
             "min_spur_length": self.min_spur_length,
             "simplify_pass_through_nodes": self.simplify_pass_through_nodes,
             "max_prune_iterations": self.max_prune_iterations,
@@ -553,6 +611,8 @@ class DGMConfig:
             "apex_width": self.apex_width,
             "width_noise": self.width_noise,
             "tidal_flare_k": self.tidal_flare_k,
+            "tidal_flare_onset": self.tidal_flare_onset,
+            "loop_flow_penalty": self.loop_flow_penalty,
             "min_channel_width": self.min_channel_width,
             "relaxation_max_iter": self.relaxation_max_iter,
             "relaxation_tol": self.relaxation_tol,
@@ -563,3 +623,41 @@ class DGMConfig:
             "extensions": copy.deepcopy(self.extensions),
         }
         return params
+
+    def set_parameter(
+        self,
+        name: str,
+        value_or_spec: Union[float, int, str, bool, Tuple[float, float], List[float], Dict[str, Any]],
+    ) -> None:
+        """
+        Sets a parameter as either a single fixed value, a uniform distribution (low, high),
+        or a full distribution specification dictionary.
+
+        Examples:
+            >>> cfg.set_parameter('tidal_flare_onset', 0.55)  # Fixed value, removes from stochastic sampling
+            >>> cfg.set_parameter('tidal_flare_onset', (0.35, 0.65))  # Uniform distribution [0.35, 0.65]
+            >>> cfg.set_parameter('tidal_flare_onset', {'type': 'normal', 'mean': 0.55, 'std': 0.05})
+        """
+        if isinstance(value_or_spec, dict) and "type" in value_or_spec:
+            self.distributions[name] = copy.deepcopy(value_or_spec)
+            if hasattr(self, name):
+                if value_or_spec["type"] == "uniform":
+                    setattr(self, name, (float(value_or_spec.get("low", 0.0)) + float(value_or_spec.get("high", 1.0))) / 2.0)
+                elif value_or_spec["type"] in ("normal", "gaussian", "lognormal"):
+                    setattr(self, name, float(value_or_spec.get("mean", 0.0)))
+                elif value_or_spec["type"] in ("fixed", "constant"):
+                    setattr(self, name, float(value_or_spec.get("value", 0.0)))
+        elif isinstance(value_or_spec, (tuple, list)) and len(value_or_spec) == 2 and name != "branching_weights" and all(isinstance(x, (int, float)) for x in value_or_spec):
+            low, high = float(value_or_spec[0]), float(value_or_spec[1])
+            self.distributions[name] = {"type": "uniform", "low": low, "high": high}
+            if hasattr(self, name):
+                setattr(self, name, (low + high) / 2.0)
+        else:
+            if hasattr(self, name):
+                setattr(self, name, value_or_spec)
+            else:
+                self.extensions[name] = value_or_spec
+            self.distributions.pop(name, None)
+
+        self.validate()
+

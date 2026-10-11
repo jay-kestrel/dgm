@@ -70,3 +70,22 @@ def test_benchmark_suite_subset_run(tmp_path):
     assert json_file.stat().st_size > 0
     assert fig_file.stat().st_size > 0
     assert rpt_file.stat().st_size > 0
+
+
+def test_broadened_exploration_mode(tmp_path):
+    suite = EmpiricalValidationBenchmark(
+        realizations_per_delta=3,
+        max_nodes=25,
+        exploration_mode="broad",
+        r_rt_uncertainty=0.10,
+        node_jitter=0.10,
+        sample_pruning=True,
+        base_seed=777,
+    )
+    suite.deltas = suite.deltas[:2]
+    res = suite.run(verbose=False)
+    assert "mahalanobis_analysis" in res
+    assert "synth_r_rt" in res
+    assert len(res["synth_r_rt"]) == 6  # 2 deltas * 3 realizations
+    assert res["benchmark_metadata"]["exploration_mode"] == "broad"
+    assert res["benchmark_metadata"]["r_rt_uncertainty"] == 0.10

@@ -141,36 +141,7 @@ class DIDNTLoader:
                 properties=props
             )
 
-        apex_node = None
-        for n in G.nodes():
-            if G.nodes[n].get('is_apex'):
-                apex_node = n
-                break
-
-        if apex_node is None:
-            valid_nodes = [
-                (n, G.nodes[n].get("distance_from_apex"))
-                for n in G.nodes()
-                if G.nodes[n].get("distance_from_apex") is not None
-            ]
-            if valid_nodes:
-                apex_node = min(valid_nodes, key=lambda item: item[1])[0]
-            elif len(G) > 0:
-                apex_node = list(G.nodes())[0]
-
-        if apex_node is not None and apex_node in G.nodes():
-            G.nodes[apex_node]['is_apex'] = True
-            G.nodes[apex_node]['node_type'] = 'apex'
-            apex_coord = (G.nodes[apex_node]['x'], G.nodes[apex_node]['y'])
-        else:
-            apex_coord = (0.0, 0.0)
-
-        for n, d in G.nodes(data=True):
-            dx = d['x'] - apex_coord[0]
-            dy = d['y'] - apex_coord[1]
-            d['r'] = float(math.hypot(dx, dy))
-            d['theta'] = float(math.atan2(dy, dx))
-
+        # Load links
         for feat in links_geojson.get('features', []):
             props = feat.get('properties', {})
             geom = feat.get('geometry', {})
@@ -218,6 +189,47 @@ class DIDNTLoader:
                 edge_type='tree',
                 properties=props
             )
+
+        # Remove completely isolated nodes (degree 0 artifacts in GeoJSON)
+        isolated = [n for n in G.nodes() if G.degree(n) == 0]
+        if isolated:
+            G.remove_nodes_from(isolated)
+
+        # Identify apex node (must have out_degree > 0 to feed flow into network)
+        apex_candidates = [
+            n for n in G.nodes()
+            if G.out_degree(n) > 0 and (
+                G.nodes[n].get('is_apex') or G.in_degree(n) == 0
+            )
+        ]
+        if not apex_candidates:
+            apex_candidates = [n for n in G.nodes() if G.out_degree(n) > 0]
+
+        apex_node = None
+        if apex_candidates:
+            apex_node = min(
+                apex_candidates,
+                key=lambda n: G.nodes[n].get("distance_from_apex")
+                if G.nodes[n].get("distance_from_apex") is not None
+                else 999999.0
+            )
+        elif len(G) > 0:
+            apex_node = list(G.nodes())[0]
+
+        if apex_node is not None and apex_node in G.nodes():
+            for n in G.nodes():
+                G.nodes[n]['is_apex'] = (n == apex_node)
+            G.nodes[apex_node]['node_type'] = 'apex'
+            apex_coord = (G.nodes[apex_node]['x'], G.nodes[apex_node]['y'])
+        else:
+            apex_coord = (0.0, 0.0)
+
+        # Compute polar coordinates relative to apex
+        for n, d in G.nodes(data=True):
+            dx = d['x'] - apex_coord[0]
+            dy = d['y'] - apex_coord[1]
+            d['r'] = float(math.hypot(dx, dy))
+            d['theta'] = float(math.atan2(dy, dx))
 
         for n in G.nodes():
             if G.out_degree(n) == 0 and n != apex_node:

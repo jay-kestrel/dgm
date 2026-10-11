@@ -90,6 +90,8 @@ def apply_emergent_hydraulics(
     R_rt = float(params.get('R_rt', 0.5))
     r_shore = float(params.get('r_shore', 10000.0))
     k_flare = float(params.get('tidal_flare_k', params.get('k_flare', 1.40)))
+    tidal_flare_onset = float(params.get('tidal_flare_onset', 0.30))
+    loop_flow_penalty = float(params.get('loop_flow_penalty', 0.40))
     manning_eta = float(params.get('manning_eta', params.get('eta', 1.65)))
     length_gamma = float(params.get('length_gamma', params.get('gamma', 0.50)))
     sigma_w = float(params.get('width_noise', params.get('width_noise_sigma', 0.30)))
@@ -126,7 +128,7 @@ def apply_emergent_hydraulics(
 
             weights = []
             for i, (src, tgt, d) in enumerate(out_edges):
-                penalty_factor = (0.40 ** p_exp) if d.get('edge_type') == 'loop' else 1.0
+                penalty_factor = (loop_flow_penalty ** p_exp) if d.get('edge_type') == 'loop' else 1.0
                 weights.append(raw_fracs[i] * penalty_factor)
 
             total_weight = sum(weights)
@@ -184,7 +186,7 @@ def apply_emergent_hydraulics(
         w_river = d.get('width_river', 0.0)
 
         # Multiplicative estuarine flaring
-        flare_factor = math.exp(k_flare * max(0.0, r_mid / r_shore - 0.3))
+        flare_factor = math.exp(k_flare * max(0.0, r_mid / r_shore - tidal_flare_onset))
         w_emergent = w_river * ((1.0 - R_rt) + R_rt * flare_factor)
 
         if 'width_noise' in d:
