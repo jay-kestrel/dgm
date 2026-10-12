@@ -123,36 +123,37 @@ def test_mmd_and_permanova():
     assert perm_res['num_permutations'] == 20
 
 
-def test_planarity_zero_crossings():
+@pytest.mark.parametrize("r_rt", [0.0, 0.5, 1.0])
+def test_planarity_zero_crossings(r_rt):
     """Verify geometric planarity filter guarantees 0 edge crossings across forcing regimes."""
-    for r_rt in [0.0, 0.5, 1.0]:
-        G = dgm.generate(N=25, R_rt=r_rt, seed=42)
-        edges = [
-            ((G.nodes[u]['x'], G.nodes[u]['y']), (G.nodes[v]['x'], G.nodes[v]['y']))
-            for u, v in G.edges()
-        ]
-        crossings = 0
-        for i in range(len(edges)):
-            for j in range(i + 1, len(edges)):
-                if segments_intersect(edges[i][0], edges[i][1], edges[j][0], edges[j][1]):
-                    crossings += 1
-        assert crossings == 0, f"Found {crossings} crossings for R_rt={r_rt}"
+    G = dgm.generate(N=25, R_rt=r_rt, seed=42)
+    edges = [
+        ((G.nodes[u]['x'], G.nodes[u]['y']), (G.nodes[v]['x'], G.nodes[v]['y']))
+        for u, v in G.edges()
+    ]
+    crossings = sum(
+        1 for i in range(len(edges))
+        for j in range(i + 1, len(edges))
+        if segments_intersect(edges[i][0], edges[i][1], edges[j][0], edges[j][1])
+    )
+    assert crossings == 0, f"Found {crossings} crossings for R_rt={r_rt}"
 
 
-def test_flux_mass_conservation():
+@pytest.mark.parametrize("mech", ["potential_field", "ner_optimality"])
+def test_flux_mass_conservation(mech):
     """Verify Markov steady-state flux conservation: apex=1.0 and sum(outlets)=1.0."""
-    for mech in ["potential_field", "ner_optimality"]:
-        G = dgm.generate(N=25, R_rt=0.4, loop_mechanism=mech, seed=123)
-        C, W, phi = solve_markov_flux(G)
-        nodes = list(G.nodes())
+    G = dgm.generate(N=25, R_rt=0.4, loop_mechanism=mech, seed=123)
+    _C, _W, phi = solve_markov_flux(G)
+    nodes = list(G.nodes())
 
-        apex_nodes = [n for n in nodes if G.nodes[n].get('node_type') == 'apex']
-        apex_idx = nodes.index(apex_nodes[0]) if apex_nodes else 0
-        assert math.isclose(phi[apex_idx], 1.0, abs_tol=1e-5)
+    apex_nodes = [n for n in nodes if G.nodes[n].get('node_type') == 'apex']
+    apex_idx = nodes.index(apex_nodes[0]) if apex_nodes else 0
+    assert math.isclose(phi[apex_idx], 1.0, abs_tol=1e-5)
 
-        outlet_indices = [idx for idx, n in enumerate(nodes) if G.out_degree(n) == 0]
-        outlet_flux_sum = sum(phi[idx] for idx in outlet_indices)
-        assert math.isclose(outlet_flux_sum, 1.0, abs_tol=1e-5)
+    outlet_indices = [idx for idx, n in enumerate(nodes) if G.out_degree(n) == 0]
+    outlet_flux_sum = sum(phi[idx] for idx in outlet_indices)
+    assert math.isclose(outlet_flux_sum, 1.0, abs_tol=1e-5)
+
 
 
 def test_murrays_law_cyclic_relaxation():
@@ -200,15 +201,15 @@ def test_murrays_law_cyclic_relaxation():
     assert 0.70 <= ratio <= 1.30
 
 
-def test_routing_mode_conductance_vs_width():
+@pytest.mark.parametrize("mode", ["width", "conductance"])
+def test_routing_mode_conductance_vs_width(mode):
     """Verify both width and conductance hydraulic routing modes run cleanly."""
-    for mode in ["width", "conductance"]:
-        cfg = dgm.DGMConfig(N=20, R_rt=0.3, routing_mode=mode, seed=42)
-        gen = dgm.DeltaGenerator(cfg)
-        G = gen.generate()
-        m = gen.evaluate_metrics(G)
-        assert m['nER_star'] >= 0.0
-        assert m['eBI'] >= 1.0
+    cfg = dgm.DGMConfig(N=20, R_rt=0.3, routing_mode=mode, seed=42)
+    gen = dgm.DeltaGenerator(cfg)
+    G = gen.generate()
+    m = gen.evaluate_metrics(G)
+    assert m['nER_star'] >= 0.0
+    assert m['eBI'] >= 1.0
 
 
 def test_non_deterministic_seeding():
@@ -225,22 +226,19 @@ def test_non_deterministic_seeding():
     )
 
 
-def test_config_invariants_and_validation():
-    """Verify validation guards on branching weights, cooling rate, and routing mode."""
-    with pytest.raises(ValueError):
-        dgm.DGMConfig(branching_weights=(0.5, 0.5, 0.5))  # sums to 1.5
+@pytest.mark.parametrize("config_kwargs,match_pattern", [
+    ({"branching_weights": (0.5, 0.5, 0.5)}, "branching_weights must sum to"),
+    ({"branching_weights": (0.5, 0.5)}, "branching_weights must be a 3-tuple"),
+    ({"sa_cooling_rate": 0.0}, "sa_cooling_rate must be in"),
+    ({"sa_cooling_rate": 1.0}, "sa_cooling_rate must be in"),
+    ({"routing_mode": "invalid_mode"}, "routing_mode must be"),
+])
 
-    with pytest.raises(ValueError):
-        dgm.DGMConfig(branching_weights=(0.5, 0.5))  # only 2 weights
+def test_config_invariants_and_validation(config_kwargs, match_pattern):
+    """Verify validation guards on branching weights, cooling rate, and routing mode raise ValueError."""
+    with pytest.raises(ValueError, match=match_pattern):
+        dgm.DGMConfig(**config_kwargs)
 
-    with pytest.raises(ValueError):
-        dgm.DGMConfig(sa_cooling_rate=0.0)
-
-    with pytest.raises(ValueError):
-        dgm.DGMConfig(sa_cooling_rate=1.0)
-
-    with pytest.raises(ValueError):
-        dgm.DGMConfig(routing_mode="invalid_mode")
 
 
 def test_parameter_bounds_sampling():
@@ -255,8 +253,8 @@ def test_parameter_bounds_sampling():
     assert 0.40 <= sampled['length_gamma'] <= 0.60
     assert 50.0 <= sampled['apex_width'] <= 500.0
     assert 5000.0 <= sampled['r_shore'] <= 15000.0
-    assert 30.0 <= sampled['theta_base'] <= 60.0
-    assert 45.0 <= sampled['theta_delta'] <= 90.0
+    assert bounds.theta_base_range[0] <= sampled['theta_base'] <= bounds.theta_base_range[1]
+    assert bounds.theta_delta_range[0] <= sampled['theta_delta'] <= bounds.theta_delta_range[1]
 
 
 def test_empirical_benchmark_run():

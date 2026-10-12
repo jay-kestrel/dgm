@@ -3,8 +3,9 @@ Empirical datasets and DIDNT benchmark network loader for DGM.
 """
 
 from dataclasses import dataclass, asdict
+import os
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Union, Tuple
+from typing import Dict, Any, List, Optional, Union
 import json
 import math
 import numpy as np
@@ -12,27 +13,34 @@ import networkx as nx
 
 from ..metrics import MetricsBattery
 
+CANONICAL_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "canonical_empirical_deltas.json"
+
 
 def _resolve_didnt_dir(dataset_dir: Optional[Union[str, Path]] = None) -> Path:
     """Resolves path to DIDNT dataset directory containing NetworkNodesAndLinks."""
     if dataset_dir is not None:
         base_path = Path(dataset_dir)
     else:
-        # Check standard locations in repo
-        cwd = Path.cwd()
-        candidates = [
-            cwd / "datasets" / "DIDNT",
-            cwd / "synthetic_graphs" / "v2" / "datasets" / "DIDNT",
-            cwd.parent / "synthetic_graphs" / "v2" / "datasets" / "DIDNT",
-            Path(__file__).resolve().parent.parent.parent.parent / "synthetic_graphs" / "v2" / "datasets" / "DIDNT",
-        ]
-        base_path = None
-        for cand in candidates:
-            if cand.exists():
-                base_path = cand
-                break
-        if base_path is None:
-            base_path = Path("datasets/DIDNT")
+        # Check standard standalone locations
+        env_dir = os.environ.get("DGM_DIDNT_DIR") or os.environ.get("DIDNT_DATASET_DIR")
+        if env_dir:
+            base_path = Path(env_dir)
+        else:
+            cwd = Path.cwd()
+            repo_root = Path(__file__).resolve().parents[3]
+            candidates = [
+                cwd / "datasets" / "DIDNT",
+                cwd / "DIDNT",
+                Path.home() / ".dgm" / "datasets" / "DIDNT",
+                repo_root / "datasets" / "DIDNT",
+            ]
+            base_path = None
+            for cand in candidates:
+                if cand.exists():
+                    base_path = cand
+                    break
+            if base_path is None:
+                base_path = Path("datasets/DIDNT")
 
     if (base_path / "NetworkNodesAndLinks").exists():
         return base_path
@@ -41,6 +49,7 @@ def _resolve_didnt_dir(dataset_dir: Optional[Union[str, Path]] = None) -> Path:
     elif (base_path / "DIDNT" / "DIDNT" / "NetworkNodesAndLinks").exists():
         return base_path / "DIDNT" / "DIDNT"
     return base_path
+
 
 
 class DIDNTLoader:
@@ -90,7 +99,14 @@ class DIDNTLoader:
                 ext = nodes_file.suffix
                 links_file = self.nnl_dir / f"{delta_name}_links{ext}"
             else:
-                raise FileNotFoundError(f"Nodes file not found for delta: {delta_name}")
+                raise FileNotFoundError(f"Nodes file not found for delta '{delta_name}' in {self.nnl_dir}")
+
+        if not links_file.exists():
+            link_matches = list(self.nnl_dir.glob(f"*{delta_name}*_links.*json*"))
+            if link_matches:
+                links_file = link_matches[0]
+            else:
+                raise FileNotFoundError(f"Links file not found for delta '{delta_name}' in {self.nnl_dir}")
 
         with open(nodes_file, 'r', encoding='utf-8') as f:
             nodes_geojson = json.load(f)
@@ -106,6 +122,8 @@ class DIDNTLoader:
             props = feat.get('properties', {})
             geom = feat.get('geometry', {})
             coords = geom.get('coordinates', [0.0, 0.0])
+            x = float(coords[0]) if len(coords) > 0 else 0.0
+            y = float(coords[1]) if len(coords) > 1 else 0.0
 
             nid = props.get('id', props.get('node_id', feat.get('id')))
             if nid is None:
@@ -124,9 +142,6 @@ class DIDNTLoader:
 
             is_inlet = (dist_apex == 0.0) or bool(props.get('inlet', False) or props.get('is_inlet', False) or props.get('type') == 'inlet')
             is_outlet = bool(props.get('outlet', False) or props.get('is_outlet', False) or props.get('type') == 'outlet')
-
-            x = float(coords[0])
-            y = float(coords[1])
 
             node_type = 'apex' if is_inlet else ('outlet' if is_outlet else 'junction')
 
@@ -225,9 +240,9 @@ class DIDNTLoader:
             apex_coord = (0.0, 0.0)
 
         # Compute polar coordinates relative to apex
-        for n, d in G.nodes(data=True):
-            dx = d['x'] - apex_coord[0]
-            dy = d['y'] - apex_coord[1]
+        for _, d in G.nodes(data=True):
+            dx = float(d.get('x', 0.0)) - apex_coord[0]
+            dy = float(d.get('y', 0.0)) - apex_coord[1]
             d['r'] = float(math.hypot(dx, dy))
             d['theta'] = float(math.atan2(dy, dx))
 
@@ -314,18 +329,58 @@ DELTA_FORCING_REGIMES: Dict[str, Dict[str, Any]] = {
 }
 
 
+def load_bundled_canonical_deltas() -> List[EmpiricalDelta]:
+    """Loads bundled canonical empirical deltas from package JSON data with fallback search paths."""
+    candidates = [
+        CANONICAL_DATA_PATH,
+        Path(__file__).resolve().parent.parent / "data" / "canonical_empirical_deltas.json",
+        Path(__file__).resolve().parent / "data" / "canonical_empirical_deltas.json",
+        Path.cwd() / "src" / "dgm" / "data" / "canonical_empirical_deltas.json",
+        Path.cwd() / "dgm" / "src" / "dgm" / "data" / "canonical_empirical_deltas.json",
+    ]
+    target_path = None
+    for cand in candidates:
+        if cand.exists():
+            target_path = cand
+            break
+
+    if target_path is None:
+        return []
+
+    try:
+        with open(target_path, "r", encoding="utf-8") as f:
+            raw_list = json.load(f)
+        return [EmpiricalDelta(**item) for item in raw_list]
+    except Exception:
+        return []
+
+
 _CACHED_EMPIRICAL_DELTAS: Optional[List[EmpiricalDelta]] = None
 
 
 def get_empirical_deltas(dataset_dir: Optional[Union[str, Path]] = None, force_reload: bool = False) -> List[EmpiricalDelta]:
-    """Loads empirical deltas from DIDNT dataset and evaluates their metrics."""
+    """
+    Loads empirical deltas from DIDNT dataset and evaluates their metrics.
+    If raw DIDNT GeoJSON files are not present on disk, falls back gracefully to the
+    bundled canonical pre-computed metrics dataset.
+    """
     global _CACHED_EMPIRICAL_DELTAS
     if _CACHED_EMPIRICAL_DELTAS is not None and not force_reload and dataset_dir is None:
         return _CACHED_EMPIRICAL_DELTAS
 
     loader = DIDNTLoader(dataset_dir)
     if not loader.is_available():
-        return []
+        bundled = load_bundled_canonical_deltas()
+        if dataset_dir is None and bundled:
+            _CACHED_EMPIRICAL_DELTAS = bundled
+        return bundled
+
+    # If dataset_dir is None and not force_reload, prefer fast bundled canonical deltas
+    if dataset_dir is None and not force_reload:
+        bundled = load_bundled_canonical_deltas()
+        if bundled:
+            _CACHED_EMPIRICAL_DELTAS = bundled
+            return bundled
 
     battery = MetricsBattery()
     deltas = []

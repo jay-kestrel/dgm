@@ -2,17 +2,19 @@
 Unit tests for DGM Mega-Delta Scale Benchmark Suite.
 """
 
-from pathlib import Path
 import pytest
-import numpy as np
+import networkx as nx
 
 from dgm.benchmarks.mega_delta_benchmark import (
     MegaDeltaScaleBenchmark,
-    DEFAULT_MEGA_DELTAS,
 )
+from dgm.generator import DeltaGenerator, EnsembleGenerator
+from dgm.core.geometry_utils import segments_intersect
+from dgm.core.channel_geometry import compute_edge_clearance
 
 
 def test_mega_delta_benchmark_instantiation():
+    """Verify benchmark recognizes and filters mega-delta dataset targets."""
     bm = MegaDeltaScaleBenchmark(
         delta_names=["Lena", "GBMD"],
         realizations_per_delta=1,
@@ -22,11 +24,14 @@ def test_mega_delta_benchmark_instantiation():
     names = [d.name for d in bm.target_deltas]
     assert "Lena" in names
     assert "GBMD" in names
-    assert bm.realizations_per_delta == 1
+    for d in bm.target_deltas:
+        assert d.nodes >= 50
+        assert d.edges > 0
 
 
 def test_mega_delta_benchmark_execution_and_export(tmp_path):
-    # Run a scaled test with small node count to keep CI ultra fast
+    """Verify end-to-end execution of benchmark subset and file export formats."""
+    # Run a scaled test with small node count to keep CI fast
     bm = MegaDeltaScaleBenchmark(
         delta_names=["Niger"],
         realizations_per_delta=1,
@@ -57,33 +62,34 @@ def test_mega_delta_benchmark_execution_and_export(tmp_path):
     bm.export_plot(plot_file)
     bm.export_report(rpt_file)
 
-    assert csv_file.exists()
-    assert json_file.exists()
-    assert plot_file.exists()
-    assert rpt_file.exists()
-    assert rpt_file.stat().st_size > 100
+    assert csv_file.exists() and csv_file.stat().st_size > 0
+    assert json_file.exists() and json_file.stat().st_size > 0
+    assert plot_file.exists() and plot_file.stat().st_size > 0
+    assert rpt_file.exists() and rpt_file.stat().st_size > 100
 
 
-def test_mega_delta_benchmark_guards_and_errors(tmp_path):
-    # Test invalid delta name raises ValueError
+def test_mega_delta_benchmark_invalid_delta_raises():
+    """Verify requesting an unknown delta name raises ValueError."""
     with pytest.raises(ValueError, match="No valid mega-deltas found"):
         MegaDeltaScaleBenchmark(delta_names=["NonExistentDelta12345"])
 
-    # Test export methods before run() raise RuntimeError
+
+@pytest.mark.parametrize("export_method,ext", [
+    ("export_csv", "csv"),
+    ("export_json", "json"),
+    ("export_plot", "png"),
+    ("export_report", "md"),
+])
+def test_mega_delta_benchmark_unrun_exports_raise(tmp_path, export_method, ext):
+    """Verify calling export methods before run() raises RuntimeError."""
     bm = MegaDeltaScaleBenchmark(delta_names=["Niger"], realizations_per_delta=1)
+    method = getattr(bm, export_method)
     with pytest.raises(RuntimeError, match="Benchmark has not been run yet"):
-        bm.export_csv(tmp_path / "out.csv")
-    with pytest.raises(RuntimeError, match="Benchmark has not been run yet"):
-        bm.export_json(tmp_path / "out.json")
-    with pytest.raises(RuntimeError, match="Benchmark has not been run yet"):
-        bm.export_plot(tmp_path / "out.png")
-    with pytest.raises(RuntimeError, match="Benchmark has not been run yet"):
-        bm.export_report(tmp_path / "out.md")
+        method(tmp_path / f"out.{ext}")
 
 
 def test_target_nodes_alias_in_generators():
-    from dgm.generator import DeltaGenerator, EnsembleGenerator
-
+    """Verify target_nodes keyword correctly maps to config node budget N."""
     gen = DeltaGenerator(target_nodes=120)
     assert gen.config.N == 120
     assert "N" not in gen.config.distributions
@@ -95,12 +101,8 @@ def test_target_nodes_alias_in_generators():
 
 
 def test_geometry_acceleration_exactness():
-    from dgm.core.geometry_utils import segments_intersect
-    from dgm.core.channel_geometry import compute_edge_clearance
-    import networkx as nx
-
+    """Verify AABB bounding box fast rejection and edge clearance bounding box accuracy."""
     # 1. 2D AABB fast rejection edge cases
-    # Segments with completely disjoint bounding boxes (AABB should fast-reject)
     assert segments_intersect((0, 0), (1, 1), (10, 10), (11, 11)) is False
     assert segments_intersect((10, 0), (11, 1), (0, 0), (1, 1)) is False
     assert segments_intersect((0, 10), (1, 11), (0, 0), (1, 1)) is False
@@ -109,13 +111,11 @@ def test_geometry_acceleration_exactness():
     # Crossing segments whose bounding boxes overlap
     assert segments_intersect((0, 0), (2, 2), (0, 2), (2, 0)) is True
 
-    # Shared endpoint (should return False)
+    # Shared endpoint
     assert segments_intersect((0, 0), (1, 1), (1, 1), (2, 0)) is False
 
-    # Collinear overlapping
+    # Collinear overlapping vs disjoint
     assert segments_intersect((0, 0), (2, 0), (1, 0), (3, 0)) is True
-
-    # Collinear disjoint
     assert segments_intersect((0, 0), (1, 0), (2, 0), (3, 0)) is False
 
     # 2. Clearance bounding-box rejection exactness

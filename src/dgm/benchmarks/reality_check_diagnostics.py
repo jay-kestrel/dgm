@@ -7,13 +7,11 @@ Evaluates the physical and geomorphic realism of:
   4. Pre-Hydraulic Network Pruning (inland dead-end elimination)
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any
 import math
 import numpy as np
-import networkx as nx
 
 import dgm
-from dgm.config import DGMConfig
 from dgm.core.channel_geometry import compute_edge_clearance
 from dgm.core.hydraulics import solve_markov_flux
 
@@ -43,13 +41,13 @@ def run_reality_diagnostics() -> Dict[str, Any]:
             G = dgm.generate(N=50, R_rt=0.4, confinement=c, seed=42 + s)
             ys = [G.nodes[n]['y'] for n in G.nodes()]
             xs = [G.nodes[n]['x'] for n in G.nodes()]
-            w = max(ys) - min(ys)
-            l = max(xs) - min(xs)
+            w = max(ys) - min(ys) if ys else 0.0
+            l = max(xs) - min(xs) if xs else 0.0
             widths.append(w)
             aspect_ratios.append(w / max(1.0, l))
 
-        mean_w = float(np.mean(widths))
-        mean_ar = float(np.mean(aspect_ratios))
+        mean_w = float(np.mean(widths)) if widths else 0.0
+        mean_ar = float(np.mean(aspect_ratios)) if aspect_ratios else 0.0
         conf_results.append({
             'confinement': c,
             'mean_lateral_width_m': mean_w,
@@ -94,12 +92,12 @@ def run_reality_diagnostics() -> Dict[str, Any]:
                         bin_steps[(b_low, b_high)].append(step)
                         bin_sins[(b_low, b_high)].append(sin)
 
-    step_proximal = float(np.mean(bin_steps[(0.0, 0.35)]))
-    step_distal = float(np.mean(bin_steps[(0.70, 0.95)]))
-    sin_proximal = float(np.mean(bin_sins[(0.0, 0.35)]))
-    sin_distal = float(np.mean(bin_sins[(0.70, 0.95)]))
+    step_proximal = float(np.mean(bin_steps[(0.0, 0.35)])) if bin_steps[(0.0, 0.35)] else 0.0
+    step_distal = float(np.mean(bin_steps[(0.70, 0.95)])) if bin_steps[(0.70, 0.95)] else 0.0
+    sin_proximal = float(np.mean(bin_sins[(0.0, 0.35)])) if bin_sins[(0.0, 0.35)] else 1.0
+    sin_distal = float(np.mean(bin_sins[(0.70, 0.95)])) if bin_sins[(0.70, 0.95)] else 1.0
 
-    step_reduction = (step_proximal - step_distal) / step_proximal
+    step_reduction = (step_proximal - step_distal) / max(1e-6, step_proximal)
     sin_reduction = (sin_proximal - sin_distal) / (sin_proximal - 1.0 + 1e-6)
 
     print(f"  Apex Reach (r < 0.35 r_shore):   Mean Step = {step_proximal:6.1f} m | Sinuosity = {sin_proximal:.3f}")
@@ -189,7 +187,7 @@ def run_reality_diagnostics() -> Dict[str, Any]:
 
         # Check mass conservation in hydraulics
         C, W, phi = solve_markov_flux(G_clean, G_clean.graph.get('params'))
-        flux_conservations.append(math.isclose(phi[0], 1.0, rel_tol=1e-3))
+        flux_conservations.append(len(phi) > 0 and math.isclose(phi[0], 1.0, rel_tol=1e-3))
 
     mean_raw_dead = float(np.mean(unpruned_dead_ends))
     mean_clean_dead = float(np.mean(pruned_dead_ends))

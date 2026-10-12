@@ -2,7 +2,6 @@
 Tests for DGM configuration loading, validation, and distribution sampling.
 """
 
-import tempfile
 from pathlib import Path
 import pytest
 import numpy as np
@@ -11,6 +10,7 @@ from dgm.config import DGMConfig, sample_from_spec
 
 
 def test_default_config_loading():
+    """Verify default configuration values and baseline parameter distributions."""
     cfg = DGMConfig.load_default()
     assert cfg.N == 50
     assert cfg.R_rt == 0.5
@@ -19,56 +19,57 @@ def test_default_config_loading():
     assert cfg.distributions["murray_p"]["type"] == "uniform"
 
 
-def test_config_validation():
-    with pytest.raises(ValueError, match="Node budget N must be >= 4"):
-        DGMConfig(N=2)
-
-    with pytest.raises(ValueError, match="River-to-Tidal forcing ratio R_rt must be in"):
-        DGMConfig(R_rt=1.5)
-
-    with pytest.raises(ValueError, match="loop_mechanism must be"):
-        DGMConfig(loop_mechanism="invalid_mech")
-
-    with pytest.raises(ValueError, match="outlet_tolerance must be in"):
-        DGMConfig(outlet_tolerance=0.9)
-
-    with pytest.raises(ValueError, match="tidal_flare_onset must be in"):
-        DGMConfig(tidal_flare_onset=1.5)
-
-    with pytest.raises(ValueError, match="loop_flow_penalty must be in"):
-        DGMConfig(loop_flow_penalty=0.0)
+@pytest.mark.parametrize(
+    "config_kwargs,match_pattern",
+    [
+        ({"N": 2}, "Node budget N must be >= 4"),
+        ({"R_rt": 1.5}, "River-to-Tidal forcing ratio R_rt must be in"),
+        ({"loop_mechanism": "invalid_mech"}, "loop_mechanism must be"),
+        ({"outlet_tolerance": 0.9}, "outlet_tolerance must be in"),
+        ({"tidal_flare_onset": 1.5}, "tidal_flare_onset must be in"),
+        ({"loop_flow_penalty": 0.0}, "loop_flow_penalty must be in"),
+    ],
+)
+def test_config_validation(config_kwargs, match_pattern):
+    """Verify out-of-bounds or invalid configuration parameters raise descriptive ValueError."""
+    with pytest.raises(ValueError, match=match_pattern):
+        DGMConfig(**config_kwargs)
 
 
-def test_config_yaml_roundtrip():
+def test_config_yaml_roundtrip(tmp_path):
+    """Verify complete configuration roundtrip serialization through YAML using tmp_path."""
     cfg = DGMConfig(N=64, R_rt=0.75, loop_mechanism="ner_optimality", seed=999)
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yaml_path = Path(tmpdir) / "test_config.yaml"
-        cfg.to_yaml(yaml_path)
+    yaml_path = tmp_path / "test_config.yaml"
+    cfg.to_yaml(yaml_path)
 
-        loaded_cfg = DGMConfig.from_yaml(yaml_path)
-        assert loaded_cfg.N == 64
-        assert loaded_cfg.R_rt == 0.75
-        assert loaded_cfg.loop_mechanism == "ner_optimality"
-        assert loaded_cfg.seed == 999
+    loaded_cfg = DGMConfig.from_yaml(yaml_path)
+    assert loaded_cfg.N == 64
+    assert loaded_cfg.R_rt == 0.75
+    assert loaded_cfg.loop_mechanism == "ner_optimality"
+    assert loaded_cfg.seed == 999
 
 
 def test_sample_from_spec_uniform():
+    """Verify uniform distribution spec sampling produces values strictly within bounds."""
     rng = np.random.default_rng(42)
     spec = {"type": "uniform", "low": 10.0, "high": 20.0}
-    for _ in range(50):
-        val = sample_from_spec(spec, rng)
-        assert 10.0 <= val <= 20.0
+    samples = np.array([sample_from_spec(spec, rng) for _ in range(50)])
+    assert np.all(samples >= 10.0)
+    assert np.all(samples <= 20.0)
+    assert np.any(samples > 10.0) and np.any(samples < 20.0)
 
 
 def test_sample_from_spec_normal():
+    """Verify clamped normal distribution spec sampling respects truncated bounds."""
     rng = np.random.default_rng(42)
     spec = {"type": "normal", "mean": 100.0, "std": 10.0, "min": 80.0, "max": 120.0}
-    for _ in range(50):
-        val = sample_from_spec(spec, rng)
-        assert 80.0 <= val <= 120.0
+    samples = np.array([sample_from_spec(spec, rng) for _ in range(50)])
+    assert np.all(samples >= 80.0)
+    assert np.all(samples <= 120.0)
 
 
 def test_sample_parameters_from_config():
+    """Verify sampling from default config produces all physical distribution parameters in valid bounds."""
     cfg = DGMConfig.load_default()
     rng = np.random.default_rng(123)
     sampled = cfg.sample_distribution_parameters(rng)
@@ -83,6 +84,7 @@ def test_sample_parameters_from_config():
 
 
 def test_set_parameter_scalar_and_distributions():
+    """Verify set_parameter correctly modifies scalars, uniform tuples, and spec dictionaries."""
     cfg = DGMConfig.load_default()
 
     # 1. Setting fixed scalar removes from distributions so it stays fixed during sampling
@@ -106,6 +108,7 @@ def test_set_parameter_scalar_and_distributions():
 
 
 def test_load_default_with_tuple_and_scalar_overrides():
+    """Verify load_default accepts tuple range and scalar overrides."""
     # Test tuple range override
     cfg_tuple = DGMConfig.load_default(tidal_flare_onset=(0.35, 0.65))
     assert cfg_tuple.tidal_flare_onset == 0.50
@@ -116,4 +119,3 @@ def test_load_default_with_tuple_and_scalar_overrides():
     cfg_scalar = DGMConfig.load_default(tidal_flare_onset=0.55)
     assert cfg_scalar.tidal_flare_onset == 0.55
     assert "tidal_flare_onset" not in cfg_scalar.distributions
-

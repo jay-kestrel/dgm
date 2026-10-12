@@ -38,6 +38,12 @@ from .io.export import (
     metrics_to_csv,
     metrics_to_dataframe,
 )
+from .visualization import (
+    plot_network,
+    plot_delta,
+    plot_tree_vs_network,
+    plot_stages,
+)
 from .validation import (
     EmpiricalBenchmark,
     V2EmpiricalBenchmark,
@@ -82,6 +88,10 @@ __all__ = [
     "to_geojson",
     "metrics_to_csv",
     "metrics_to_dataframe",
+    "plot_network",
+    "plot_delta",
+    "plot_tree_vs_network",
+    "plot_stages",
     "EmpiricalBenchmark",
     "V2EmpiricalBenchmark",
     "FULL_20D_METRIC_KEYS",

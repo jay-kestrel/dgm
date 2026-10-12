@@ -5,31 +5,37 @@
 ## Key Capabilities
 
 1. **Topological Planarity Invariant**:
-   Guarantees zero unphysical channel crossings using a Jordan Curve Theorem orientation filter.
+   Guarantees zero unphysical channel crossings using a Jordan Curve Theorem orientation filter and 2D bounding-box spatial indexing.
 2. **Emergent Dual Loop Engines**:
    - **Mechanism A (Spatial Potential-Field Reconnection)**: Models hydrodynamic cross-tie reconnections and floodplain anastomosis.
    - **Mechanism B (Thermodynamic nER* Optimality)**: Simulates long-term topological reorganization under volume budgets by maximizing non-local entropy rate ($nER^*$).
-3. **Hydraulics & Murray's Law Conservation**:
-   Calculates emergent channel widths conserving cross-sectional capacity at bifurcations ($w_0^p = w_1^p + w_2^p$), models estuarine tidal flaring, and computes conductance.
-4. **Transient Submatrix Markov Flux Solver**:
+3. **Pre-Hydraulic Simplification & Shoreline Protection**:
+   Removes inland blind spurs while protecting coastal outlets via `outlet_tolerance`, and simplifies degree-2 pass-through chains with unified reach-scale sinuosity recalculation (`recalculate_reach_sinuosity`).
+4. **Hydraulics & Murray's Law Conservation**:
+   Conserves cross-sectional capacity at bifurcations ($w_0^p = w_1^p + w_2^p$), models estuarine tidal flaring with customizable onset distance (`tidal_flare_onset`), penalizes secondary loop resistance (`loop_flow_penalty`), and computes Manning conductance ($C_e = w^\eta / L^\gamma$).
+5. **Harmonic Sinuous Centerlines & Proximity Constraints**:
+   Synthesizes smooth, multi-vertex curved polyline channel reaches using harmonic sine profiles with Dirichlet boundary conditions, safely bounded away from neighboring channels via proximity clearance probes.
+6. **Transient Submatrix Markov Flux Solver**:
    Solves the linear flux system $(I - Q^T)\Phi_T = S_{0,T}$ to compute steady-state discharge throughput, Shannon entropy, and vulnerability without heavy numerical morphodynamic simulation.
-5. **YAML-Driven Extensibility**:
-   All parameters and stochastic distributions are configured via YAML, enabling seamless customization and extension.
-6. **20-Metric Geomorphic Validation Battery**:
-   Evaluates topological, entropic, energetic, vulnerability, and hydraulic form metrics benchmarking directly against 28 empirical deltas from the DIDNT dataset.
+7. **Spatial Cartographic Visualization Suite**:
+   Provides publication-grade 2D map rendering (`dgm.plot_network`), side-by-side tree-versus-network comparative figures (`dgm.plot_tree_vs_network`), and progressive multi-stage generative evolution visualization (`dgm.plot_stages`).
+8. **YAML-Driven Extensibility & Dynamic Distributions**:
+   All parameters and stochastic distributions are configured via YAML or dynamic Python methods (`cfg.set_parameter()`).
+9. **20-Metric Geomorphic Validation Battery**:
+   Evaluates topological, entropic, energetic, vulnerability, and hydraulic form metrics benchmarking directly against 28 empirical deltas from the global DIDNT dataset.
 
 ## Documentation Contents
 
-- [Architecture & Mathematical Formulation](architecture.md)
-- [Configuration Guide & YAML Schema](configuration.md)
-- [Parameter Assumptions & Literature Justifications](parameter_justifications.md)
-- [Python API Reference](api_reference.md)
-- [Tutorial 1: Quickstart](tutorials/01_quickstart.md)
-- [Tutorial 2: Sampling Ensembles](tutorials/02_ensemble_clouds.md)
+- **[End-to-End Walkthrough (Installation to Plotting)](walkthrough.md)**: A complete, step-by-step code walkthrough from installation to configuration, running the model, extracting stages, and plotting results.
+- **[Architecture & Mathematical Formulation](architecture.md)**: Detailed 6-stage generative assembly pipeline, mathematical invariants, and hydraulic equations.
+- **[Configuration Guide & YAML Schema](configuration.md)**: Full parameter reference, YAML schema, inline distribution formats, and runtime overrides.
+- **[Parameter Assumptions & Literature Justifications](parameter_justifications.md)**: Comprehensive table documenting every parameter, default values, physical assumptions, and academic literature citations.
+- **[Python API Reference](api_reference.md)**: Complete signature documentation for all top-level functions, classes, and visualization utilities.
+- **[Tutorial 1: Quickstart](tutorials/01_quickstart.md)**: Rapid 5-minute introduction to generating a delta and viewing its metrics.
+- **[Tutorial 2: Sampling Ensembles](tutorials/02_ensemble_clouds.md)**: Sampling stochastic clouds and exporting statistical distributions.
 
 ## Developer & Benchmark Ecosystem
 
 - [Developer & Agent Guide (AGENTS.md)](../AGENTS.md)
 - [Global Empirical Validation Report (28 Real Deltas)](../outputs/VALIDATION_REPORT.md)
 - [Planetary Mega-Delta Benchmark Report (Lena, GBMD, Amazon, Niger)](../outputs/MEGA_DELTA_BENCHMARK_REPORT.md)
-

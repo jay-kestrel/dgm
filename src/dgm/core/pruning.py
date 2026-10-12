@@ -4,8 +4,9 @@ Removes blind inland dead-ends, filters sub-threshold spurs, and contracts pass-
 prior to Murray's Law width relaxation and Markov flux routing.
 """
 
-from typing import Dict, Any, List, Tuple, Optional, Set
+from typing import Dict, Any, List, Tuple, Optional
 import math
+import numpy as np
 import networkx as nx
 
 from .domain import PolarDomain
@@ -16,7 +17,10 @@ def refresh_node_types(G: nx.DiGraph, r_shore: float, outlet_tolerance: float = 
     Refreshes node_type attributes ('apex', 'bifurcation', 'trifurcation', 'confluence', 'outlet', 'internal')
     based on current in/out degrees and radial distance.
     """
-    shore_cutoff = r_shore * (1.0 - outlet_tolerance)
+    if G.number_of_nodes() == 0:
+        return
+
+    shore_cutoff = max(0.0, float(r_shore) * (1.0 - float(outlet_tolerance)))
 
     for n in G.nodes():
         if G.nodes[n].get('node_type') == 'apex' or n == 0:
@@ -57,9 +61,12 @@ def prune_dead_end_spurs(
     Returns:
       (pruned_G, count_of_pruned_nodes)
     """
+    if G.number_of_nodes() == 0:
+        return G.copy(), 0
+
     pruned_G = G.copy()
     total_pruned = 0
-    shore_cutoff = r_shore * (1.0 - outlet_tolerance)
+    shore_cutoff = max(0.0, float(r_shore) * (1.0 - float(outlet_tolerance)))
 
     for _ in range(max(1, max_iterations)):
         candidates_to_prune: List[Any] = []
@@ -103,14 +110,19 @@ def prune_dead_end_spurs(
 def simplify_degree_two_chains(
     G: nx.DiGraph,
     r_shore: float,
-    outlet_tolerance: float = 0.05
+    outlet_tolerance: float = 0.05,
+    recalculate_reach_sinuosity: bool = True,
+    params: Optional[Dict[str, Any]] = None,
+    rng: Optional[np.random.Generator] = None
 ) -> Tuple[nx.DiGraph, int]:
     """
     Contracts all non-branching pass-through nodes (in_degree == 1 and out_degree == 1)
     into direct links between morphological junctions, inlets, and outlets.
-    Accumulates channel reach length, recomputes consistent reach sinuosity,
-    and preserves continuous polyline centerline coordinates through intermediate vertices.
-    Consistent with RivGraph reach delineation standards.
+    
+    When recalculate_reach_sinuosity is True (default), calculates a single unified
+    reach-scale sinuosity for the contracted link directly from the process model,
+    preventing double-counting of geometric growth knees and aligning with DIDNT
+    reach-scale conventions.
 
     Never contracts apex, outlets (out_degree == 0), confluences (in_degree >= 2),
     or bifurcations (out_degree >= 2).
@@ -118,6 +130,9 @@ def simplify_degree_two_chains(
     Returns:
       (simplified_G, count_of_contracted_nodes)
     """
+    if G.number_of_nodes() == 0:
+        return G.copy(), 0
+
     simplified_G = G.copy()
     contracted_count = 0
 
@@ -166,23 +181,57 @@ def simplify_degree_two_chains(
             total_len = len_in + len_out
             combined_sin = max(1.0, total_len / straight_dist)
 
-            # Preserve continuous polyline coordinates through vertex n
-            coords_in = d_in.get('coordinates', [[x_p, y_p], [x_n, y_n]])
-            coords_out = d_out.get('coordinates', [[x_n, y_n], [x_c, y_c]])
-            combined_coords = coords_in[:-1] + coords_out
+            # Check for existing multi-vertex polylines (>2 points)
+            has_curved_in = 'coordinates' in d_in and len(d_in['coordinates']) > 2
+            has_curved_out = 'coordinates' in d_out and len(d_out['coordinates']) > 2
+
+            if has_curved_in or has_curved_out:
+                reach_len = max(straight_dist, total_len)
+                reach_sin = combined_sin
+                coords_in = d_in.get('coordinates', [[x_p, y_p], [x_n, y_n]])
+                coords_out = d_out.get('coordinates', [[x_n, y_n], [x_c, y_c]])
+                combined_coords = coords_in[:-1] + coords_out
+            elif recalculate_reach_sinuosity:
+                p_params = params or {}
+                base_sin_mu = float(p_params.get('base_sinuosity_mean', p_params.get('base_sinuosity_mu', 0.25)))
+                base_sin_sigma = max(1e-4, float(p_params.get('base_sinuosity_std', p_params.get('base_sinuosity_sigma', 0.15))))
+                coastal_sin_decay = float(p_params.get('coastal_sinuosity_decay', 0.30))
+
+                if rng is not None:
+                    raw_sin = float(rng.lognormal(base_sin_mu, base_sin_sigma))
+                else:
+                    edge_seed = (int(p) * 31337 + int(c) * 7919) % (2**31) if isinstance(p, (int, np.integer)) and isinstance(c, (int, np.integer)) else hash(f"{p}_{c}") % (2**31)
+                    local_rng = np.random.default_rng(edge_seed)
+                    raw_sin = float(local_rng.lognormal(base_sin_mu, base_sin_sigma))
+
+                r_p = float(simplified_G.nodes[p].get('r', math.hypot(x_p, y_p)))
+                r_c = float(simplified_G.nodes[c].get('r', math.hypot(x_c, y_c)))
+                r_mid = 0.5 * (r_p + r_c)
+                r_ratio = min(1.0, max(0.0, r_mid / max(1.0, r_shore)))
+                sin_decay_mult = max(0.0, 1.0 - coastal_sin_decay * r_ratio)
+                reach_sin = max(1.0, 1.0 + (raw_sin - 1.0) * sin_decay_mult)
+                reach_len = max(straight_dist, straight_dist * reach_sin)
+                combined_coords = [[x_p, y_p], [x_c, y_c]]
+            else:
+                reach_len = max(straight_dist, total_len)
+                reach_sin = combined_sin
+                coords_in = d_in.get('coordinates', [[x_p, y_p], [x_n, y_n]])
+                coords_out = d_out.get('coordinates', [[x_n, y_n], [x_c, y_c]])
+                combined_coords = coords_in[:-1] + coords_out
 
             edge_type = 'tree' if (d_in.get('edge_type') == 'tree' and d_out.get('edge_type') == 'tree') else 'loop'
+            width_val = max(0.1, float(d_in.get('width', d_out.get('width', 1.0))))
 
             # Remove node n and add direct edge p -> c
             simplified_G.remove_node(n)
             simplified_G.add_edge(
                 p,
                 c,
-                length=total_len,
+                length=reach_len,
                 straight_distance=straight_dist,
-                sinuosity=combined_sin,
+                sinuosity=reach_sin,
                 edge_type=edge_type,
-                width=d_in.get('width', d_out.get('width', 1.0)),
+                width=width_val,
                 coordinates=combined_coords,
             )
 
@@ -199,11 +248,13 @@ def simplify_degree_two_chains(
 def prune_and_simplify_network(
     G: nx.DiGraph,
     domain: Optional[PolarDomain] = None,
-    params: Optional[Dict[str, Any]] = None
+    params: Optional[Dict[str, Any]] = None,
+    rng: Optional[np.random.Generator] = None
 ) -> nx.DiGraph:
     """
     Orchestrator function called before hydraulics:
     Optionally prunes blind dead-end inland spurs and simplifies degree-2 pass-through chains.
+    Strictly preserves weak connectivity and shoreline delivery invariants.
     """
     if params is None:
         params = {}
@@ -217,6 +268,7 @@ def prune_and_simplify_network(
     prune_inland = params.get('prune_inland_dead_ends', True)
     min_spur_len = float(params.get('min_spur_length', 0.0))
     simplify_chains = params.get('simplify_pass_through_nodes', False)
+    recalc_sin = params.get('recalculate_reach_sinuosity', True)
     max_iters = int(params.get('max_prune_iterations', 5))
 
     current_G = G.copy()
@@ -243,9 +295,22 @@ def prune_and_simplify_network(
         current_G, contracted_count = simplify_degree_two_chains(
             current_G,
             r_shore=r_shore,
-            outlet_tolerance=outlet_tol
+            outlet_tolerance=outlet_tol,
+            recalculate_reach_sinuosity=recalc_sin,
+            params=params,
+            rng=rng
         )
         stats['contracted_nodes'] = contracted_count
+
+    # Enforce weak connectivity invariant: retain connected component of apex if any orphan remained
+    if not nx.is_weakly_connected(current_G) and current_G.number_of_nodes() > 1:
+        apex_nodes = [n for n in current_G.nodes() if current_G.nodes[n].get('node_type') == 'apex']
+        apex_node = apex_nodes[0] if apex_nodes else (0 if 0 in current_G else list(current_G.nodes())[0])
+        apex_comp = nx.node_connected_component(current_G.to_undirected(), apex_node)
+        to_remove = [n for n in current_G.nodes() if n not in apex_comp]
+        for n in to_remove:
+            current_G.remove_node(n)
+        stats['pruned_nodes'] += len(to_remove)
 
     stats['final_nodes'] = current_G.number_of_nodes()
     stats['final_edges'] = current_G.number_of_edges()

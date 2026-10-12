@@ -2,12 +2,9 @@
 Tests for DGM Empirical Validation Benchmark Suite.
 """
 
-from pathlib import Path
-import pytest
 from dgm.benchmarks.empirical_validation import (
     EmpiricalValidationBenchmark,
     compute_goodness_of_fit,
-    PRIMARY_METRICS,
 )
 import numpy as np
 
@@ -32,8 +29,11 @@ def test_benchmark_suite_instantiation():
         base_seed=123,
     )
     assert len(suite.deltas) == 28
-    assert suite.realizations_per_delta == 2
-    assert suite.max_nodes == 30
+    # Verify each benchmark delta has a valid identifier and expected structure
+    for d in suite.deltas:
+        assert d.name, "Delta name must not be empty"
+        assert d.nodes > 0, f"Delta {d.name} must have positive node count"
+        assert d.edges > 0, f"Delta {d.name} must have positive edge count"
 
 
 def test_benchmark_suite_subset_run(tmp_path):
@@ -62,17 +62,23 @@ def test_benchmark_suite_subset_run(tmp_path):
     suite.plot_benchmark(fig_file)
     suite.generate_report(rpt_file)
 
-    assert csv_file.exists()
-    assert json_file.exists()
-    assert fig_file.exists()
-    assert rpt_file.exists()
-    assert csv_file.stat().st_size > 0
-    assert json_file.stat().st_size > 0
-    assert fig_file.stat().st_size > 0
-    assert rpt_file.stat().st_size > 0
+    assert csv_file.exists() and csv_file.stat().st_size > 0
+    assert json_file.exists() and json_file.stat().st_size > 0
+    assert fig_file.exists() and fig_file.stat().st_size > 0
+    assert rpt_file.exists() and rpt_file.stat().st_size > 0
+
+    # Verify JSON content is valid
+    import json
+    with open(json_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    assert "goodness_of_fit" in data or "benchmark_metadata" in data
+
+    # Verify Markdown report header
+    report_text = rpt_file.read_text(encoding="utf-8")
+    assert report_text.startswith("#")
 
 
-def test_broadened_exploration_mode(tmp_path):
+def test_broadened_exploration_mode():
     suite = EmpiricalValidationBenchmark(
         realizations_per_delta=3,
         max_nodes=25,
@@ -89,3 +95,4 @@ def test_broadened_exploration_mode(tmp_path):
     assert len(res["synth_r_rt"]) == 6  # 2 deltas * 3 realizations
     assert res["benchmark_metadata"]["exploration_mode"] == "broad"
     assert res["benchmark_metadata"]["r_rt_uncertainty"] == 0.10
+

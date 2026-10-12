@@ -4,7 +4,7 @@ Provides YAML-driven configuration, stochastic parameter distributions,
 and extensibility hooks.
 """
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Any, Optional, Union, List, Tuple
 import copy
@@ -19,37 +19,53 @@ DEFAULT_CONFIG_PATH = PKG_CONFIG_PATH if PKG_CONFIG_PATH.exists() else REPO_CONF
 
 def sample_from_spec(spec: Dict[str, Any], rng: np.random.Generator) -> float:
     """Samples a scalar value from a distribution specification dict."""
-    dist_type = spec.get("type", "uniform").lower()
+    if not isinstance(spec, dict):
+        raise TypeError(f"Distribution specification must be a dictionary, got {type(spec).__name__}.")
+
+    dist_type = str(spec.get("type", "uniform")).lower()
 
     if dist_type == "uniform":
         low = float(spec.get("low", 0.0))
         high = float(spec.get("high", 1.0))
         if low > high:
             raise ValueError(f"Uniform distribution low bound ({low}) cannot exceed high bound ({high}).")
-        return float(rng.uniform(low, high))
-
-    elif dist_type in ("normal", "gaussian"):
-        mean = float(spec.get("mean", 0.0))
-        std = float(spec.get("std", 1.0))
-        if std <= 0:
-            raise ValueError(f"Normal distribution std must be > 0 (received {std}).")
-        val = rng.normal(mean, std)
+        val = float(rng.uniform(low, high))
         if "min" in spec:
             val = max(float(spec["min"]), val)
         if "max" in spec:
             val = min(float(spec["max"]), val)
         return float(val)
 
-    elif dist_type == "lognormal":
+    elif dist_type in ("normal", "gaussian"):
         mean = float(spec.get("mean", 0.0))
-        sigma = float(spec.get("sigma", 1.0))
-        if sigma <= 0:
-            raise ValueError(f"Lognormal distribution sigma must be > 0 (received {sigma}).")
-        val = rng.lognormal(mean, sigma)
+        std = float(spec.get("std", 1.0))
+        if std <= 0 or not np.isfinite(std):
+            raise ValueError(f"Normal distribution std must be > 0 (received {std}).")
+        if "min" in spec and "max" in spec and float(spec["min"]) > float(spec["max"]):
+            raise ValueError(f"Normal distribution min bound ({spec['min']}) cannot exceed max bound ({spec['max']}).")
+        val = float(rng.normal(mean, std))
         if "min" in spec:
             val = max(float(spec["min"]), val)
         if "max" in spec:
             val = min(float(spec["max"]), val)
+        if not np.isfinite(val):
+            val = mean
+        return float(val)
+
+    elif dist_type == "lognormal":
+        mean = float(spec.get("mean", 0.0))
+        sigma = float(spec.get("sigma", 1.0))
+        if sigma <= 0 or not np.isfinite(sigma):
+            raise ValueError(f"Lognormal distribution sigma must be > 0 (received {sigma}).")
+        if "min" in spec and "max" in spec and float(spec["min"]) > float(spec["max"]):
+            raise ValueError(f"Lognormal distribution min bound ({spec['min']}) cannot exceed max bound ({spec['max']}).")
+        val = float(rng.lognormal(mean, sigma))
+        if "min" in spec:
+            val = max(float(spec["min"]), val)
+        if "max" in spec:
+            val = min(float(spec["max"]), val)
+        if not np.isfinite(val):
+            val = float(np.exp(mean))
         return float(val)
 
     elif dist_type in ("choice", "categorical"):
@@ -59,13 +75,25 @@ def sample_from_spec(spec: Dict[str, Any], rng: np.random.Generator) -> float:
         weights = spec.get("weights", None)
         if weights is not None:
             weights = np.array(weights, dtype=float)
-            if weights.sum() <= 0 or (weights < 0).any():
+            if len(weights) != len(values):
+                raise ValueError(
+                    f"Distribution weights count ({len(weights)}) does not match values count ({len(values)})."
+                )
+            if weights.sum() <= 0 or (weights < 0).any() or not np.all(np.isfinite(weights)):
                 raise ValueError("Distribution weights must be non-negative and sum to > 0.")
             weights = weights / weights.sum()
-        return float(rng.choice(values, p=weights))
+        chosen = rng.choice(values, p=weights)
+        try:
+            return float(chosen)
+        except (ValueError, TypeError):
+            return chosen
 
     elif dist_type in ("fixed", "constant"):
-        return float(spec.get("value", 0.0))
+        val = spec.get("value", 0.0)
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return val
 
     else:
         raise ValueError(f"Unsupported distribution type: {dist_type}")
@@ -75,7 +103,7 @@ def sample_from_spec(spec: Dict[str, Any], rng: np.random.Generator) -> float:
 class ParameterBounds:
     """
     Physical and hydraulic parameter bounds for uniform/stochastic sampling.
-    Maintained for backwards-compatibility with synthetic_graphs.v2.
+    Maintained for backwards-compatibility with legacy parameter schema.
     """
     murray_p_range: Tuple[float, float] = (1.2, 2.2)
     width_beta_range: Tuple[float, float] = (0.50, 0.99)
@@ -186,8 +214,6 @@ class DGMConfig:
     anastomosis_prob_base: float = 0.0
     max_in_degree: int = 2
     max_out_degree: int = 3
-    target_loop_fraction_slope: float = 0.25
-    target_loop_fraction_intercept: float = 0.08
     target_max_loops_slope: float = 0.22
     target_max_loops_intercept: float = 0.05
     sa_initial_temp: float = 1.0
@@ -290,10 +316,10 @@ class DGMConfig:
             raise ValueError(f"loop_flow_penalty must be in (0.0, 1.0] (received {self.loop_flow_penalty}).")
         if self.apex_width <= 0:
             raise ValueError(f"apex_width must be > 0 (received {self.apex_width}).")
-        if self.theta_base <= 0:
-            raise ValueError(f"theta_base must be > 0 (received {self.theta_base}).")
-        if self.theta_delta < 0:
-            raise ValueError(f"theta_delta must be >= 0 (received {self.theta_delta}).")
+        if self.theta_base <= 0 or self.theta_base > 360.0:
+            raise ValueError(f"theta_base must be in (0, 360] degrees (received {self.theta_base}).")
+        if self.theta_delta < 0 or self.theta_delta > 360.0:
+            raise ValueError(f"theta_delta must be in [0, 360] degrees (received {self.theta_delta}).")
         if not (0.0 < self.width_beta < 1.0):
             raise ValueError(f"width_beta must be in (0.0, 1.0) (received {self.width_beta}).")
         if self.manning_eta <= 0:
@@ -308,6 +334,46 @@ class DGMConfig:
             raise ValueError(f"relaxation_max_iter must be >= 1 (received {self.relaxation_max_iter}).")
         if self.radial_step_scale_min <= 0 or self.radial_step_scale_min > self.radial_step_scale_max:
             raise ValueError("radial_step_scale_min must be positive and <= radial_step_scale_max.")
+        if self.bifurcation_spread_min <= 0 or self.bifurcation_spread_min > self.bifurcation_spread_max:
+            raise ValueError("bifurcation_spread_min must be positive and <= bifurcation_spread_max.")
+        if self.single_branch_spread_factor <= 0:
+            raise ValueError(f"single_branch_spread_factor must be > 0 (received {self.single_branch_spread_factor}).")
+        if self.angular_spread_decay <= 0:
+            raise ValueError(f"angular_spread_decay must be > 0 (received {self.angular_spread_decay}).")
+        if self.candidate_dist_scale <= 0:
+            raise ValueError(f"candidate_dist_scale must be > 0 (received {self.candidate_dist_scale}).")
+        if not (0.0 <= self.reconnection_prob_base <= 1.0):
+            raise ValueError(f"reconnection_prob_base must be in [0.0, 1.0] (received {self.reconnection_prob_base}).")
+        if not (0.0 <= self.anastomosis_prob_base <= 1.0):
+            raise ValueError(f"anastomosis_prob_base must be in [0.0, 1.0] (received {self.anastomosis_prob_base}).")
+        if self.max_in_degree < 1:
+            raise ValueError(f"max_in_degree must be >= 1 (received {self.max_in_degree}).")
+        if self.max_out_degree < 1:
+            raise ValueError(f"max_out_degree must be >= 1 (received {self.max_out_degree}).")
+        if self.width_noise < 0.0:
+            raise ValueError(f"width_noise must be >= 0.0 (received {self.width_noise}).")
+        if self.tidal_flare_k < 0.0:
+            raise ValueError(f"tidal_flare_k must be >= 0.0 (received {self.tidal_flare_k}).")
+
+        # Distribution specification validations
+        for param_name, dist_spec in self.distributions.items():
+            if not isinstance(dist_spec, dict):
+                continue
+            dtype = str(dist_spec.get("type", "uniform")).lower()
+            if dtype == "uniform":
+                low = float(dist_spec.get("low", 0.0))
+                high = float(dist_spec.get("high", 1.0))
+                if low > high:
+                    raise ValueError(f"{param_name} distribution low bound ({low}) cannot exceed high bound ({high}).")
+            elif dtype in ("normal", "gaussian"):
+                std = float(dist_spec.get("std", 1.0))
+                if std <= 0:
+                    raise ValueError(f"{param_name} normal distribution std must be > 0.")
+            elif dtype == "lognormal":
+                sigma = float(dist_spec.get("sigma", 1.0))
+                if sigma <= 0:
+                    raise ValueError(f"{param_name} lognormal distribution sigma must be > 0.")
+
         if "murray_p" in self.distributions:
             d = self.distributions["murray_p"]
             if isinstance(d, dict) and d.get("type") == "uniform" and d.get("low", 1.0) <= 0.0:
@@ -360,7 +426,13 @@ class DGMConfig:
             raise FileNotFoundError(f"Configuration file not found: {path}")
 
         with open(path, "r", encoding="utf-8") as f:
-            raw = yaml.safe_load(f) or {}
+            try:
+                raw = yaml.safe_load(f) or {}
+            except yaml.YAMLError as exc:
+                raise ValueError(f"Malformed YAML configuration in {path}: {exc}") from exc
+
+        if not isinstance(raw, dict):
+            raise ValueError(f"Configuration file {path} must contain a YAML mapping (dict), got {type(raw).__name__}.")
 
         # Flatten sections into DGMConfig fields
         model_sec = raw.get("model", {})
@@ -475,8 +547,6 @@ class DGMConfig:
                 "anastomosis_prob_base": self.anastomosis_prob_base,
                 "max_in_degree": self.max_in_degree,
                 "max_out_degree": self.max_out_degree,
-                "target_loop_fraction_slope": self.target_loop_fraction_slope,
-                "target_loop_fraction_intercept": self.target_loop_fraction_intercept,
                 "target_max_loops_slope": self.target_max_loops_slope,
                 "target_max_loops_intercept": self.target_max_loops_intercept,
                 "sa_initial_temp": self.sa_initial_temp,
@@ -518,8 +588,16 @@ class DGMConfig:
 
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+        import uuid
+        tmp_path = path.with_name(f".{path.name}.tmp_{uuid.uuid4().hex}")
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+            tmp_path.replace(path)
+        except Exception:
+            if tmp_path.exists():
+                tmp_path.unlink()
+            raise
 
     @property
     def bounds(self) -> ParameterBounds:
@@ -530,6 +608,7 @@ class DGMConfig:
         """
         Samples active parameters from configured distributions.
         For parameters not present in distributions, falls back to the instance baseline.
+        Applies physical bounds clamping as robust fallbacks.
         """
         if rng is None:
             rng = np.random.default_rng(self.seed)
@@ -540,9 +619,41 @@ class DGMConfig:
             "meander_bends", "max_prune_iterations", "relaxation_max_iter", "sa_max_steps"
         }
 
+        physical_param_bounds: Dict[str, Tuple[Optional[float], Optional[float]]] = {
+            "N": (4.0, None),
+            "R_rt": (0.0, 1.0),
+            "confinement": (0.0, 0.95),
+            "coastal_node_decay": (0.0, 0.80),
+            "coastal_sinuosity_decay": (0.0, 0.90),
+            "min_channel_clearance": (0.05, 1.0),
+            "min_spur_length": (0.0, None),
+            "outlet_tolerance": (0.001, 0.50),
+            "tidal_flare_onset": (0.0, 0.999),
+            "loop_flow_penalty": (0.01, 1.0),
+            "apex_width": (1.0, None),
+            "r_shore": (100.0, None),
+            "theta_base": (5.0, 360.0),
+            "theta_delta": (0.0, 360.0),
+            "width_beta": (0.01, 0.999),
+            "murray_p": (0.1, None),
+            "manning_eta": (0.1, None),
+            "length_gamma": (0.05, None),
+            "min_channel_width": (0.001, None),
+            "reconnection_prob_base": (0.0, 1.0),
+            "anastomosis_prob_base": (0.0, 1.0),
+        }
+
         for param_name, dist_spec in self.distributions.items():
             if isinstance(dist_spec, dict) and "type" in dist_spec:
                 val = sample_from_spec(dist_spec, rng)
+                # Bounded fallback clamping for physical integrity
+                if param_name in physical_param_bounds:
+                    b_min, b_max = physical_param_bounds[param_name]
+                    if b_min is not None and isinstance(val, (int, float)):
+                        val = max(b_min, val)
+                    if b_max is not None and isinstance(val, (int, float)):
+                        val = min(b_max, val)
+
                 if param_name in int_params:
                     params[param_name] = int(round(val))
                 else:
@@ -590,8 +701,6 @@ class DGMConfig:
             "anastomosis_prob_base": self.anastomosis_prob_base,
             "max_in_degree": self.max_in_degree,
             "max_out_degree": self.max_out_degree,
-            "target_loop_fraction_slope": self.target_loop_fraction_slope,
-            "target_loop_fraction_intercept": self.target_loop_fraction_intercept,
             "target_max_loops_slope": self.target_max_loops_slope,
             "target_max_loops_intercept": self.target_max_loops_intercept,
             "sa_initial_temp": self.sa_initial_temp,

@@ -3,15 +3,12 @@ Tests for curved channel centerline generation and proximity-constrained meander
 """
 
 import math
-import tempfile
-from pathlib import Path
 import json
-import numpy as np
 import networkx as nx
 import pytest
 
 import dgm
-from dgm.config import DGMConfig, ParameterBounds
+from dgm.config import DGMConfig
 from dgm.core.channel_geometry import (
     point_to_segment_distance,
     compute_edge_clearance,
@@ -95,7 +92,7 @@ def test_proximity_constrains_sinuosity():
     assert s2 < 1.05
     assert s1 >= 1.0
     assert s2 >= 1.0
-    assert G.edges[0, 1]['clearance_distance'] == 50.0
+    assert math.isclose(G.edges[0, 1]['clearance_distance'], 50.0, abs_tol=1e-5)
 
 
 def test_curved_centerline_geometry():
@@ -129,34 +126,36 @@ def test_curved_centerline_geometry():
     assert poly_len > 1000.0
 
 
-def test_config_channel_geometry_validation():
-    """Verify validation bounds for channel geometry parameters."""
+def test_config_channel_geometry_defaults():
+    """Verify default values for channel geometry parameters in DGMConfig."""
     cfg = DGMConfig()
     assert cfg.enable_curved_centerlines is False
     assert cfg.min_channel_clearance == 0.40
     assert cfg.num_polyline_points == 21
     assert cfg.meander_bends == 1
 
-    # Invalid clearance fraction
-    with pytest.raises(ValueError, match="min_channel_clearance must be in"):
-        DGMConfig(min_channel_clearance=0.01)
-    with pytest.raises(ValueError, match="min_channel_clearance must be in"):
-        DGMConfig(min_channel_clearance=1.5)
 
-    # Invalid polyline points
-    with pytest.raises(ValueError, match="num_polyline_points must be >= 3"):
-        DGMConfig(num_polyline_points=2)
-
-    # Invalid meander bends
-    with pytest.raises(ValueError, match="meander_bends must be >= 1"):
-        DGMConfig(meander_bends=0)
+@pytest.mark.parametrize(
+    "config_kwargs,match_pattern",
+    [
+        ({"min_channel_clearance": 0.01}, "min_channel_clearance must be in"),
+        ({"min_channel_clearance": 1.5}, "min_channel_clearance must be in"),
+        ({"num_polyline_points": 2}, "num_polyline_points must be >= 3"),
+        ({"meander_bends": 0}, "meander_bends must be >= 1"),
+    ],
+)
+def test_config_channel_geometry_validation_errors(config_kwargs, match_pattern):
+    """Verify validation bounds for channel geometry parameters raise ValueError with descriptive message."""
+    with pytest.raises(ValueError, match=match_pattern):
+        DGMConfig(**config_kwargs)
 
 
 def test_generator_with_curved_centerlines():
     """Verify single generation with enable_curved_centerlines=True attaches coordinates to all edges."""
     G = dgm.generate(N=30, R_rt=0.5, enable_curved_centerlines=True, seed=42)
-    assert isinstance(G, nx.DiGraph)
+    assert G.number_of_nodes() >= 20
     assert G.graph['enable_curved_centerlines'] is True
+
 
     for u, v, d in G.edges(data=True):
         assert 'coordinates' in d
@@ -253,11 +252,12 @@ def test_touching_crossing_channels_clearance_zero():
     G.add_edge(2, 3, straight_distance=1000.0, sinuosity=1.3)
 
     c = compute_edge_clearance(G, 0, 1)
-    assert c == 0.0
+    assert math.isclose(c, 0.0, abs_tol=1e-9)
 
     generate_channel_centerlines(G, clearance_fraction=0.40)
-    assert G.edges[0, 1]['sinuosity'] == 1.0
-    assert G.edges[0, 1]['meander_amplitude'] == 0.0
+    assert math.isclose(G.edges[0, 1]['sinuosity'], 1.0, abs_tol=1e-9)
+    assert math.isclose(G.edges[0, 1]['meander_amplitude'], 0.0, abs_tol=1e-9)
+
 
 
 def test_clearance_guided_meander_direction_second_half():

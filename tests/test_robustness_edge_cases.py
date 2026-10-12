@@ -14,12 +14,13 @@ import numpy as np
 import pytest
 
 from dgm.config import DGMConfig, sample_from_spec
-from dgm.generator import DeltaGenerator, EnsembleGenerator, generate, sample_ensemble
+from dgm.generator import generate, sample_ensemble
 from dgm.core.hydraulics import apply_emergent_hydraulics, solve_markov_flux
 from dgm.metrics import MetricsBattery
 
 
 def test_empty_graph():
+    """Verify Markov flux solver and metrics battery handle empty graphs gracefully."""
     G_empty = nx.DiGraph()
     C, W, phi = solve_markov_flux(G_empty)
     assert C.shape == (0, 0)
@@ -33,11 +34,12 @@ def test_empty_graph():
 
 
 def test_single_node_graph():
+    """Verify Markov flux solver and metrics battery handle single-node isolated apex."""
     G_single = nx.DiGraph()
     G_single.add_node(0, x=0.0, y=0.0, r=0.0, theta=0.0, node_type="apex", is_apex=True)
-    C, W, phi = solve_markov_flux(G_single)
+    _C, _W, phi = solve_markov_flux(G_single)
     assert len(phi) == 1
-    assert phi[0] == 1.0
+    assert pytest.approx(phi[0], abs=1e-5) == 1.0
 
     mb = MetricsBattery()
     metrics = mb.evaluate_all(G_single)
@@ -46,6 +48,7 @@ def test_single_node_graph():
 
 
 def test_disconnected_graph():
+    """Verify Markov flux solver allocates 0 flux to disconnected components."""
     G_disc = nx.DiGraph()
     G_disc.add_node(0, x=0.0, y=0.0, r=0.0, theta=0.0, node_type="apex", is_apex=True)
     G_disc.add_node(1, x=100.0, y=0.0, r=100.0, theta=0.0, node_type="outlet")
@@ -53,11 +56,11 @@ def test_disconnected_graph():
     G_disc.add_edge(0, 1, width=10.0, length=100.0)
     # Node 2 is isolated
 
-    C, W, phi = solve_markov_flux(G_disc)
+    _C, _W, phi = solve_markov_flux(G_disc)
     assert len(phi) == 3
-    assert phi[0] == 1.0
-    assert phi[1] == 1.0
-    assert phi[2] == 0.0
+    assert pytest.approx(phi[0], abs=1e-5) == 1.0
+    assert pytest.approx(phi[1], abs=1e-5) == 1.0
+    assert pytest.approx(phi[2], abs=1e-5) == 0.0
 
     mb = MetricsBattery()
     metrics = mb.evaluate_all(G_disc)
@@ -66,6 +69,7 @@ def test_disconnected_graph():
 
 
 def test_zero_length_channel():
+    """Verify hydraulics solver clamps zero-length channels to minimum physical length."""
     G = nx.DiGraph()
     G.add_node(0, x=0.0, y=0.0, r=0.0, theta=0.0, node_type="apex", is_apex=True)
     G.add_node(1, x=0.0, y=0.0, r=0.0, theta=0.0, node_type="outlet")
@@ -77,7 +81,7 @@ def test_zero_length_channel():
 
 
 def test_singular_markov_matrix_cyclic_trap():
-    # Construct a directed graph with a cycle that cannot reach absorbing outlets
+    """Verify flux solver remains stable and finite even when encountering absorbing cyclic subgraphs."""
     G = nx.DiGraph()
     G.add_node(0, x=0.0, y=0.0, r=0.0, theta=0.0, node_type="apex", is_apex=True)
     G.add_node(1, x=10.0, y=0.0, r=10.0, theta=0.0, node_type="junction")
@@ -86,13 +90,14 @@ def test_singular_markov_matrix_cyclic_trap():
     G.add_edge(1, 2, width=10.0, length=10.0)
     G.add_edge(2, 1, width=10.0, length=10.0)
 
-    C, W, phi = solve_markov_flux(G)
+    _C, _W, phi = solve_markov_flux(G)
     assert len(phi) == 3
     assert np.all(np.isfinite(phi))
     assert np.all(phi >= 0.0)
 
 
 def test_distribution_sampling_types():
+    """Verify stochastic parameter distribution types (lognormal, choice, fixed)."""
     rng = np.random.default_rng(42)
 
     # Lognormal
@@ -107,52 +112,48 @@ def test_distribution_sampling_types():
     val_fixed = sample_from_spec({"type": "fixed", "value": 42.5}, rng)
     assert val_fixed == 42.5
 
-    # Validation guards for distributions
-    with pytest.raises(ValueError, match="Uniform distribution low bound"):
-        sample_from_spec({"type": "uniform", "low": 10.0, "high": 5.0}, rng)
 
-    with pytest.raises(ValueError, match="Normal distribution std must be > 0"):
-        sample_from_spec({"type": "normal", "mean": 0.0, "std": -1.0}, rng)
+@pytest.mark.parametrize(
+    "spec,match_pattern",
+    [
+        ({"type": "uniform", "low": 10.0, "high": 5.0}, "Uniform distribution low bound"),
+        ({"type": "normal", "mean": 0.0, "std": -1.0}, "Normal distribution std must be > 0"),
+        ({"type": "lognormal", "mean": 0.0, "sigma": 0.0}, "Lognormal distribution sigma must be > 0"),
+        ({"type": "choice", "values": []}, "Choice distribution values list cannot be empty"),
+        ({"type": "choice", "values": [1.0, 2.0], "weights": [-1.0, 1.0]}, "Distribution weights must be non-negative"),
+    ],
+)
+def test_distribution_sampling_validation_errors(spec, match_pattern):
+    """Verify invalid distribution specifications raise ValueError."""
+    rng = np.random.default_rng(42)
+    with pytest.raises(ValueError, match=match_pattern):
+        sample_from_spec(spec, rng)
 
-    with pytest.raises(ValueError, match="Lognormal distribution sigma must be > 0"):
-        sample_from_spec({"type": "lognormal", "mean": 0.0, "sigma": 0.0}, rng)
 
-    with pytest.raises(ValueError, match="Choice distribution values list cannot be empty"):
-        sample_from_spec({"type": "choice", "values": []}, rng)
+@pytest.mark.parametrize(
+    "config_kwargs,match_pattern",
+    [
+        ({"apex_width": -5.0}, "apex_width must be > 0"),
+        ({"theta_base": 0.0}, "theta_base must be in"),
+        ({"theta_delta": -1.0}, "theta_delta must be in"),
+        ({"width_beta": 1.5}, "width_beta must be in"),
+        ({"manning_eta": -1.0}, "manning_eta must be > 0"),
+        ({"min_channel_width": 0.0}, "min_channel_width must be > 0"),
+        ({"distributions": {"murray_p": {"type": "uniform", "low": -1.0, "high": 2.0}}}, "murray_p distribution low bound"),
+    ],
 
-    with pytest.raises(ValueError, match="Distribution weights must be non-negative"):
-        sample_from_spec({"type": "choice", "values": [1.0, 2.0], "weights": [-1.0, 1.0]}, rng)
-
-
-def test_config_physical_validation_guards():
-    with pytest.raises(ValueError, match="apex_width must be > 0"):
-        DGMConfig(apex_width=-5.0)
-
-    with pytest.raises(ValueError, match="theta_base must be > 0"):
-        DGMConfig(theta_base=0.0)
-
-    with pytest.raises(ValueError, match="theta_delta must be >= 0"):
-        DGMConfig(theta_delta=-1.0)
-
-    with pytest.raises(ValueError, match="width_beta must be in"):
-        DGMConfig(width_beta=1.5)
-
-    with pytest.raises(ValueError, match="manning_eta must be > 0"):
-        DGMConfig(manning_eta=-1.0)
-
-    with pytest.raises(ValueError, match="min_channel_width must be > 0"):
-        DGMConfig(min_channel_width=0.0)
-
-    with pytest.raises(ValueError, match="murray_p distribution low bound"):
-        DGMConfig(distributions={"murray_p": {"type": "uniform", "low": -1.0, "high": 2.0}})
+)
+def test_config_physical_validation_guards(config_kwargs, match_pattern):
+    """Verify physical bound guards in DGMConfig raise descriptive ValueError."""
+    with pytest.raises(ValueError, match=match_pattern):
+        DGMConfig(**config_kwargs)
 
 
 def test_target_nodes_overrides_in_generator_facades():
-    # Test generate top-level with target_nodes
+    """Verify target_nodes keyword correctly propagates across generate and sample_ensemble."""
     G = generate(target_nodes=25, seed=42)
     assert G.graph["N_input"] == 25
 
-    # Test sample_ensemble top-level with target_nodes
     ens = sample_ensemble(target_nodes=25, num_realizations=2, base_seed=42)
     assert len(ens) == 2
     assert ens[0].graph["N_input"] == 25

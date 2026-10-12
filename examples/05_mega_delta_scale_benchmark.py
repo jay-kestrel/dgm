@@ -18,9 +18,8 @@ import time
 
 current_dir = Path(__file__).resolve().parent
 dgm_root = current_dir.parent
-repo_root = dgm_root.parent
 
-for p in [str(dgm_root / "src"), str(dgm_root), str(repo_root)]:
+for p in [str(dgm_root / "src"), str(dgm_root)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 

@@ -45,7 +45,8 @@ dgm = "dgm.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-dgm = ["*.yaml", "config/*.yaml"]
+dgm = ["*.yaml", "config/*.yaml", "data/*.json"]
+
 
 [tool.pytest.ini_options]
 minversion = "7.0"

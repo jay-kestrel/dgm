@@ -55,8 +55,6 @@ loops:
   anastomosis_prob_base: 0.0     # Baseline inland floodplain anastomosis probability (e.g., Parana)
   max_in_degree: 2               # Maximum incoming degree allowed per junction
   max_out_degree: 3               # Maximum outgoing degree allowed per junction
-  target_loop_fraction_slope: 0.25 # Slope for target loop fraction as a function of R_rt
-  target_loop_fraction_intercept: 0.08 # Intercept for target loop fraction
   target_max_loops_slope: 0.22   # Slope for maximum loop count scaling
   target_max_loops_intercept: 0.05 # Intercept for maximum loop count scaling
   # Simulated Annealing settings (for 'ner_optimality' loop mechanism)

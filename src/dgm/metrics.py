@@ -4,7 +4,7 @@ Evaluates complete literature suite across Topological, Dynamic & Transport,
 Entropic Complexity, Vulnerability, and Geomorphic physical categories.
 """
 
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, Optional
 import warnings
 import math
 import numpy as np
@@ -26,6 +26,19 @@ def _get_apex_node(G: nx.DiGraph):
     if zero_in:
         return zero_in[0]
     return 0 if 0 in G.nodes() else list(G.nodes())[0]
+
+
+def _clean_val(v: Any, default: float = 0.0) -> float:
+    """Ensures value is a finite float, replacing NaN, Inf, and None with a robust default."""
+    if v is None:
+        return float(default)
+    try:
+        val = float(v)
+        if math.isnan(val) or math.isinf(val):
+            return float(default)
+        return val
+    except (ValueError, TypeError):
+        return float(default)
 
 
 class MetricsBattery:
@@ -51,7 +64,21 @@ class MetricsBattery:
         dyn = self.evaluate_dynamics(G, params)
         vuln = self.evaluate_vulnerability(G, params)
         geom = self.evaluate_geomorphology(G)
-        return {**topo, **dyn, **vuln, **geom}
+        combined = {**topo, **dyn, **vuln, **geom}
+
+        # Sanitize all outputs to guarantee clean, finite numeric returns
+        default_one_keys = {
+            'eBI', 'traditional_BI', 'radial_sinuosity',
+            'loop_length_anisotropy', 'resistance_distance'
+        }
+        clean_res: Dict[str, Any] = {}
+        for k, v in combined.items():
+            if isinstance(v, (int, np.integer)) and not isinstance(v, bool):
+                clean_res[k] = int(v)
+            else:
+                default_val = 1.0 if k in default_one_keys else 0.0
+                clean_res[k] = _clean_val(v, default=default_val)
+        return clean_res
 
     def evaluate_topology(self, G: nx.DiGraph) -> Dict[str, Any]:
         """Tier 1: Topological graph metrics."""
@@ -171,7 +198,7 @@ class MetricsBattery:
             transects = np.linspace(0.15 * r_max, 0.85 * r_max, 15)
             for r_t in transects:
                 crossing_fluxes = []
-                for u, v, d in G.edges(data=True):
+                for u, v in G.edges():
                     ru, rv = G.nodes[u].get('r', 0.0), G.nodes[v].get('r', 0.0)
                     if (ru <= r_t <= rv) or (rv <= r_t <= ru):
                         i_idx, j_idx = n_map[u], n_map[v]
@@ -239,7 +266,7 @@ class MetricsBattery:
         if N <= 2:
             return {'global_vulnerability': 0.50, 'outlet_flux_entropy': 0.0}
 
-        C, W, phi = solve_markov_flux(G, params)
+        _C, _W, phi = solve_markov_flux(G, params)
         apex_node = _get_apex_node(G)
         outlets = [n for n in G.nodes() if G.out_degree(n) == 0 and n != apex_node]
 
@@ -289,8 +316,18 @@ class MetricsBattery:
             r_o = G.nodes[o].get('r', 0.0)
             if r_o > 10.0 and nx.has_path(G, apex_node, o):
                 path = nx.shortest_path(G, apex_node, o)
-                path_len = sum(G.edges[u, v]['length'] for u, v in zip(path[:-1], path[1:]))
-                sinuosities.append(path_len / r_o)
+                path_len = sum(
+                    float(G.edges[u, v].get(
+                        'length',
+                        math.hypot(
+                            G.nodes[v].get('x', 0.0) - G.nodes[u].get('x', 0.0),
+                            G.nodes[v].get('y', 0.0) - G.nodes[u].get('y', 0.0)
+                        )
+                    ))
+                    for u, v in zip(path[:-1], path[1:])
+                )
+                if path_len > 0:
+                    sinuosities.append(path_len / r_o)
 
         radial_sinuosity = float(np.mean(sinuosities)) if sinuosities else 1.0
 

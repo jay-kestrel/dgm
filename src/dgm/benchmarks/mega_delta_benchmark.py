@@ -8,29 +8,25 @@ against the largest empirical distributary networks in the world:
   - Niger River Delta (N = 651, Macro-tidal anastomosing delta)
 """
 
-from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Union, Tuple
+from typing import Dict, Any, List, Optional, Union
 import json
-import math
 import time
+import uuid
 
 import numpy as np
 import pandas as pd
-import scipy.stats as stats
 
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from ..config import DGMConfig
 from ..generator import DeltaGenerator
 from ..metrics import MetricsBattery
 from ..io.datasets import (
     DIDNTLoader,
     EmpiricalDelta,
     get_empirical_deltas,
-    DELTA_FORCING_REGIMES,
 )
 from .empirical_validation import (
     PRIMARY_METRICS,
@@ -130,19 +126,23 @@ class MegaDeltaScaleBenchmark:
                 if self.confinement is not None:
                     overrides['confinement'] = self.confinement
 
-                gen = DeltaGenerator(**overrides)
-                G = gen.generate()
-                t_gen = time.time() - t_r0
-                realization_timings.append(t_gen)
+                try:
+                    gen = DeltaGenerator(**overrides)
+                    G = gen.generate()
+                    t_gen = time.time() - t_r0
+                    realization_timings.append(t_gen)
 
-                m = self.battery.evaluate_all(G)
-                m['node_count'] = len(G)
-                m['edge_count'] = len(G.edges())
-                synth_metrics_list.append(m)
+                    m = self.battery.evaluate_all(G)
+                    m['node_count'] = len(G)
+                    m['edge_count'] = len(G.edges())
+                    synth_metrics_list.append(m)
 
-                if verbose:
-                    print(f"  - Realization {r_i + 1}/{self.realizations_per_delta}: Generated |V|={len(G)}, |E|={len(G.edges())} in {t_gen:.2f}s "
-                          f"(α={m['alpha_index']:.3f}, nER*={m['nER_star']:.3f}, eBI={m['eBI']:.2f})")
+                    if verbose:
+                        print(f"  - Realization {r_i + 1}/{self.realizations_per_delta}: Generated |V|={len(G)}, |E|={len(G.edges())} in {t_gen:.2f}s "
+                              f"(α={m['alpha_index']:.3f}, nER*={m['nER_star']:.3f}, eBI={m['eBI']:.2f})")
+                except Exception as exc:
+                    import warnings
+                    warnings.warn(f"Mega-delta realization {r_i + 1} failed for '{emp.name}': {exc}")
 
             # Aggregate statistics
             row: Dict[str, Any] = {
@@ -152,9 +152,9 @@ class MegaDeltaScaleBenchmark:
                 'empirical_nodes': emp.nodes,
                 'empirical_edges': emp.edges,
                 'empirical_loops': emp.loops,
-                'synthetic_nodes_mean': float(np.mean([m['node_count'] for m in synth_metrics_list])),
-                'synthetic_edges_mean': float(np.mean([m['edge_count'] for m in synth_metrics_list])),
-                'avg_generation_time_sec': float(np.mean(realization_timings)),
+                'synthetic_nodes_mean': float(np.mean([m['node_count'] for m in synth_metrics_list])) if synth_metrics_list else 0.0,
+                'synthetic_edges_mean': float(np.mean([m['edge_count'] for m in synth_metrics_list])) if synth_metrics_list else 0.0,
+                'avg_generation_time_sec': float(np.mean(realization_timings)) if realization_timings else 0.0,
             }
 
             for k in PRIMARY_METRICS:
@@ -164,7 +164,7 @@ class MegaDeltaScaleBenchmark:
                 s_mean = float(np.mean(synth_vals)) if synth_vals else 0.0
                 s_std = float(np.std(synth_vals)) if synth_vals else 0.0
                 abs_err = abs(emp_val - s_mean)
-                rel_err = abs_err / max(1e-4, abs(emp_val))
+                rel_err = float(abs_err / max(1e-4, abs(emp_val)))
 
                 row[f'empirical_{k}'] = emp_val
                 row[f'synthetic_{k}_mean'] = s_mean
@@ -220,7 +220,14 @@ class MegaDeltaScaleBenchmark:
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         df = pd.DataFrame(self.results['per_delta_summary'])
-        df.to_csv(path, index=False)
+        tmp_path = path.with_name(f".{path.stem}.tmp_{uuid.uuid4().hex}{path.suffix}")
+        try:
+            df.to_csv(tmp_path, index=False)
+            tmp_path.replace(path)
+        except Exception:
+            if tmp_path.exists():
+                tmp_path.unlink()
+            raise
         return path
 
     def export_json(self, output_path: Union[str, Path]) -> Path:
@@ -228,8 +235,15 @@ class MegaDeltaScaleBenchmark:
         self._check_results()
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(self.results, f, indent=2)
+        tmp_path = path.with_name(f".{path.stem}.tmp_{uuid.uuid4().hex}{path.suffix}")
+        try:
+            with open(tmp_path, 'w', encoding='utf-8') as f:
+                json.dump(self.results, f, indent=2)
+            tmp_path.replace(path)
+        except Exception:
+            if tmp_path.exists():
+                tmp_path.unlink()
+            raise
         return path
 
     def export_plot(self, output_path: Union[str, Path]) -> Path:
@@ -301,7 +315,7 @@ class MegaDeltaScaleBenchmark:
 
         # Panel 4: Planetary Scale Parity Crossplot (Empirical vs Synthetic)
         ax4 = axes[1, 1]
-        for idx_r, r in enumerate(rows):
+        for r in rows:
             regime = r['forcing_type']
             col = REGIME_COLORS.get(regime, '#3b82f6')
             ax4.scatter(
@@ -341,8 +355,17 @@ class MegaDeltaScaleBenchmark:
         plt.suptitle("DGM Mega-Scale Delta Benchmark: Validation Against Planetary Giants (N >= 600 - 3,000)",
                      fontsize=14, fontweight='bold', y=0.98)
 
-        fig.savefig(path, bbox_inches='tight')
-        plt.close(fig)
+        fmt = path.suffix.lstrip('.') or 'png'
+        tmp_path = path.with_name(f".{path.stem}.tmp_{uuid.uuid4().hex}{path.suffix}")
+        try:
+            fig.savefig(tmp_path, format=fmt, bbox_inches='tight')
+            tmp_path.replace(path)
+        except Exception:
+            if tmp_path.exists():
+                tmp_path.unlink()
+            raise
+        finally:
+            plt.close(fig)
         return path
 
     def export_report(self, output_path: Union[str, Path]) -> Path:
@@ -426,7 +449,14 @@ class MegaDeltaScaleBenchmark:
             "- **Markdown Report**: [`MEGA_DELTA_BENCHMARK_REPORT.md`](MEGA_DELTA_BENCHMARK_REPORT.md)",
         ])
 
-        with open(path, 'w', encoding='utf-8') as f:
-            f.write("\n".join(lines) + "\n")
+        tmp_path = path.with_name(f".{path.stem}.tmp_{uuid.uuid4().hex}{path.suffix}")
+        try:
+            with open(tmp_path, 'w', encoding='utf-8') as f:
+                f.write("\n".join(lines) + "\n")
+            tmp_path.replace(path)
+        except Exception:
+            if tmp_path.exists():
+                tmp_path.unlink()
+            raise
 
         return path

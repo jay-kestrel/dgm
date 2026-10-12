@@ -8,34 +8,7 @@ import math
 import zlib
 import numpy as np
 import networkx as nx
-from .geometry_utils import segments_intersect
-
-
-def point_to_segment_distance(
-    p: Tuple[float, float],
-    a: Tuple[float, float],
-    b: Tuple[float, float]
-) -> float:
-    """
-    Computes the shortest Euclidean distance from point p to line segment (a, b).
-    """
-    px, py = p
-    ax, ay = a
-    bx, by = b
-
-    dx = bx - ax
-    dy = by - ay
-    seg_len_sq = dx * dx + dy * dy
-
-    if seg_len_sq < 1e-12:
-        return math.hypot(px - ax, py - ay)
-
-    # Project point onto segment line, clamped to [0, 1]
-    t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / seg_len_sq))
-    proj_x = ax + t * dx
-    proj_y = ay + t * dy
-
-    return math.hypot(px - proj_x, py - proj_y)
+from .geometry_utils import segments_intersect, point_to_segment_distance
 
 
 def compute_edge_clearance(
@@ -46,16 +19,19 @@ def compute_edge_clearance(
     node_coords: Optional[Dict[Any, Tuple[float, float]]] = None
 ) -> float:
     """
-    Computes the minimum spatial clearance distance from edge (u, v) (sampled along
+    Computes the minimum spatial clearance distance in meters from edge (u, v) (sampled along
     meander crests and midpoint) to all other non-incident channel edges in the network.
     If any non-incident edges cross or touch, clearance is 0.0.
     """
+    if G.number_of_edges() <= 1:
+        return float('inf')
+
     if node_coords is None:
         p_u = (float(G.nodes[u].get('x', 0.0)), float(G.nodes[u].get('y', 0.0)))
         p_v = (float(G.nodes[v].get('x', 0.0)), float(G.nodes[v].get('y', 0.0)))
     else:
-        p_u = node_coords[u]
-        p_v = node_coords[v]
+        p_u = (float(node_coords[u][0]), float(node_coords[u][1]))
+        p_v = (float(node_coords[v][0]), float(node_coords[v][1]))
 
     min_dist = float('inf')
 
@@ -84,7 +60,11 @@ def compute_edge_clearance(
             ))
 
     for edge_u, edge_v, a, b, min_ab_x, max_ab_x, min_ab_y, max_ab_y in edge_records:
-        if edge_u == u or edge_u == v or edge_v == u or edge_v == v:
+        if edge_u == u and edge_v == v:
+            continue
+
+        # Exclude all incident edges sharing an endpoint with (u, v)
+        if edge_u == u or edge_v == v or edge_v == u or edge_u == v:
             continue
 
         # Bounding box clearance rejection: if bbox distance exceeds min_dist, cannot be closer
@@ -102,26 +82,28 @@ def compute_edge_clearance(
             if dist < min_dist:
                 min_dist = dist
 
-    return min_dist
+    return float(min_dist)
 
 
 def apply_channel_proximity_constraints(
     G: nx.DiGraph,
-    clearance_fraction: float = 0.40,
-    min_amplitude_floor: float = 0.0
+    clearance_fraction: float = 0.40
 ) -> nx.DiGraph:
     """
     Constrains channel sinuosity based on proximity to neighboring non-incident channels.
     Prevents adjacent channels from meandering into each other.
 
     Updates edge attributes in place:
-      - 'clearance_distance': distance to nearest adjacent non-incident channel
-      - 'max_meander_amplitude': maximum allowable meander amplitude
-      - 'sinuosity': constrained sinuosity S_effective <= S_max
-      - 'length': updated physical length (straight_distance * sinuosity)
+      - 'clearance_distance': distance to nearest adjacent non-incident channel in meters
+      - 'max_meander_amplitude': maximum allowable meander amplitude in meters
+      - 'sinuosity': constrained sinuosity S_effective <= S_max (>= 1.0)
+      - 'length': updated physical length (straight_distance * sinuosity) in meters
+      - 'conductance': synchronized open-channel conductance (m^eta / m^gamma)
     """
+    if G.number_of_edges() == 0:
+        return G
+
     clearance_fraction = max(0.05, min(1.0, float(clearance_fraction)))
-    min_amplitude_floor = max(0.0, float(min_amplitude_floor))
 
     # Pre-extract all node coordinates and edge bounding boxes once for O(E^2) acceleration
     node_coords = {n: (float(d.get('x', 0.0)), float(d.get('y', 0.0))) for n, d in G.nodes(data=True)}
@@ -155,7 +137,7 @@ def apply_channel_proximity_constraints(
         else:
             # Maximum allowed meander amplitude is bounded by clearance fraction
             # If clearance <= 0.0 (intersecting/touching), amplitude is capped to 0.0
-            max_amp = max(min_amplitude_floor, max(0.0, clearance * clearance_fraction))
+            max_amp = max(0.0, clearance * clearance_fraction)
             d['max_meander_amplitude'] = max_amp
 
             # Analytical relationship: S_max = 1 + (pi * A_max / L)^2
@@ -164,6 +146,14 @@ def apply_channel_proximity_constraints(
 
         d['sinuosity'] = effective_sin
         d['length'] = max(1.0, straight_dist * effective_sin)
+
+        # Synchronize hydraulic conductance with updated geometric length
+        if 'conductance' in d and 'width' in d:
+            eta = max(0.01, float(G.graph.get('manning_eta', 1.65)))
+            gamma = max(0.01, float(G.graph.get('length_gamma', 0.50)))
+            w_val = max(1e-4, float(d['width']))
+            l_val = max(1.0, float(d['length']))
+            d['conductance'] = max(1e-12, (w_val ** eta) / (l_val ** gamma))
 
     return G
 
@@ -182,6 +172,9 @@ def generate_channel_centerlines(
 
     Stores polyline coordinates on each edge under 'coordinates': List[List[float, float]].
     """
+    if G.number_of_edges() == 0:
+        return G
+
     num_points = max(3, int(num_points))
     num_bends = max(1, int(num_bends))
     seed_int = 42 if seed is None else int(seed)
@@ -204,10 +197,7 @@ def generate_channel_centerlines(
     for edge_u, edge_v in G.edges():
         a = node_coords[edge_u]
         b = node_coords[edge_v]
-        edge_records.append((
-            edge_u, edge_v, a, b,
-            min(a[0], b[0]), max(a[0], b[0]), min(a[1], b[1]), max(a[1], b[1])
-        ))
+        edge_records.append((edge_u, edge_v, a, b))
 
     for u, v, d in G.edges(data=True):
         x_u, y_u = node_coords[u]
@@ -277,9 +267,13 @@ def generate_channel_centerlines(
             p_pos = (mid_x + disp * nx_val, mid_y + disp * ny_val)
             p_neg = (mid_x - disp * nx_val, mid_y - disp * ny_val)
 
-            for other_u, other_v, seg_a, seg_b, min_ab_x, max_ab_x, min_ab_y, max_ab_y in edge_records:
-                if other_u in incident_nodes or other_v in incident_nodes:
+            for other_u, other_v, seg_a, seg_b in edge_records:
+                if other_u == u and other_v == v:
                     continue
+                # For end-to-end connected in a single path, skip
+                if (other_u == v and other_v != u) or (other_v == u and other_u != v):
+                    continue
+
                 d_pos = point_to_segment_distance(p_pos, seg_a, seg_b)
                 d_neg = point_to_segment_distance(p_neg, seg_a, seg_b)
                 if d_pos < clearance_pos:
@@ -290,16 +284,34 @@ def generate_channel_centerlines(
         # Direct meander towards open space (larger clearance); if equal/symmetric, use pseudo-random hash
         if clearance_pos > clearance_neg + 1e-3:
             sign = 1.0
+            best_clr = clearance_pos
         elif clearance_neg > clearance_pos + 1e-3:
             sign = -1.0
+            best_clr = clearance_neg
         else:
             sign = 1.0 if (edge_hash % 2 == 0) else -1.0
+            best_clr = min(clearance_pos, clearance_neg)
+
+        # Physical safety clamp: ensure meander crest does not cross into adjacent or sister channels
+        if math.isfinite(best_clr) and best_clr < amp:
+            effective_amp = max(0.0, best_clr * clearance_fraction)
+            s_eff = max(1.0, 1.0 + (math.pi * effective_amp / max(1.0, straight_dist)) ** 2)
+            d['meander_amplitude'] = effective_amp
+            d['sinuosity'] = s_eff
+            d['length'] = straight_dist * s_eff
+            if 'conductance' in d and 'width' in d:
+                eta = max(0.01, float(G.graph.get('manning_eta', 1.65)))
+                gamma = max(0.01, float(G.graph.get('length_gamma', 0.50)))
+                d['conductance'] = max(1e-12, (float(d['width']) ** eta) / (float(d['length']) ** gamma))
+        else:
+            effective_amp = amp
+            d['meander_amplitude'] = amp
 
         # Construct polyline vertices
         polyline = []
         for s, h in zip(s_values, profile):
-            x_s = x_u + s * (x_v - x_u) + sign * amp * h * nx_val
-            y_s = y_u + s * (y_v - y_u) + sign * amp * h * ny_val
+            x_s = x_u + s * (x_v - x_u) + sign * effective_amp * h * nx_val
+            y_s = y_u + s * (y_v - y_u) + sign * effective_amp * h * ny_val
             polyline.append([float(x_s), float(y_s)])
 
         # Ensure exact node attachments at endpoints

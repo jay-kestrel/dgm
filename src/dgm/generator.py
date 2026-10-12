@@ -7,7 +7,9 @@ Provides:
   - sample_ensemble(): convenient top-level function for ensembles
 """
 
-from typing import Optional, Dict, Any, List, Union
+from pathlib import Path
+from typing import Optional, Dict, Any, List, Union, Tuple
+import copy
 import numpy as np
 import networkx as nx
 
@@ -29,12 +31,20 @@ class DeltaGenerator:
     Primary generator for single synthetic delta graph realizations.
     """
 
-    def __init__(self, config: Optional[DGMConfig] = None, **overrides):
-        import copy
+    def __init__(
+        self,
+        config: Optional[DGMConfig] = None,
+        target_nodes: Optional[int] = None,
+        **overrides
+    ):
         if config is not None:
             self.config = copy.deepcopy(config)
         else:
             self.config = DGMConfig.load_default()
+
+        if target_nodes is not None:
+            self.config.N = int(target_nodes)
+            self.config.distributions.pop('N', None)
 
         if overrides:
             for k, v in overrides.items():
@@ -48,76 +58,137 @@ class DeltaGenerator:
         self.config.validate()
         self.battery = MetricsBattery()
 
-    def generate(self, seed_override: Any = _UNSET) -> nx.DiGraph:
+    def generate(
+        self,
+        seed_override: Any = _UNSET,
+        return_stages: bool = False
+    ) -> Union[nx.DiGraph, Tuple[nx.DiGraph, Dict[str, nx.DiGraph]]]:
         """
         Generates a single synthetic delta graph realization given N and R_rt.
+
+        Parameters
+        ----------
+        seed_override : Any, optional
+            Optional seed to override instance configuration.
+        return_stages : bool, default False
+            If True, returns a tuple (G_final, stages) where stages is a dictionary
+            mapping stage names ('tree', 'looped', 'pruned', 'final') to their graphs.
+
+        Returns
+        -------
+        Union[nx.DiGraph, Tuple[nx.DiGraph, Dict[str, nx.DiGraph]]]
+            Generated graph G_final, or (G_final, stages) if return_stages is True.
         """
         seed = self.config.seed if seed_override is _UNSET else seed_override
+        if seed is not None:
+            try:
+                seed = int(seed)
+            except (ValueError, TypeError):
+                pass
         rng = np.random.default_rng(seed)
-        sub_seed = int(rng.integers(0, 2**31 - 1)) if seed is None else seed
+        sub_seed = int(rng.integers(0, 2**31 - 1)) if seed is None else int(seed)
 
         # Get parameter set (sampled from distributions or deterministic defaults)
         params = self.config.get_active_parameters(rng)
 
         # 1. Initialize Polar Domain
-        domain = PolarDomain(
-            r_shore=params['r_shore'],
-            theta_base=params['theta_base'],
-            theta_delta=params['theta_delta'],
-            R_rt=self.config.R_rt,
-            confinement=params.get('confinement', self.config.confinement),
-            lateral_valley_width=params.get('lateral_valley_width', self.config.lateral_valley_width)
-        )
+        try:
+            domain = PolarDomain(
+                r_shore=params['r_shore'],
+                theta_base=params['theta_base'],
+                theta_delta=params['theta_delta'],
+                R_rt=self.config.R_rt,
+                confinement=params.get('confinement', self.config.confinement),
+                lateral_valley_width=params.get('lateral_valley_width', self.config.lateral_valley_width)
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize PolarDomain: {e}") from e
 
         # 2. Generate Polar Growth Tree Backbone
-        G_tree = generate_polar_tree_backbone(
-            N_target=self.config.N,
-            R_rt=self.config.R_rt,
-            domain=domain,
-            params=params,
-            rng=rng
-        )
+        try:
+            G_tree = generate_polar_tree_backbone(
+                N_target=self.config.N,
+                R_rt=self.config.R_rt,
+                domain=domain,
+                params=params,
+                rng=rng
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"DGM polar tree backbone generation failed for N={self.config.N}, R_rt={self.config.R_rt}: {e}"
+            ) from e
+        G_tree_snapshot = G_tree.copy()
 
         # 3. Apply Emergent Loop Mechanism (Mechanism A or Mechanism B)
-        G_looped = apply_loop_mechanism(
-            G=G_tree,
-            domain=domain,
-            mechanism=self.config.loop_mechanism,
-            params=params,
-            rng=rng,
-            seed=sub_seed
-        )
+        try:
+            G_looped = apply_loop_mechanism(
+                G=G_tree,
+                domain=domain,
+                mechanism=self.config.loop_mechanism,
+                params=params,
+                rng=rng,
+                seed=sub_seed
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"DGM loop mechanism '{self.config.loop_mechanism}' failed: {e}"
+            ) from e
+        G_looped_snapshot = G_looped.copy()
 
         # 4. Apply Pre-Hydraulic Network Pruning & Simplification
         if self.config.enable_pruning or params.get('enable_pruning', False):
-            G_pruned = prune_and_simplify_network(
-                G=G_looped,
-                domain=domain,
-                params=params
-            )
+            try:
+                G_pruned = prune_and_simplify_network(
+                    G=G_looped,
+                    domain=domain,
+                    params=params,
+                    rng=rng
+                )
+            except Exception as e:
+                raise RuntimeError(f"DGM network pruning and reach simplification failed: {e}") from e
         else:
             G_pruned = G_looped
+        G_pruned_snapshot = G_pruned.copy()
 
         # 5. Apply Emergent Hydraulics & Channel Widening
-        G_final = apply_emergent_hydraulics(
-            G=G_pruned,
-            params=params,
-            seed=sub_seed
-        )
-
-        # 6. Apply Channel Proximity Constraints & Curved Polyline Geometry
-        if self.config.enable_curved_centerlines or params.get('enable_curved_centerlines', False):
-            G_final = generate_channel_centerlines(
-                G=G_final,
-                clearance_fraction=params.get('min_channel_clearance', self.config.min_channel_clearance),
-                num_points=params.get('num_polyline_points', self.config.num_polyline_points),
-                num_bends=params.get('meander_bends', self.config.meander_bends),
+        try:
+            G_final = apply_emergent_hydraulics(
+                G=G_pruned,
+                params=params,
                 seed=sub_seed
             )
+        except Exception as e:
+            raise RuntimeError(f"DGM emergent hydraulics and flux relaxation failed: {e}") from e
+
+        # 6. Apply Channel Proximity Constraints & Curved Polyline Geometry
+        curved_enabled = bool(self.config.enable_curved_centerlines or params.get('enable_curved_centerlines', False))
+        clr_frac = params.get('min_channel_clearance', self.config.min_channel_clearance)
+        pts_num = params.get('num_polyline_points', self.config.num_polyline_points)
+        bends_num = params.get('meander_bends', self.config.meander_bends)
+
+        if curved_enabled:
+            G_final = generate_channel_centerlines(
+                G=G_final,
+                clearance_fraction=clr_frac,
+                num_points=pts_num,
+                num_bends=bends_num,
+                seed=sub_seed
+            )
+            # Also synthesize centerlines for the tree backbone snapshot
+            try:
+                generate_channel_centerlines(
+                    G=G_tree_snapshot,
+                    clearance_fraction=clr_frac,
+                    num_points=pts_num,
+                    num_bends=bends_num,
+                    seed=sub_seed
+                )
+            except Exception:
+                pass
         else:
             G_final = apply_channel_proximity_constraints(
                 G=G_final,
-                clearance_fraction=params.get('min_channel_clearance', self.config.min_channel_clearance)
+                clearance_fraction=clr_frac
             )
 
         # Attach run metadata to graph
@@ -133,15 +204,24 @@ class DeltaGenerator:
         G_final.graph['min_spur_length'] = params.get('min_spur_length', self.config.min_spur_length)
         G_final.graph['simplify_pass_through_nodes'] = params.get('simplify_pass_through_nodes', self.config.simplify_pass_through_nodes)
         G_final.graph['max_prune_iterations'] = params.get('max_prune_iterations', self.config.max_prune_iterations)
-        curved_enabled = bool(self.config.enable_curved_centerlines or params.get('enable_curved_centerlines', False))
         G_final.graph['enable_curved_centerlines'] = curved_enabled
-        G_final.graph['min_channel_clearance'] = params.get('min_channel_clearance', self.config.min_channel_clearance)
-        G_final.graph['num_polyline_points'] = params.get('num_polyline_points', self.config.num_polyline_points)
-        G_final.graph['meander_bends'] = params.get('meander_bends', self.config.meander_bends)
+        G_final.graph['min_channel_clearance'] = clr_frac
+        G_final.graph['num_polyline_points'] = pts_num
+        G_final.graph['meander_bends'] = bends_num
         G_final.graph['loop_mechanism'] = self.config.loop_mechanism
         G_final.graph['params'] = params
         G_final.graph['seed'] = seed
 
+        stages = {
+            'tree': G_tree_snapshot,
+            'looped': G_looped_snapshot,
+            'pruned': G_pruned_snapshot,
+            'final': G_final.copy()
+        }
+        G_final.graph['stages'] = stages
+
+        if return_stages:
+            return G_final, stages
         return G_final
 
     def evaluate_metrics(self, G: nx.DiGraph) -> Dict[str, Any]:
@@ -165,16 +245,19 @@ class EnsembleGenerator:
         sample_parameters: bool = True,
         base_seed: int = 42,
         config: Optional[DGMConfig] = None,
+        target_nodes: Optional[int] = None,
         **overrides
     ):
-        self.N = N
+        if num_realizations < 1:
+            raise ValueError(f"num_realizations must be >= 1 (received {num_realizations}).")
+
+        self.N = int(target_nodes) if target_nodes is not None else N
         self.R_rt = R_rt
         self.num_realizations = num_realizations
         self.loop_mechanism = loop_mechanism
         self.sample_parameters = sample_parameters
-        self.base_seed = base_seed
+        self.base_seed = int(base_seed) if base_seed is not None else None
 
-        import copy
         if config is not None:
             self.config = copy.deepcopy(config)
         else:
@@ -184,6 +267,10 @@ class EnsembleGenerator:
         self.config.R_rt = self.R_rt
         self.config.loop_mechanism = self.loop_mechanism
         self.config.sample_parameters = self.sample_parameters
+
+        if target_nodes is not None:
+            self.config.N = int(target_nodes)
+            self.config.distributions.pop('N', None)
 
         if overrides:
             for k, v in overrides.items():
@@ -272,14 +359,19 @@ def generate(
     prune_inland_dead_ends: Optional[bool] = None,
     min_spur_length: Optional[float] = None,
     simplify_pass_through_nodes: Optional[bool] = None,
-    config: Optional[Union[str, DGMConfig]] = None,
+    return_stages: bool = False,
+    config: Optional[Union[str, Path, DGMConfig]] = None,
     seed: Any = _UNSET,
+    target_nodes: Optional[int] = None,
     **overrides
-) -> nx.DiGraph:
+) -> Union[nx.DiGraph, Tuple[nx.DiGraph, Dict[str, nx.DiGraph]]]:
     """
     Convenient top-level function to generate a single synthetic delta graph.
     """
-    if isinstance(config, str):
+    if target_nodes is not None:
+        N = int(target_nodes)
+
+    if isinstance(config, (str, Path)):
         cfg = DGMConfig.from_yaml(config, N=N, R_rt=R_rt, **overrides)
     elif isinstance(config, DGMConfig):
         cfg = copy.deepcopy(config)
@@ -303,6 +395,10 @@ def generate(
             elif hasattr(cfg, k):
                 setattr(cfg, k, v)
             cfg.distributions.pop(k, None)
+
+    if target_nodes is not None:
+        cfg.N = int(target_nodes)
+        cfg.distributions.pop('N', None)
 
     if confinement is not None:
         cfg.confinement = float(confinement)
@@ -344,7 +440,7 @@ def generate(
         cfg.seed = seed
 
     gen = DeltaGenerator(cfg)
-    return gen.generate()
+    return gen.generate(return_stages=return_stages)
 
 
 def sample_ensemble(
@@ -361,14 +457,18 @@ def sample_ensemble(
     min_spur_length: Optional[float] = None,
     simplify_pass_through_nodes: Optional[bool] = None,
     num_realizations: int = 50,
-    config: Optional[Union[str, DGMConfig]] = None,
+    config: Optional[Union[str, Path, DGMConfig]] = None,
     base_seed: int = 42,
+    target_nodes: Optional[int] = None,
     **overrides
 ) -> List[nx.DiGraph]:
     """
     Convenient top-level function to generate an ensemble of synthetic delta graphs.
     """
-    if isinstance(config, str):
+    if target_nodes is not None:
+        N = int(target_nodes)
+
+    if isinstance(config, (str, Path)):
         cfg = DGMConfig.from_yaml(config, N=N, R_rt=R_rt, **overrides)
     elif isinstance(config, DGMConfig):
         cfg = copy.deepcopy(config)
@@ -392,6 +492,10 @@ def sample_ensemble(
             elif hasattr(cfg, k):
                 setattr(cfg, k, v)
             cfg.distributions.pop(k, None)
+
+    if target_nodes is not None:
+        cfg.N = int(target_nodes)
+        cfg.distributions.pop('N', None)
 
     if confinement is not None:
         cfg.confinement = float(confinement)

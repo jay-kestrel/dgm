@@ -4,12 +4,11 @@ Benchmarks synthetic realization ensembles against all 28 real-world empirical d
 from the DIDNT dataset (Hariharan et al., 2021) across the full 20-metric geomorphic battery.
 """
 
-from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Union, Tuple
+from typing import Dict, Any, List, Optional, Union
 import json
-import math
 import time
+import uuid
 
 import numpy as np
 import pandas as pd
@@ -23,12 +22,10 @@ from matplotlib.patches import Ellipse
 
 from ..config import DGMConfig
 from ..generator import EnsembleGenerator, DeltaGenerator
-from ..metrics import MetricsBattery
 from ..io.datasets import (
     DIDNTLoader,
     EmpiricalDelta,
     get_empirical_deltas,
-    DELTA_FORCING_REGIMES,
 )
 
 
@@ -101,22 +98,40 @@ def compute_goodness_of_fit(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str,
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
 
-    mae = float(np.mean(np.abs(y_true - y_pred)))
-    rmse = float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
+    if y_true.size == 0 or y_pred.size == 0 or y_true.shape != y_pred.shape:
+        return {'mae': 0.0, 'rmse': 0.0, 'nrmse': 0.0, 'r2': 0.0, 'y_range': 0.0}
 
-    y_range = float(np.max(y_true) - np.min(y_true))
-    nrmse = float(rmse / (y_range + 1e-8))
+    mask = np.isfinite(y_true) & np.isfinite(y_pred)
+    if not np.any(mask):
+        return {'mae': 0.0, 'rmse': 0.0, 'nrmse': 0.0, 'r2': 0.0, 'y_range': 0.0}
 
-    ss_res = np.sum((y_true - y_pred) ** 2)
-    ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
-    r2 = float(1.0 - (ss_res / (ss_tot + 1e-8)))
+    y_t = y_true[mask]
+    y_p = y_pred[mask]
+
+    diff = y_t - y_p
+    mae = float(np.mean(np.abs(diff)))
+    rmse = float(np.sqrt(np.mean(diff ** 2)))
+
+    y_range = float(np.max(y_t) - np.min(y_t))
+    if y_range > 1e-12:
+        nrmse = float(rmse / y_range)
+    else:
+        nrmse = 0.0 if rmse < 1e-12 else float(rmse / (y_range + 1e-8))
+
+    ss_res = float(np.sum(diff ** 2))
+    ss_tot = float(np.sum((y_t - np.mean(y_t)) ** 2))
+
+    if ss_tot < 1e-12:
+        r2 = 1.0 if ss_res < 1e-12 else 0.0
+    else:
+        r2 = float(1.0 - (ss_res / ss_tot))
 
     return {
-        'mae': mae,
-        'rmse': rmse,
-        'nrmse': nrmse,
-        'r2': r2,
-        'y_range': y_range,
+        'mae': float(mae) if np.isfinite(mae) else 0.0,
+        'rmse': float(rmse) if np.isfinite(rmse) else 0.0,
+        'nrmse': float(nrmse) if np.isfinite(nrmse) else 0.0,
+        'r2': float(r2) if np.isfinite(r2) else 0.0,
+        'y_range': float(y_range) if np.isfinite(y_range) else 0.0,
     }
 
 
@@ -242,8 +257,6 @@ class EmpiricalValidationBenchmark:
                     cfg.distributions['anastomosis_prob_base'] = {'type': 'uniform', 'low': 0.0, 'high': 0.35}
                     cfg.distributions['reconnection_prob_base'] = {'type': 'uniform', 'low': 0.35, 'high': 0.85}
                     cfg.distributions['candidate_dist_scale'] = {'type': 'uniform', 'low': 0.15, 'high': 0.40}
-                    cfg.distributions['target_loop_fraction_slope'] = {'type': 'uniform', 'low': 0.12, 'high': 0.35}
-                    cfg.distributions['target_loop_fraction_intercept'] = {'type': 'uniform', 'low': 0.04, 'high': 0.15}
                     cfg.distributions['loop_flow_penalty'] = {'type': 'uniform', 'low': 0.20, 'high': 0.70}
                     cfg.distributions['confinement'] = {'type': 'uniform', 'low': 0.0, 'high': 0.65}
                     cfg.distributions['coastal_node_decay'] = {'type': 'uniform', 'low': 0.10, 'high': 0.65}
@@ -286,24 +299,33 @@ class EmpiricalValidationBenchmark:
                     cfg.branching_weights = (w1 / tot_w, w2 / tot_w, w3 / tot_w)
 
                     # Generate realization
-                    gen = DeltaGenerator(cfg)
-                    G_real = gen.generate(seed_override=sub_seed)
-                    m_real = gen.battery.evaluate_all(G_real)
-                    m_real['_sampled_r_rt'] = r_rt_real
-                    raw_runs.append(m_real)
+                    try:
+                        gen = DeltaGenerator(cfg)
+                        G_real = gen.generate(seed_override=sub_seed)
+                        m_real = gen.battery.evaluate_all(G_real)
+                        m_real['_sampled_r_rt'] = r_rt_real
+                        raw_runs.append(m_real)
+                    except Exception as exc:
+                        import warnings
+                        warnings.warn(f"Realization {r_i} failed for delta '{emp.name}': {exc}")
             else:
                 # Legacy standard mode
-                gen = EnsembleGenerator(
-                    N=bench_n,
-                    R_rt=r_rt_base,
-                    num_realizations=self.realizations_per_delta,
-                    loop_mechanism=self.loop_mechanism,
-                    sample_parameters=self.sample_parameters,
-                    base_seed=self.base_seed + idx * 100,
-                    config=self.config,
-                )
-                summary = gen.evaluate_ensemble()
-                raw_runs = summary.get('raw_realizations', [])
+                try:
+                    gen = EnsembleGenerator(
+                        N=bench_n,
+                        R_rt=r_rt_base,
+                        num_realizations=self.realizations_per_delta,
+                        loop_mechanism=self.loop_mechanism,
+                        sample_parameters=self.sample_parameters,
+                        base_seed=self.base_seed + idx * 100,
+                        config=self.config,
+                    )
+                    summary = gen.evaluate_ensemble()
+                    raw_runs = summary.get('raw_realizations', [])
+                except Exception as exc:
+                    import warnings
+                    warnings.warn(f"Ensemble generation failed for delta '{emp.name}': {exc}")
+                    raw_runs = []
                 for r in raw_runs:
                     r['_sampled_r_rt'] = r_rt_base
 
@@ -403,7 +425,10 @@ class EmpiricalValidationBenchmark:
 
         # 2D Mahalanobis in PCA space
         cov_z = np.cov(Z_s, rowvar=False) + 1e-6 * np.eye(2)
-        inv_cov_z = np.linalg.inv(cov_z)
+        try:
+            inv_cov_z = np.linalg.inv(cov_z)
+        except np.linalg.LinAlgError:
+            inv_cov_z = np.linalg.pinv(cov_z)
         mu_z = np.mean(Z_s, axis=0)
 
         crit_95_pca = float(stats.chi2.ppf(0.95, df=2))
@@ -413,7 +438,10 @@ class EmpiricalValidationBenchmark:
 
         # 6D Mahalanobis in full canonical feature space
         cov_6d = np.cov(X_s, rowvar=False) + 1e-5 * np.eye(len(PRIMARY_METRICS))
-        inv_cov_6d = np.linalg.inv(cov_6d)
+        try:
+            inv_cov_6d = np.linalg.inv(cov_6d)
+        except np.linalg.LinAlgError:
+            inv_cov_6d = np.linalg.pinv(cov_6d)
         mu_6d = np.mean(X_s, axis=0)
         crit_95_6d = float(stats.chi2.ppf(0.95, df=len(PRIMARY_METRICS)))
 
@@ -511,7 +539,14 @@ class EmpiricalValidationBenchmark:
         path = Path(filepath)
         path.parent.mkdir(parents=True, exist_ok=True)
         df = pd.DataFrame(self.results['detailed_results'])
-        df.to_csv(path, index=False)
+        tmp_path = path.with_name(f".{path.name}.tmp_{uuid.uuid4().hex}")
+        try:
+            df.to_csv(tmp_path, index=False)
+            tmp_path.replace(path)
+        except Exception:
+            if tmp_path.exists():
+                tmp_path.unlink()
+            raise
         return path
 
     def save_json(self, filepath: Union[str, Path]) -> Path:
@@ -549,8 +584,15 @@ class EmpiricalValidationBenchmark:
             ],
         }
 
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(summary_export, f, indent=2)
+        tmp_path = path.with_name(f".{path.name}.tmp_{uuid.uuid4().hex}")
+        try:
+            with open(tmp_path, 'w', encoding='utf-8') as f:
+                json.dump(summary_export, f, indent=2)
+            tmp_path.replace(path)
+        except Exception:
+            if tmp_path.exists():
+                tmp_path.unlink()
+            raise
         return path
 
     def plot_benchmark(self, filepath: Union[str, Path]) -> Path:
@@ -562,7 +604,6 @@ class EmpiricalValidationBenchmark:
 
         details = self.results['detailed_results']
         gof = self.results['goodness_of_fit']
-        ks = self.results['ks_tests']
         cov = self.results['envelope_coverage']
 
         names = [d['delta_name'] for d in details]
@@ -795,7 +836,6 @@ class EmpiricalValidationBenchmark:
         ]
         maes = [gof[k]['mae'] for k in PRIMARY_METRICS]
         nrmses = [gof[k]['nrmse'] for k in PRIMARY_METRICS]
-        r2s = [max(-0.5, gof[k]['r2']) for k in PRIMARY_METRICS]
         p10_p90_covs = [cov[k]['p10_p90_coverage'] for k in PRIMARY_METRICS]
         min_max_covs = [cov[k]['min_max_coverage'] for k in PRIMARY_METRICS]
 
@@ -824,8 +864,17 @@ class EmpiricalValidationBenchmark:
         )
         plt.suptitle(overall_str, fontsize=13.5, fontweight='bold', y=0.995)
         plt.tight_layout()
-        plt.savefig(path, bbox_inches='tight')
-        plt.close()
+        fmt = path.suffix.lstrip('.') or 'png'
+        tmp_path = path.with_name(f".{path.stem}.tmp_{uuid.uuid4().hex}{path.suffix}")
+        try:
+            plt.savefig(tmp_path, format=fmt, bbox_inches='tight')
+            tmp_path.replace(path)
+        except Exception:
+            if tmp_path.exists():
+                tmp_path.unlink()
+            raise
+        finally:
+            plt.close(fig)
         return path
 
     def generate_report(self, filepath: Union[str, Path]) -> Path:
@@ -951,8 +1000,15 @@ class EmpiricalValidationBenchmark:
         ])
 
         report_content = "\n".join(md_lines)
-        with open(path, 'w', encoding='utf-8') as f:
-            f.write(report_content)
+        tmp_path = path.with_name(f".{path.name}.tmp_{uuid.uuid4().hex}")
+        try:
+            with open(tmp_path, 'w', encoding='utf-8') as f:
+                f.write(report_content)
+            tmp_path.replace(path)
+        except Exception:
+            if tmp_path.exists():
+                tmp_path.unlink()
+            raise
         return path
 
 
@@ -977,14 +1033,11 @@ def run_empirical_benchmark(
     and saving all required presentation-ready deliverables.
     """
     if output_dir is None:
-        # Default to dgm/outputs or outputs relative to caller
         cwd = Path.cwd()
-        if (cwd / "dgm" / "outputs").exists() or (cwd / "dgm").exists():
+        if (cwd / "dgm" / "outputs").exists():
             out_path = cwd / "dgm" / "outputs"
-        elif cwd.name == "dgm":
-            out_path = cwd / "outputs"
         else:
-            out_path = Path(__file__).resolve().parent.parent.parent.parent / "outputs"
+            out_path = cwd / "outputs"
     else:
         out_path = Path(output_dir)
 

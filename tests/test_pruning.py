@@ -5,14 +5,14 @@ coordinate merging, and seamless integration with hydraulics and ensemble genera
 """
 
 import math
-import tempfile
 from pathlib import Path
 import numpy as np
 import networkx as nx
 import pytest
 
+
 import dgm
-from dgm.config import DGMConfig, ParameterBounds
+from dgm.config import DGMConfig
 from dgm.core.pruning import (
     refresh_node_types,
     prune_dead_end_spurs,
@@ -228,8 +228,18 @@ def test_pruning_disabled_by_default():
     assert result is G
 
 
-def test_config_validation_and_yaml_roundtrip():
-    """Verify DGMConfig parameter bounds, validation, and YAML serialization for pruning."""
+@pytest.mark.parametrize("config_kwargs,match_pattern", [
+    ({"min_spur_length": -10.0}, "min_spur_length"),
+    ({"max_prune_iterations": 0}, "max_prune_iterations"),
+])
+def test_pruning_config_validation_errors(config_kwargs, match_pattern):
+    """Verify invalid pruning parameters raise ValueError."""
+    with pytest.raises(ValueError, match=match_pattern):
+        DGMConfig(**config_kwargs)
+
+
+def test_pruning_config_yaml_roundtrip(tmp_path):
+    """Verify DGMConfig pruning parameters roundtrip cleanly via YAML using tmp_path."""
     cfg = DGMConfig(
         enable_pruning=True,
         prune_inland_dead_ends=True,
@@ -245,25 +255,16 @@ def test_config_validation_and_yaml_roundtrip():
     assert active["simplify_pass_through_nodes"] is True
     assert active["max_prune_iterations"] == 8
 
-    # Invalid min_spur_length
-    with pytest.raises(ValueError, match="min_spur_length"):
-        DGMConfig(min_spur_length=-10.0)
+    yaml_path = tmp_path / "test_pruning_cfg.yaml"
+    cfg.to_yaml(yaml_path)
 
-    # Invalid max_prune_iterations
-    with pytest.raises(ValueError, match="max_prune_iterations"):
-        DGMConfig(max_prune_iterations=0)
+    loaded_cfg = DGMConfig.from_yaml(yaml_path)
+    assert loaded_cfg.enable_pruning is True
+    assert loaded_cfg.prune_inland_dead_ends is True
+    assert loaded_cfg.min_spur_length == 150.0
+    assert loaded_cfg.simplify_pass_through_nodes is True
+    assert loaded_cfg.max_prune_iterations == 8
 
-    # YAML roundtrip
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yaml_path = Path(tmpdir) / "test_pruning_cfg.yaml"
-        cfg.to_yaml(yaml_path)
-
-        loaded_cfg = DGMConfig.from_yaml(yaml_path)
-        assert loaded_cfg.enable_pruning is True
-        assert loaded_cfg.prune_inland_dead_ends is True
-        assert loaded_cfg.min_spur_length == 150.0
-        assert loaded_cfg.simplify_pass_through_nodes is True
-        assert loaded_cfg.max_prune_iterations == 8
 
 
 def test_generator_end_to_end_pruning():
@@ -299,13 +300,13 @@ def test_generator_end_to_end_pruning():
             assert G.nodes[n]['r'] >= shore_threshold, f"Node {n} is inland leaf at r={G.nodes[n]['r']} < {shore_threshold}"
 
     # 4. Hydraulics must have executed successfully
-    for u, v, data in G.edges(data=True):
+    for _, _, data in G.edges(data=True):
         assert 'width' in data and data['width'] > 0
         assert 'conductance' in data and data['conductance'] > 0
         assert 'length' in data and data['length'] > 0
 
     # 5. Markov flux throughput solver executes successfully and conserves mass
-    C, W, phi = solve_markov_flux(G, G.graph.get('params'))
+    _C, _W, phi = solve_markov_flux(G, G.graph.get('params'))
     assert len(phi) == G.number_of_nodes()
     assert np.all(np.isfinite(phi))
     assert np.all(phi >= 0)
@@ -391,7 +392,8 @@ def test_simplify_contracts_to_terminal_outlet():
     assert 0 in simplified_G
     assert 2 in simplified_G
     assert simplified_G.has_edge(0, 2)
-    assert simplified_G.edges[0, 2]['length'] == 10000.0
-    assert simplified_G.edges[0, 2]['straight_distance'] == 10000.0
-    assert simplified_G.edges[0, 2]['sinuosity'] == 1.0
+    assert simplified_G.edges[0, 2]['length'] == pytest.approx(10000.0)
+    assert simplified_G.edges[0, 2]['straight_distance'] == pytest.approx(10000.0)
+    assert simplified_G.edges[0, 2]['sinuosity'] == pytest.approx(1.0)
+
 

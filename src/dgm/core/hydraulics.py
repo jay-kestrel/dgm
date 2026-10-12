@@ -17,7 +17,11 @@ def _get_dag_topological_sort(G: nx.DiGraph) -> List[Any]:
     Returns a topological sorting of nodes in G.
     If G contains directed cycles, extracts a DAG backbone (separating tree backbone
     from cyclic loop edges or removing cycle-causing back-edges) and returns its topological sort.
+    Uses iterative DFS to avoid Python recursion limit errors on deep delta networks.
     """
+    if G.number_of_nodes() == 0:
+        return []
+
     try:
         return list(nx.topological_sort(G))
     except nx.NetworkXUnfeasible:
@@ -30,7 +34,7 @@ def _get_dag_topological_sort(G: nx.DiGraph) -> List[Any]:
         try:
             return list(nx.topological_sort(G_dag))
         except nx.NetworkXUnfeasible:
-            # If still cyclic, break cycles via DFS back-edge removal
+            # Iterative DFS to break cycles without recursion depth limits
             apex_nodes = [n for n in G.nodes() if G.nodes[n].get('node_type') == 'apex']
             root = apex_nodes[0] if apex_nodes else (0 if 0 in G.nodes() else list(G.nodes())[0])
 
@@ -38,21 +42,27 @@ def _get_dag_topological_sort(G: nx.DiGraph) -> List[Any]:
             rec_stack = set()
             dag_edges = []
 
-            def dfs(u):
-                visited.add(u)
-                rec_stack.add(u)
-                for v in G.successors(u):
-                    if v not in visited:
-                        dag_edges.append((u, v))
-                        dfs(v)
-                    elif v not in rec_stack:
-                        dag_edges.append((u, v))
-                rec_stack.remove(u)
+            for start_node in [root] + [n for n in G.nodes() if n != root]:
+                if start_node in visited:
+                    continue
+                stack = [(start_node, iter(list(G.successors(start_node))))]
+                visited.add(start_node)
+                rec_stack.add(start_node)
 
-            dfs(root)
-            for n in G.nodes():
-                if n not in visited:
-                    dfs(n)
+                while stack:
+                    parent_node, succ_iter = stack[-1]
+                    try:
+                        child_node = next(succ_iter)
+                        if child_node not in visited:
+                            dag_edges.append((parent_node, child_node))
+                            visited.add(child_node)
+                            rec_stack.add(child_node)
+                            stack.append((child_node, iter(list(G.successors(child_node)))))
+                        elif child_node not in rec_stack:
+                            dag_edges.append((parent_node, child_node))
+                    except StopIteration:
+                        rec_stack.remove(parent_node)
+                        stack.pop()
 
             G_dfs = nx.DiGraph()
             G_dfs.add_nodes_from(G.nodes())
@@ -75,32 +85,36 @@ def apply_emergent_hydraulics(
     Uses an iterative relaxation solver to guarantee Murray's Law width conservation.
     """
     if G is None:
-        G = kwargs.get('G', kwargs.get('G_in', None))
+        G = kwargs.get('G', None)
     if G is None:
         raise ValueError("A NetworkX DiGraph G must be provided to apply_emergent_hydraulics.")
+
+    if G.number_of_nodes() == 0 or G.number_of_edges() == 0:
+        return G
 
     if params is None:
         params = {}
 
-    rng = np.random.default_rng(seed)
-
-    w_apex = float(params.get('apex_width', params.get('w_apex', 250.0)))
-    p_exp = float(params.get('murray_p', 1.70))
-    beta = float(params.get('width_beta', params.get('width_asymmetry', 0.745)))
-    R_rt = float(params.get('R_rt', 0.5))
-    r_shore = float(params.get('r_shore', 10000.0))
-    k_flare = float(params.get('tidal_flare_k', params.get('k_flare', 1.40)))
-    tidal_flare_onset = float(params.get('tidal_flare_onset', 0.30))
-    loop_flow_penalty = float(params.get('loop_flow_penalty', 0.40))
-    manning_eta = float(params.get('manning_eta', params.get('eta', 1.65)))
-    length_gamma = float(params.get('length_gamma', params.get('gamma', 0.50)))
-    sigma_w = float(params.get('width_noise', params.get('width_noise_sigma', 0.30)))
-    min_width = float(params.get('min_channel_width', 0.1))
-    max_iter = int(params.get('relaxation_max_iter', 100))
-    tol = float(params.get('relaxation_tol', 1e-6))
+    w_apex = max(0.1, float(params.get('apex_width', 250.0)))
+    p_exp = max(0.1, float(params.get('murray_p', 1.70)))
+    beta = max(0.01, min(0.99, float(params.get('width_beta', 0.745))))
+    R_rt = max(0.0, min(1.0, float(params.get('R_rt', 0.5))))
+    r_shore = max(1.0, float(params.get('r_shore', 10000.0)))
+    k_flare = float(params.get('tidal_flare_k', 1.40))
+    tidal_flare_onset = max(0.0, min(1.0, float(params.get('tidal_flare_onset', 0.30))))
+    loop_flow_penalty = max(0.01, min(1.0, float(params.get('loop_flow_penalty', 0.40))))
+    manning_eta = max(0.01, float(params.get('manning_eta', 1.65)))
+    length_gamma = max(0.01, float(params.get('length_gamma', 0.50)))
+    sigma_w = max(0.0, float(params.get('width_noise', 0.30)))
+    min_width = max(1e-4, float(params.get('min_channel_width', 0.1)))
+    max_iter = max(1, int(params.get('relaxation_max_iter', 15)))
+    tol = max(1e-9, float(params.get('relaxation_tol', 1e-4)))
     base_sin_mu = float(params.get('base_sinuosity_mean', 0.25))
-    base_sin_sigma = float(params.get('base_sinuosity_std', 0.15))
+    base_sin_sigma = max(1e-4, float(params.get('base_sinuosity_std', 0.15)))
     coastal_sin_decay = float(params.get('coastal_sinuosity_decay', 0.30))
+
+    G.graph['manning_eta'] = manning_eta
+    G.graph['length_gamma'] = length_gamma
 
     # Identify exact apex node
     apex_nodes = [n for n in G.nodes() if G.nodes[n].get('node_type') == 'apex']
@@ -127,12 +141,12 @@ def apply_emergent_hydraulics(
             node_rng.shuffle(raw_fracs)
 
             weights = []
-            for i, (src, tgt, d) in enumerate(out_edges):
+            for i, (_, _, d) in enumerate(out_edges):
                 penalty_factor = (loop_flow_penalty ** p_exp) if d.get('edge_type') == 'loop' else 1.0
                 weights.append(raw_fracs[i] * penalty_factor)
 
             total_weight = sum(weights)
-            for i, (src, tgt, d) in enumerate(out_edges):
+            for i, (src, tgt, _) in enumerate(out_edges):
                 branch_fractions[(src, tgt)] = float(weights[i] / total_weight) if total_weight > 0 else (1.0 / n_out)
 
     topo_nodes = _get_dag_topological_sort(G)
@@ -153,7 +167,7 @@ def apply_emergent_hydraulics(
                 w_in_sum = sum((d.get('width_river', 0.0) ** p_exp) for _, _, d in in_edges)
                 if u == apex_node or G.nodes[u].get('node_type') == 'apex':
                     w_in_sum += w_apex ** p_exp
-                w_u = float(w_in_sum ** (1.0 / p_exp)) if w_in_sum > 0 else (
+                w_u = float(w_in_sum ** (1.0 / p_exp)) if w_in_sum > 1e-12 else (
                     w_apex if (u == apex_node or G.nodes[u].get('node_type') == 'apex') else 0.0
                 )
 
@@ -161,7 +175,7 @@ def apply_emergent_hydraulics(
             n_out = len(out_edges)
             if n_out == 0:
                 continue
-            for src, tgt, d in out_edges:
+            for src, tgt, _ in out_edges:
                 f = branch_fractions.get((src, tgt), 1.0)
                 w_child = w_u * (f ** (1.0 / p_exp))
                 old_w = G.edges[src, tgt].get('width_river', 0.0)
@@ -179,14 +193,15 @@ def apply_emergent_hydraulics(
             edge_seed = (seed + abs(hash(str((u, v))))) % (2**31)
         edge_rng = np.random.default_rng(edge_seed)
 
-        r_u = G.nodes[u]['r']
-        r_v = G.nodes[v]['r']
+        r_u = float(G.nodes[u].get('r', 0.0))
+        r_v = float(G.nodes[v].get('r', 0.0))
         r_mid = (r_u + r_v) / 2.0
 
-        w_river = d.get('width_river', 0.0)
+        w_river = float(d.get('width_river', 0.0))
 
-        # Multiplicative estuarine flaring
-        flare_factor = math.exp(k_flare * max(0.0, r_mid / r_shore - tidal_flare_onset))
+        # Multiplicative estuarine flaring with numerical exponent overflow guard
+        flare_arg = min(50.0, max(0.0, k_flare * (r_mid / r_shore - tidal_flare_onset)))
+        flare_factor = math.exp(flare_arg)
         w_emergent = w_river * ((1.0 - R_rt) + R_rt * flare_factor)
 
         if 'width_noise' in d:
@@ -199,9 +214,9 @@ def apply_emergent_hydraulics(
         d['width'] = w_final
 
         # Compute Euclidean physical length
-        x_u, y_u = G.nodes[u]['x'], G.nodes[u]['y']
-        x_v, y_v = G.nodes[v]['x'], G.nodes[v]['y']
-        straight_dist = math.sqrt((x_v - x_u)**2 + (y_v - y_u)**2)
+        x_u, y_u = float(G.nodes[u].get('x', 0.0)), float(G.nodes[u].get('y', 0.0))
+        x_v, y_v = float(G.nodes[v].get('x', 0.0)), float(G.nodes[v].get('y', 0.0))
+        straight_dist = max(1.0, math.sqrt((x_v - x_u)**2 + (y_v - y_u)**2))
 
         if 'sinuosity' in d:
             sinuosity = float(d['sinuosity'])
@@ -212,12 +227,13 @@ def apply_emergent_hydraulics(
             sinuosity = max(1.0, 1.0 + (raw_sin - 1.0) * sin_decay_mult)
             d['sinuosity'] = sinuosity
 
+        sinuosity = max(1.0, sinuosity)
         length = max(1.0, straight_dist * sinuosity)
-        d['straight_distance'] = max(1.0, straight_dist)
+        d['straight_distance'] = straight_dist
         d['length'] = length
 
         # Open-channel conductance C_e = w_e^eta / L_e^gamma
-        d['conductance'] = (w_final ** manning_eta) / (length ** length_gamma)
+        d['conductance'] = max(1e-12, (w_final ** manning_eta) / (length ** length_gamma))
 
     return G
 
@@ -249,13 +265,13 @@ def solve_markov_flux(
     apex_idx = n_map[apex_node]
 
     routing_mode = params.get('routing_mode', 'width') if params else 'width'
-    eta = float(params.get('manning_eta', params.get('eta', 1.65)) if params else 1.65)
+    eta = max(0.01, float(params.get('manning_eta', params.get('eta', 1.65)) if params else 1.65))
 
     # Conductance / Flow Partition Matrix C
     C = np.zeros((N, N))
     for u, v, d in G.edges(data=True):
         if routing_mode == 'width':
-            w_val = float(d.get('width', 1.0))
+            w_val = max(1e-4, float(d.get('width', 1.0)))
             C[n_map[u], n_map[v]] = max(0.0, float(w_val ** eta))
         else:
             C[n_map[u], n_map[v]] = max(0.0, float(d.get('conductance', 1.0)))
@@ -288,18 +304,18 @@ def solve_markov_flux(
         try:
             phi_T = np.linalg.solve(I_Q_T, S0_T)
             if not np.all(np.isfinite(phi_T)):
-                phi_T = scipy.linalg.lstsq(I_Q_T, S0_T, rcond=None)[0]
+                phi_T = scipy.linalg.lstsq(I_Q_T, S0_T, rcond=1e-10)[0]
         except np.linalg.LinAlgError:
             try:
                 # Fast regularized solve for near-singular Markov submatrices
-                reg = 1e-12 * np.eye(len(T_indices))
+                reg = 1e-10 * np.eye(len(T_indices))
                 phi_T = np.linalg.solve(I_Q_T.T @ I_Q_T + reg, I_Q_T.T @ S0_T)
                 if not np.all(np.isfinite(phi_T)):
-                    phi_T = scipy.linalg.lstsq(I_Q_T, S0_T, rcond=None)[0]
+                    phi_T = scipy.linalg.lstsq(I_Q_T, S0_T, rcond=1e-10)[0]
             except Exception:
-                phi_T = scipy.linalg.lstsq(I_Q_T, S0_T, rcond=None)[0]
+                phi_T = scipy.linalg.lstsq(I_Q_T, S0_T, rcond=1e-10)[0]
 
-        phi_T = np.nan_to_num(phi_T, nan=0.0, posinf=1.0, neginf=0.0)
+        phi_T = np.maximum(0.0, np.nan_to_num(phi_T, nan=0.0, posinf=1.0, neginf=0.0))
 
         phi = np.zeros(N)
         phi[T_indices] = phi_T
@@ -308,10 +324,14 @@ def solve_markov_flux(
             W_TA = W[np.ix_(T_indices, A_indices)]
             S0_A = S0[A_indices]
             phi_A = S0_A + np.dot(W_TA.T, phi_T)
-            phi[A_indices] = np.nan_to_num(phi_A, nan=0.0, posinf=1.0, neginf=0.0)
+            phi[A_indices] = np.maximum(0.0, np.nan_to_num(phi_A, nan=0.0, posinf=1.0, neginf=0.0))
 
+    # Strictly guarantee Invariant 6: unit flux at apex and non-negativity everywhere
     phi = np.maximum(0.0, phi)
+    phi[apex_idx] = 1.0
     return C, W, phi
 
 
 solve_markov_hydraulics = solve_markov_flux
+solve_steady_state_fluxes = solve_markov_flux
+

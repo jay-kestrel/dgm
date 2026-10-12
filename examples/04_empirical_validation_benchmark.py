@@ -21,9 +21,8 @@ import time
 # Ensure dgm and local modules are importable
 current_dir = Path(__file__).resolve().parent
 dgm_root = current_dir.parent
-repo_root = dgm_root.parent
 
-for p in [str(dgm_root / "src"), str(dgm_root), str(repo_root)]:
+for p in [str(dgm_root / "src"), str(dgm_root)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
@@ -37,26 +36,15 @@ from dgm.benchmarks.empirical_validation import (
 
 
 def resolve_output_dir(custom_path: str = None) -> Path:
-    """Intelligently resolves the target dgm/outputs directory."""
+    """Intelligently resolves the target outputs directory."""
     if custom_path:
         out = Path(custom_path).resolve()
     else:
-        # Check standard locations
-        candidates = [
-            dgm_root / "outputs",
-            Path.cwd() / "dgm" / "outputs",
-            Path.cwd() / "outputs",
-        ]
-        out = None
-        for cand in candidates:
-            if cand.parent.exists():
-                out = cand
-                break
-        if out is None:
-            out = dgm_root / "outputs"
+        out = dgm_root / "outputs"
 
     out.mkdir(parents=True, exist_ok=True)
     return out
+
 
 
 def main():

@@ -7,14 +7,11 @@ across a complete battery of topological, entropic, dynamic, hydraulic, and geom
 from typing import List, Dict, Any, Tuple, Optional, Union
 import numpy as np
 
-from .generator import EnsembleGenerator, V2EnsembleGenerator
+from .generator import EnsembleGenerator
 from .io.datasets import (
     EmpiricalDelta,
     get_empirical_deltas,
-    get_empirical_deltas_dict,
-    DELTA_FORCING_REGIMES,
 )
-from .metrics import MetricsBattery
 
 
 # Complete Multi-Dimensional 20-Metric Battery Feature Keys & Labels
@@ -149,21 +146,39 @@ def compute_goodness_of_fit(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str,
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
 
-    mae = float(np.mean(np.abs(y_true - y_pred)))
-    rmse = float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
+    if y_true.size == 0 or y_pred.size == 0 or y_true.shape != y_pred.shape:
+        return {'mae': 0.0, 'rmse': 0.0, 'nrmse': 0.0, 'r2': 0.0}
 
-    y_range = float(np.max(y_true) - np.min(y_true))
-    nrmse = float(rmse / (y_range + 1e-8))
+    mask = np.isfinite(y_true) & np.isfinite(y_pred)
+    if not np.any(mask):
+        return {'mae': 0.0, 'rmse': 0.0, 'nrmse': 0.0, 'r2': 0.0}
 
-    ss_res = np.sum((y_true - y_pred) ** 2)
-    ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
-    r2 = float(1.0 - (ss_res / (ss_tot + 1e-8)))
+    y_t = y_true[mask]
+    y_p = y_pred[mask]
+
+    diff = y_t - y_p
+    mae = float(np.mean(np.abs(diff)))
+    rmse = float(np.sqrt(np.mean(diff ** 2)))
+
+    y_range = float(np.max(y_t) - np.min(y_t))
+    if y_range > 1e-12:
+        nrmse = float(rmse / y_range)
+    else:
+        nrmse = 0.0 if rmse < 1e-12 else float(rmse / (y_range + 1e-8))
+
+    ss_res = float(np.sum(diff ** 2))
+    ss_tot = float(np.sum((y_t - np.mean(y_t)) ** 2))
+
+    if ss_tot < 1e-12:
+        r2 = 1.0 if ss_res < 1e-12 else 0.0
+    else:
+        r2 = float(1.0 - (ss_res / ss_tot))
 
     return {
-        'mae': mae,
-        'rmse': rmse,
-        'nrmse': nrmse,
-        'r2': r2
+        'mae': float(mae) if np.isfinite(mae) else 0.0,
+        'rmse': float(rmse) if np.isfinite(rmse) else 0.0,
+        'nrmse': float(nrmse) if np.isfinite(nrmse) else 0.0,
+        'r2': float(r2) if np.isfinite(r2) else 0.0
     }
 
 
@@ -176,10 +191,18 @@ def compute_ks_test(synthetic_samples: np.ndarray, empirical_targets: np.ndarray
     synth = np.asarray(synthetic_samples, dtype=float).ravel()
     emp = np.asarray(empirical_targets, dtype=float).ravel()
 
+    synth = synth[np.isfinite(synth)]
+    emp = emp[np.isfinite(emp)]
+
+    if len(synth) == 0 or len(emp) == 0:
+        return {'ks_stat': 0.0, 'p_value': 1.0}
+
     res = stats.ks_2samp(synth, emp)
+    stat = float(res.statistic) if np.isfinite(res.statistic) else 0.0
+    pval = float(res.pvalue) if np.isfinite(res.pvalue) else 1.0
     return {
-        'ks_stat': float(res.statistic),
-        'p_value': float(res.pvalue)
+        'ks_stat': stat,
+        'p_value': pval
     }
 
 
@@ -196,20 +219,53 @@ def compute_mahalanobis_validation(
     X_synth = np.asarray(synthetic_cloud, dtype=float)
     X_emp = np.asarray(empirical_points, dtype=float)
 
-    p = X_synth.shape[1]
+    if X_synth.ndim == 1:
+        X_synth = X_synth.reshape(-1, 1)
+    if X_emp.ndim == 1:
+        X_emp = X_emp.reshape(-1, 1)
+
+    p = X_synth.shape[1] if X_synth.ndim > 1 and X_synth.shape[1] > 0 else 1
     if df is None:
         df = p
+    elif isinstance(df, (tuple, list)):
+        df = df[0] if len(df) > 0 else p
+    df = max(1, int(df))
 
-    mu = np.mean(X_synth, axis=0)
-    cov = np.cov(X_synth, rowvar=False)
+    if X_synth.size == 0 or X_emp.size == 0:
+        return {
+            'centroid': np.zeros(p),
+            'covariance': np.eye(p),
+            'distances': [0.0] * len(X_emp),
+            'squared_distances': [0.0] * len(X_emp),
+            'critical_value_95_sq': 0.0,
+            'critical_value_95_dist': 0.0,
+            'inside_95_ci': [False] * len(X_emp),
+            'p_values': [0.0] * len(X_emp),
+            'coverage_ratio': 0.0
+        }
+
+    mu = np.nanmean(X_synth, axis=0)
+    mu = np.nan_to_num(mu, nan=0.0)
+
+    if X_synth.shape[0] < 2:
+        cov = np.eye(p)
+    else:
+        cov = np.cov(X_synth, rowvar=False)
 
     if cov.ndim == 0:
-        cov = np.array([[cov]])
+        cov = np.array([[float(cov)]])
     elif cov.ndim == 1:
         cov = np.diag(cov)
 
+    cov = np.nan_to_num(cov, nan=0.0)
     reg_cov = cov + 1e-6 * np.eye(p)
-    inv_cov = np.linalg.inv(reg_cov)
+
+    try:
+        inv_cov = np.linalg.inv(reg_cov)
+    except np.linalg.LinAlgError:
+        inv_cov = np.linalg.pinv(reg_cov)
+
+    inv_cov = np.nan_to_num(inv_cov, nan=0.0)
 
     distances = []
     sq_distances = []
@@ -217,22 +273,27 @@ def compute_mahalanobis_validation(
     p_vals = []
 
     crit_val_sq = float(stats.chi2.ppf(0.95, df=df))
+    if not np.isfinite(crit_val_sq):
+        crit_val_sq = 1.0
 
     for i in range(X_emp.shape[0]):
-        diff = X_emp[i] - mu
+        diff = np.nan_to_num(X_emp[i] - mu, nan=0.0)
         d_sq = float(np.dot(np.dot(diff, inv_cov), diff.T))
-        d_sq = max(0.0, d_sq)
+        if not np.isfinite(d_sq) or d_sq < 0.0:
+            d_sq = 0.0
         d_val = float(np.sqrt(d_sq))
 
         is_inside = bool(d_sq <= crit_val_sq)
         p_val = float(1.0 - stats.chi2.cdf(d_sq, df=df))
+        if not np.isfinite(p_val):
+            p_val = 0.0
 
         distances.append(d_val)
         sq_distances.append(d_sq)
         inside_95.append(is_inside)
         p_vals.append(p_val)
 
-    coverage_ratio = float(np.mean(inside_95))
+    coverage_ratio = float(np.mean(inside_95)) if len(inside_95) > 0 else 0.0
 
     return {
         'centroid': mu,
@@ -260,18 +321,27 @@ def compute_mmd(X: np.ndarray, Y: np.ndarray, gamma: Optional[float] = None) -> 
     if Y.ndim == 1:
         Y = Y.reshape(-1, 1)
 
+    if X.size == 0 or Y.size == 0:
+        return 0.0
+
+    X = np.nan_to_num(X, nan=0.0)
+    Y = np.nan_to_num(Y, nan=0.0)
+
     if gamma is None:
         Z = np.vstack([X, Y])
         pairwise_dists = dist.pdist(Z, metric='sqeuclidean')
-        median_dist = np.median(pairwise_dists) if len(pairwise_dists) > 0 else 1.0
+        valid_dists = pairwise_dists[np.isfinite(pairwise_dists)]
+        median_dist = float(np.median(valid_dists)) if len(valid_dists) > 0 else 1.0
         gamma = 1.0 / (2.0 * max(1e-5, median_dist))
 
     K_XX = np.exp(-gamma * dist.cdist(X, X, metric='sqeuclidean'))
     K_YY = np.exp(-gamma * dist.cdist(Y, Y, metric='sqeuclidean'))
     K_XY = np.exp(-gamma * dist.cdist(X, Y, metric='sqeuclidean'))
 
-    mmd_sq = np.mean(K_XX) + np.mean(K_YY) - 2.0 * np.mean(K_XY)
-    return float(np.sqrt(max(0.0, mmd_sq)))
+    mmd_sq = float(np.mean(K_XX) + np.mean(K_YY) - 2.0 * np.mean(K_XY))
+    if not np.isfinite(mmd_sq) or mmd_sq < 0.0:
+        return 0.0
+    return float(np.sqrt(mmd_sq))
 
 
 def compute_permanova(
@@ -295,6 +365,16 @@ def compute_permanova(
     n_y = Y.shape[0]
     N_total = n_x + n_y
 
+    if n_x == 0 or n_y == 0 or N_total <= 2:
+        return {
+            'pseudo_f': 0.0,
+            'p_value': 1.0,
+            'num_permutations': num_permutations
+        }
+
+    X = np.nan_to_num(X, nan=0.0)
+    Y = np.nan_to_num(Y, nan=0.0)
+
     Z = np.vstack([X, Y])
     labels = np.array([0] * n_x + [1] * n_y)
 
@@ -314,9 +394,10 @@ def compute_permanova(
         df_b = 1
         df_w = N_total - 2
 
-        if ss_w <= 1e-12:
+        if ss_w <= 1e-12 or df_w <= 0:
             return 0.0
-        return float((ss_b / df_b) / (ss_w / df_w))
+        val = float((ss_b / df_b) / (ss_w / df_w))
+        return val if np.isfinite(val) else 0.0
 
     obs_f = _pseudo_f(labels)
 
@@ -382,8 +463,13 @@ class EmpiricalBenchmark:
                 loop_mechanism=loop_mechanism,
                 sample_parameters=sample_parameters
             )
-            summary = ens_gen.evaluate_ensemble()
-            m = summary['metrics']
+            try:
+                summary = ens_gen.evaluate_ensemble()
+            except Exception as exc:
+                import warnings
+                warnings.warn(f"Ensemble generation failed for empirical delta '{emp.name}': {exc}. Using fallback zeroes.")
+                summary = {'metrics': {}, 'raw_realizations': []}
+            m = summary.get('metrics', {})
 
             synth_vec = []
             for k in self.keys:
@@ -392,7 +478,7 @@ class EmpiricalBenchmark:
                     val = m[battery_key]['mean']
                 else:
                     if k == 'betti_1_norm':
-                        val = m['betti_1']['mean'] / max(1, emp.nodes)
+                        val = m.get('betti_1', {}).get('mean', 0.0) / max(1, emp.nodes)
                     else:
                         val = 0.0
                 synth_vec.append(val)
@@ -432,6 +518,20 @@ class EmpiricalBenchmark:
 
             benchmark_results.append(result_entry)
 
+        if len(emp_matrix) == 0:
+            return {
+                'loop_mechanism': loop_mechanism,
+                'realizations_per_delta': self.realizations_per_delta,
+                'metric_keys': self.keys,
+                'goodness_of_fit': {},
+                'overall_goodness_of_fit': {'mae': 0.0, 'rmse': 0.0, 'nrmse': 0.0, 'r2': 0.0},
+                'ks_tests': {},
+                'mahalanobis': {},
+                'mmd': 0.0,
+                'permanova': {'pseudo_f': 0.0, 'p_value': 1.0, 'num_permutations': 0},
+                'detailed_results': []
+            }
+
         emp_arr = np.array(emp_matrix)
         synth_arr = np.array(synth_matrix)
         synth_cloud_arr = np.array(synth_cloud_all) if len(synth_cloud_all) > 0 else synth_arr
@@ -470,10 +570,11 @@ class EmpiricalBenchmark:
             'detailed_results': benchmark_results
         }
         for k in self.keys:
-            res[f'mean_{k}_mae'] = float(np.mean(metric_errors[k]))
+            errs = metric_errors.get(k, [])
+            res[f'mean_{k}_mae'] = float(np.mean(errs)) if len(errs) > 0 else 0.0
 
         # Backward compatibility aliases
-        res['mean_alpha_mae'] = res.get('mean_alpha_mae', float(np.mean(metric_errors['alpha'])))
+        res['mean_alpha_mae'] = res.get('mean_alpha_mae', float(np.mean(metric_errors.get('alpha', [0.0]))))
         res['mean_loop_mae'] = res.get('mean_betti_1_norm_mae', float(np.mean(metric_errors.get('betti_1_norm', [0.0]))))
         res['mean_ner_mae'] = res.get('mean_nER_star_mae', float(np.mean(metric_errors.get('nER_star', [0.0]))))
         res['mean_vc_vb_mae'] = res.get('mean_vc_vb_ratio_mae', float(np.mean(metric_errors.get('vc_vb_ratio', [0.0]))))
