@@ -63,3 +63,6 @@ src/dgm/data/*.npz
 # writeup
 writeup/
 writeup/*
+
+# Draft / unverified documentation
+docs/parameter_justifications.md

@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-[#0a0b0a] text-white">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>End-to-End Walkthrough | DeltaGraphModel Documentation</title>
+  
+  <!-- Kestrel Typography: Aldrich (Display), Azeret Mono (Code/HUD), Plus Jakarta Sans (Body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Aldrich&family=Azeret+Mono:ital,wght@0,300..700;1,300..700&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            kestrel: {
+              bg: '#0a0b0a',
+              panel: '#0c0e0c',
+              terminal: '#060706',
+              border: 'rgba(255, 255, 255, 0.1)',
+              orange: '#ff5a35',
+              lime: '#c4f94a',
+              teal: '#cfddd0',
+            }
+          },
+          fontFamily: {
+            heading: ['Aldrich', 'sans-serif'],
+            mono: ['"Azeret Mono"', 'monospace'],
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    *, ::before, ::after {
+      border-radius: 0px !important;
+    }
+    body {
+      background-color: #0a0b0a;
+      color: #ffffff;
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    .teal-ambient {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: 
+        radial-gradient(circle at 50% -12%, rgba(207, 221, 208, 0.08) 0%, transparent 65%),
+        radial-gradient(circle at 90% 10%, rgba(255, 90, 53, 0.04) 0%, transparent 45%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    /* Custom square scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #070807; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); }
+    ::-webkit-scrollbar-thumb:hover { background: #ff5a35; }
+
+    /* Kestrel Buttons */
+    .kestrel-btn {
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.6875rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 500;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      padding: 0.45rem 0.85rem;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+    }
+    .kestrel-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+    .kestrel-btn-orange {
+      background: #ff5a35;
+      border-color: #ff5a35;
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 0 14px rgba(255, 90, 53, 0.3);
+    }
+    .kestrel-btn-orange:hover {
+      background: #ff7a5a;
+      border-color: #ff7a5a;
+      box-shadow: 0 0 20px rgba(255, 90, 53, 0.45);
+    }
+
+    /* Markdown prose formatting */
+    .prose-kestrel h1 {
+      font-family: 'Aldrich', sans-serif;
+      font-size: 1.75rem;
+      line-height: 1.25;
+      color: #ffffff;
+      margin-top: 1.5rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 0.5rem;
+    }
+    .prose-kestrel h2 {
+      font-family: 'Aldrich', sans-serif;
+      font-size: 1.25rem;
+      line-height: 1.35;
+      color: #ffffff;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 0.35rem;
+    }
+    .prose-kestrel h3 {
+      font-family: 'Aldrich', sans-serif;
+      font-size: 1rem;
+      color: #ffffff;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .prose-kestrel p {
+      margin-bottom: 1rem;
+      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 0.875rem;
+    }
+    .prose-kestrel ul, .prose-kestrel ol {
+      margin-left: 1.5rem;
+      margin-bottom: 1.25rem;
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 0.875rem;
+      line-height: 1.7;
+    }
+    .prose-kestrel ul { list-style-type: square; }
+    .prose-kestrel ol { list-style-type: decimal; }
+    .prose-kestrel li { margin-bottom: 0.35rem; }
+    .prose-kestrel pre {
+      background: #050605;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 1rem;
+      overflow-x: auto;
+      margin: 1.25rem 0;
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.75rem;
+      line-height: 1.55;
+      color: #e2e8f0;
+    }
+    .prose-kestrel code {
+      background: rgba(255, 255, 255, 0.08);
+      color: #c4f94a;
+      padding: 0.15rem 0.35rem;
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .prose-kestrel pre code {
+      background: transparent;
+      color: #e2e8f0;
+      padding: 0;
+      border: none;
+    }
+    .prose-kestrel table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      font-size: 0.8rem;
+    }
+    .prose-kestrel th {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 0.6rem 0.85rem;
+      text-align: left;
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #ffffff;
+    }
+    .prose-kestrel td {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 0.6rem 0.85rem;
+      color: rgba(255, 255, 255, 0.75);
+    }
+    .prose-kestrel tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .prose-kestrel blockquote {
+      border-left: 2px solid #ff5a35;
+      background: rgba(255, 90, 53, 0.05);
+      padding: 0.75rem 1rem;
+      margin: 1.25rem 0;
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.85);
+    }
+    .prose-kestrel a {
+      color: #ff5a35;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased text-white bg-[#0a0b0a] relative selection:bg-[#ff5a35]/30 selection:text-white">
+
+  <!-- Ambient Light Layer -->
+  <div class="teal-ambient" aria-hidden="true"></div>
+
+  <!-- Header Navigation -->
+  <header class="border-b border-white/[0.1] bg-[#0a0b0a] sticky top-0 z-50 shrink-0">
+    <div class="w-full px-4 h-14 flex items-center justify-between">
+      
+      <!-- Brandmark & Section -->
+      <div class="flex items-center space-x-3">
+        <a href="../index.html" class="w-8 h-8 bg-white/[0.04] border border-white/[0.2] text-[#ff5a35] flex items-center justify-center font-heading font-bold text-base hover:border-[#ff5a35] transition" title="Go to AI Assistant Front Door">
+          Δ
+        </a>
+        <div class="flex items-center space-x-2">
+          <a href="../index.html" class="font-heading text-sm sm:text-base tracking-wider text-white hover:text-[#ff5a35] transition">
+            DeltaGraphModel
+          </a>
+          <span class="text-white/30 font-mono text-xs">/</span>
+          <span class="text-xs font-mono text-[#ff5a35] uppercase tracking-wider">
+            End-to-End Walkthrough
+          </span>
+        </div>
+      </div>
+
+      <!-- Header Actions -->
+      <div class="flex items-center space-x-3">
+        <a href="../index.html?q=Walk me through generating a delta, routing flow, and computing metrics step by step in Python." class="kestrel-btn kestrel-btn-orange text-[10px] py-1 px-3" title="Ask DGM Assistant about this document">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>
+          <span>Ask AI About This</span>
+        </a>
+        <a href="../index.html" class="kestrel-btn text-[10px] py-1 px-3">
+          <span>AI Terminal &rarr;</span>
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Body: Sidebar + Reading Canvas -->
+  <div class="flex-1 w-full flex overflow-hidden relative z-10">
+    
+    <!-- Left Navigation Sidebar -->
+    <aside class="w-64 shrink-0 border-r border-white/[0.1] bg-[#0c0e0c] h-full overflow-y-auto hidden md:block">
+      <div class="p-3 border-b border-white/[0.1] bg-[#080908] flex items-center justify-between">
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white/50">Documentation</span>
+        <span class="text-[9px] font-mono text-[#c4f94a]">[ VERIFIED ]</span>
+      </div>
+      <nav class="py-2">
+        <div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Getting Started</div>
+<a href="index.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Overview</a>
+<div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Core Theory</div>
+<a href="architecture.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Architecture &amp; Math</a>
+<a href="configuration.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">YAML Configuration</a>
+<div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Reference</div>
+<a href="api_reference.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Python API Reference</a>
+<div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Tutorials</div>
+<a href="walkthrough.html" class="block px-3 py-1.5 text-xs transition bg-white/[0.08] text-[#ff5a35] border-l-2 border-l-[#ff5a35] font-semibold">End-to-End Walkthrough</a>
+<a href="tutorial_01_quickstart.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Tutorial 01: Quickstart</a>
+<a href="tutorial_02_ensemble_clouds.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Tutorial 02: Ensembles</a>
+      </nav>
+      <div class="p-4 mt-6 border-t border-white/[0.08] bg-white/[0.01]">
+        <div class="text-[10px] font-mono text-white/40 uppercase mb-2">Need Instant Answers?</div>
+        <a href="../index.html" class="block w-full text-center kestrel-btn text-[10px] py-2">
+          Open AI Terminal
+        </a>
+      </div>
+    </aside>
+
+    <!-- Reading Canvas -->
+    <main class="flex-1 h-full overflow-y-auto px-6 py-8 md:px-12 lg:px-16 bg-[#0a0b0a]">
+      <div class="max-w-4xl mx-auto">
+        
+        <!-- Breadcrumbs -->
+        <div class="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-wider text-white/40 mb-4 pb-2 border-b border-white/[0.06]">
+          <a href="index.html" class="hover:text-white transition">Docs</a>
+          <span>&gt;</span>
+          <span>Tutorials</span>
+          <span>&gt;</span>
+          <span class="text-[#ff5a35]">End-to-End Walkthrough</span>
+        </div>
+
+        <!-- Markdown Body -->
+        <article class="prose-kestrel">
+          <h1 id="end-to-end-walkthrough-from-installation-to-plotting">End-to-End Walkthrough: From Installation to Plotting</h1>
+<p>This walkthrough provides a comprehensive, step-by-step guide to using <strong>DeltaGraphModel (DGM)</strong>. You will learn how to:
+1. <a href="#1-installation--environment-setup">Install and configure your environment</a>
+2. <a href="#2-model-configuration--parameter-tuning">Configure the model and customize physical parameters</a>
+3. <a href="#3-running-the-model">Run single realizations, multi-stage pipelines, and stochastic ensembles</a>
+4. <a href="#4-plotting--visualizing-results">Generate geomorphically accurate 2D cartographic plots and figures</a>
+5. <a href="#5-complete-runnable-script">Run a complete, self-contained end-to-end Python script</a></p>
+<hr />
+<h2 id="1-installation-environment-setup">1. Installation &amp; Environment Setup</h2>
+<p>DGM requires <strong>Python 3.10+</strong>. We recommend using <a href="https://github.com/astral-sh/uv"><code>uv</code></a> for fast, deterministic dependency management, but standard <code>pip</code> and virtual environments are fully supported.</p>
+<h3 id="option-a-using-uv-recommended">Option A: Using <code>uv</code> (Recommended)</h3>
+<pre><code class="language-bash"># Clone the repository
+git clone https://github.com/delta-graphs/dgm.git
+cd dgm
+
+# Create a virtual environment and synchronize all dependencies (including dev tools)
+uv sync --extra dev
+</code></pre>
+<h3 id="option-b-using-standard-python-venv-and-pip">Option B: Using Standard Python <code>venv</code> and <code>pip</code></h3>
+<pre><code class="language-bash"># Clone the repository
+git clone https://github.com/delta-graphs/dgm.git
+cd dgm
+
+# Create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install the package in editable mode with development dependencies
+pip install -e &quot;.[dev]&quot;
+</code></pre>
+<h3 id="core-dependencies">Core Dependencies</h3>
+<p>DGM relies on standard scientific Python libraries:
+- <strong><code>networkx</code> (&gt;= 3.0)</strong>: Graph data structures, topological metrics, and traversals.
+- <strong><code>numpy</code> (&gt;= 1.24)</strong>: Vectorized numerical computing and random number generation (<code>Generator</code> API).
+- <strong><code>scipy</code> (&gt;= 1.10)</strong>: KD-Tree spatial spatial queries (<code>cKDTree</code>), sparse solvers, and statistical tests.
+- <strong><code>matplotlib</code> (&gt;= 3.7)</strong>: Cartographic rendering, color mapping, and publication-ready figures.
+- <strong><code>pyyaml</code> (&gt;= 6.0)</strong>: YAML configuration parsing and serialization.
+- <strong><code>pandas</code> (&gt;= 2.0)</strong> &amp; <strong><code>scikit-learn</code> (&gt;= 1.2)</strong>: Tabular metric export, distance matrices, and Mahalanobis validation.</p>
+<h3 id="verifying-installation">Verifying Installation</h3>
+<p>Verify that DGM and its CLI are installed correctly:</p>
+<pre><code class="language-bash"># Verify Python import and package version
+python -c &quot;import dgm; print(f'DGM version: {dgm.__version__}')&quot;
+
+# Verify CLI availability
+dgm --help
+</code></pre>
+<hr />
+<h2 id="2-model-configuration-parameter-tuning">2. Model Configuration &amp; Parameter Tuning</h2>
+<p>DGM parameterizes river delta channel networks using physically meaningful boundary conditions and process parameters, organized into logical sections within <a href="api_reference.md#dgmconfig"><code>DGMConfig</code></a>.</p>
+<h3 id="parameter-sections-overview">Parameter Sections Overview</h3>
+<ol>
+<li>
+<p><strong><code>model</code></strong>: High-level simulation control
+   - <code>N</code> (<em>int</em>, default <code>50</code>): Target node budget (junctions + outlets).
+   - <code>R_rt</code> (<em>float</em>, default <code>0.5</code>): River-to-tidal marine forcing ratio in $[0, 1]$ ($0 = \text{pure fluvial}$, $1 = \text{pure tidal}$).
+   - <code>loop_mechanism</code> (<em>str</em>, default <code>"potential_field"</code>): Reconnection engine (<code>"potential_field"</code> for spatial potential fields, <code>"ner_optimality"</code> for thermodynamic annealing).
+   - <code>sample_parameters</code> (<em>bool</em>, default <code>false</code>): When <code>true</code>, stochastically draws parameters from specified distributions.
+   - <code>seed</code> (<em>int</em>, default <code>42</code>): Base random seed.</p>
+</li>
+<li>
+<p><strong><code>domain</code></strong>: Polar basin geometry &amp; lateral confinement
+   - <code>r_shore</code> (<em>float</em>, default <code>10000.0</code> m): Shoreline radius.
+   - <code>theta_base</code> (<em>float</em>, default <code>45.0</code>°): Fluvial opening angle.
+   - <code>theta_delta</code> (<em>float</em>, default <code>60.0</code>°): Tidal fan expansion angle.
+   - <code>confinement</code> (<em>float</em>, default <code>0.0</code>): Valley wall constriction factor in $[0.0, 0.95]$.
+   - <code>lateral_valley_width</code> (<em>float</em>, optional): Fixed maximum corridor width in meters ($|x(r)| \le W/2$).</p>
+</li>
+<li>
+<p><strong><code>backbone</code></strong>: Branching tree growth
+   - <code>branching_weights</code> (<em>tuple</em>, default <code>(0.50, 0.45, 0.05)</code>): Probabilities of $1$, $2$, or $3$ child branches.
+   - <code>coastal_node_decay</code> (<em>float</em>, default <code>0.35</code>): Shoreward contraction rate of radial inter-junction spacing.
+   - <code>coastal_sinuosity_decay</code> (<em>float</em>, default <code>0.30</code>): Shoreward straightening of distributary branches.</p>
+</li>
+<li>
+<p><strong><code>loops</code></strong>: Emergent loop formation &amp; cross-ties
+   - <code>reconnection_prob_base</code> ($c_0$, default <code>0.55</code>): Tidal/floodplain reconnection scale.
+   - <code>anastomosis_prob_base</code> ($P_0$, default <code>0.0</code>): Baseline inland floodplain anastomosis probability.
+   - <code>candidate_dist_scale</code> ($l_0 / r_{\text{shore}}$, default <code>0.25</code>): Spatial neighborhood search distance.
+   - <code>max_in_degree</code> (default <code>2</code>), <code>max_out_degree</code> (default <code>3</code>): Geomorphic junction degree constraints.
+   - <code>target_max_loops_slope</code> (default <code>0.22</code>), <code>target_max_loops_intercept</code> (default <code>0.05</code>): Scaling for maximum allowable loop closures.</p>
+</li>
+<li>
+<p><strong><code>pruning</code></strong>: Pre-hydraulic network simplification &amp; spur removal
+   - <code>enable_pruning</code> (<em>bool</em>, default <code>false</code>): Toggles pre-hydraulic simplification.
+   - <code>prune_inland_dead_ends</code> (<em>bool</em>, default <code>true</code>): Prunes blind channels that do not reach the coast.
+   - <code>outlet_tolerance</code> (<em>float</em>, default <code>0.05</code>): Coastal buffer envelope $(1 - \text{tol}) \cdot r_{\text{shore}}$ protecting near-shore outlets.
+   - <code>min_spur_length</code> (<em>float</em>, default <code>0.0</code> m): Length threshold below which dead-end spurs are pruned.
+   - <code>simplify_pass_through_nodes</code> (<em>bool</em>, default <code>false</code>): Contracts degree-2 chains ($d_{\text{in}}=1, d_{\text{out}}=1$) into single morphological reaches (RivGraph convention).
+   - <code>recalculate_reach_sinuosity</code> (<em>bool</em>, default <code>true</code>): Recalculates unified reach sinuosity from the process model, preventing double-counting of geometric knees.</p>
+</li>
+<li>
+<p><strong><code>hydraulics</code></strong>: Murray's Law width conservation &amp; discharge
+   - <code>murray_p</code> (<em>float</em>, default <code>1.70</code>): Murray's Law exponent ($w_{\text{parent}}^p = w_1^p + w_2^p$).
+   - <code>width_beta</code> (<em>float</em>, default <code>0.745</code>): Bifurcation width asymmetry factor.
+   - <code>apex_width</code> (<em>float</em>, default <code>250.0</code> m): Feeder trunk channel width at the apex.
+   - <code>tidal_flare_k</code> (<em>float</em>, default <code>1.40</code>): Seaward exponential width flaring rate.
+   - <code>tidal_flare_onset</code> (<em>float</em>, default <code>0.30</code>): Normalized radius ($r / r_{\text{shore}}$) where tidal widening begins.
+   - <code>loop_flow_penalty</code> (<em>float</em>, default <code>0.40</code>): Conductance penalty factor applied to secondary loop channels.
+   - <code>manning_eta</code> (<em>float</em>, default <code>1.65</code>): Width exponent in Manning conductance ($C_e = w^\eta / L^\gamma$).
+   - <code>length_gamma</code> (<em>float</em>, default <code>0.50</code>): Length friction damping exponent in conductance.</p>
+</li>
+<li>
+<p><strong><code>channel_geometry</code></strong>: Sinuous centerlines &amp; proximity constraints
+   - <code>enable_curved_centerlines</code> (<em>bool</em>, default <code>false</code>): Generates harmonic polyline coordinates with Dirichlet boundary conditions.
+   - <code>min_channel_clearance</code> (<em>float</em>, default <code>0.40</code>): Safety clearance fraction preventing channel collisions.
+   - <code>num_polyline_points</code> (<em>int</em>, default <code>21</code>): Discretization vertex count per reach polyline.
+   - <code>meander_bends</code> (<em>int</em>, default <code>1</code>): Number of harmonic meander half-wavelengths per reach.</p>
+</li>
+</ol>
+<hr />
+<h3 id="4-ways-to-configure-dgm">4 Ways to Configure DGM</h3>
+<h4 id="method-1-loading-default-configuration">Method 1: Loading Default Configuration</h4>
+<pre><code class="language-python">import dgm
+
+# Load standard default configuration dataclass
+cfg = dgm.DGMConfig.load_default()
+cfg.N = 60
+cfg.R_rt = 0.40
+cfg.enable_curved_centerlines = True
+cfg.enable_pruning = True
+</code></pre>
+<h4 id="method-2-loading-from-a-yaml-file">Method 2: Loading from a YAML File</h4>
+<p>Create a YAML configuration file (<code>my_delta.yaml</code>):</p>
+<pre><code class="language-yaml">model:
+  N: 55
+  R_rt: 0.65
+  seed: 123
+
+domain:
+  r_shore: 12000.0
+  theta_base: 50.0
+
+pruning:
+  enable_pruning: true
+  outlet_tolerance: 0.04
+  simplify_pass_through_nodes: true
+
+hydraulics:
+  tidal_flare_onset: 0.25
+  loop_flow_penalty: 0.35
+
+channel_geometry:
+  enable_curved_centerlines: true
+  min_channel_clearance: 0.45
+</code></pre>
+<p>Load it directly in Python:</p>
+<pre><code class="language-python">cfg = dgm.DGMConfig.from_yaml(&quot;my_delta.yaml&quot;)
+</code></pre>
+<h4 id="method-3-dynamic-parameter-tuning-inline-distributions">Method 3: Dynamic Parameter Tuning &amp; Inline Distributions</h4>
+<p>You can adjust parameters at runtime or define stochastic distributions using <code>cfg.set_parameter()</code>:</p>
+<pre><code class="language-python">cfg = dgm.DGMConfig.load_default()
+
+# 1. Set fixed value
+cfg.set_parameter(&quot;tidal_flare_onset&quot;, 0.35)
+
+# 2. Set uniform distribution [low, high]
+cfg.set_parameter(&quot;loop_flow_penalty&quot;, (0.25, 0.55))
+
+# 3. Set normal distribution with mean and std
+cfg.set_parameter(&quot;apex_width&quot;, {&quot;type&quot;: &quot;normal&quot;, &quot;mean&quot;: 300.0, &quot;std&quot;: 30.0})
+</code></pre>
+<h4 id="method-4-keyword-overrides-in-dgmgenerate">Method 4: Keyword Overrides in <code>dgm.generate()</code></h4>
+<p>All configuration parameters can be passed directly to <code>dgm.generate()</code>:</p>
+<pre><code class="language-python">G = dgm.generate(
+    N=45,
+    R_rt=0.35,
+    enable_curved_centerlines=True,
+    min_channel_clearance=0.40,
+    enable_pruning=True,
+    tidal_flare_onset=0.28,
+    seed=42
+)
+</code></pre>
+<hr />
+<h2 id="3-running-the-model">3. Running the Model</h2>
+<h3 id="generating-a-single-delta-network">Generating a Single Delta Network</h3>
+<pre><code class="language-python">import dgm
+
+# Generate a synthetic delta network
+G = dgm.generate(
+    N=50,
+    R_rt=0.50,
+    enable_curved_centerlines=True,
+    enable_pruning=True,
+    seed=101
+)
+
+print(f&quot;Nodes: {G.number_of_nodes()}&quot;)
+print(f&quot;Edges: {G.number_of_edges()}&quot;)
+</code></pre>
+<h3 id="inspecting-node-and-edge-attributes">Inspecting Node and Edge Attributes</h3>
+<p>Each generated graph is a standard <code>networkx.DiGraph</code> enriched with physical, geometric, and hydraulic attributes:</p>
+<pre><code class="language-python"># Inspect apex and outlet nodes
+for node_id, data in G.nodes(data=True):
+    node_type = data.get(&quot;node_type&quot;, &quot;internal&quot;)
+    x, y = data[&quot;x&quot;], data[&quot;y&quot;]
+    r, theta = data[&quot;r&quot;], data[&quot;theta&quot;]
+    if node_type in (&quot;apex&quot;, &quot;outlet&quot;):
+        print(f&quot;Node {node_id:2d} ({node_type:6s}): x={x:7.1f} m, y={y:7.1f} m, r={r:7.1f} m&quot;)
+
+# Inspect channel reach properties
+for u, v, data in list(G.edges(data=True))[:5]:
+    w = data.get(&quot;width&quot;, 0.0)
+    L = data.get(&quot;length&quot;, 0.0)
+    sin = data.get(&quot;sinuosity&quot;, 1.0)
+    Q = data.get(&quot;flux&quot;, 0.0)
+    coords = data.get(&quot;coordinates&quot;, [])
+    print(f&quot;Edge ({u} -&gt; {v}): Width={w:5.1f} m, Length={L:6.1f} m, Sinuosity={sin:.3f}, Flux={Q:.4f}, Vertices={len(coords)}&quot;)
+</code></pre>
+<h3 id="extracting-multi-stage-generative-snapshots">Extracting Multi-Stage Generative Snapshots</h3>
+<p>To analyze how the delta emerges across the 6-stage generative assembly pipeline, set <code>return_stages=True</code>:</p>
+<pre><code class="language-python">G_final, stages = dgm.generate(
+    N=50,
+    R_rt=0.50,
+    enable_curved_centerlines=True,
+    enable_pruning=True,
+    return_stages=True,
+    seed=42
+)
+
+# stages is a dictionary containing graph snapshots:
+print(&quot;Available generative stages:&quot;)
+for stage_name, stage_graph in stages.items():
+    print(f&quot; - {stage_name:7s}: {stage_graph.number_of_nodes():2d} nodes, {stage_graph.number_of_edges():2d} edges&quot;)
+
+# stage keys: 'tree', 'looped', 'pruned', 'final'
+G_tree = stages[&quot;tree&quot;]
+G_looped = stages[&quot;looped&quot;]
+G_pruned = stages[&quot;pruned&quot;]
+</code></pre>
+<h3 id="evaluating-geomorphic-metrics-20-metric-battery">Evaluating Geomorphic Metrics (20-Metric Battery)</h3>
+<p>Evaluate the comprehensive battery of 20 quantitative geomorphic metrics benchmarked against the global DIDNT dataset:</p>
+<pre><code class="language-python">battery = dgm.MetricsBattery()
+metrics = battery.evaluate_all(G_final)
+
+print(&quot;Key Geomorphic Metrics:&quot;)
+print(f&quot;  Alpha Loopiness Index:           {metrics['alpha_index']:.4f}&quot;)
+print(f&quot;  Beta-1 Loops per Node:           {metrics['beta1_per_node']:.4f}&quot;)
+print(f&quot;  Normalized Entropy Rate (nER*):  {metrics['nER_star']:.4f}&quot;)
+print(f&quot;  Entropic Braiding Index (eBI):   {metrics['eBI']:.4f}&quot;)
+print(f&quot;  Global Vulnerability (V_net):    {metrics['global_vulnerability']:.4f}&quot;)
+print(f&quot;  Mean Channel Sinuosity:          {metrics['mean_sinuosity']:.3f}&quot;)
+print(f&quot;  Shoreline Delivery Ratio:        {metrics['shoreline_delivery_ratio']:.2%}&quot;)
+</code></pre>
+<h3 id="sampling-stochastic-ensemble-clouds">Sampling Stochastic Ensemble Clouds</h3>
+<p>Sample an ensemble of $M$ realizations across parameter distributions to quantify natural delta variability:</p>
+<pre><code class="language-python">cfg = dgm.DGMConfig.load_default()
+cfg.N = 45
+cfg.R_rt = 0.55
+cfg.sample_parameters = True
+
+# Instantiate ensemble generator
+ensemble = dgm.EnsembleGenerator(
+    N=cfg.N,
+    R_rt=cfg.R_rt,
+    num_realizations=50,
+    config=cfg,
+    base_seed=200
+)
+
+# Compute statistical distribution of metrics across the cloud
+summary = ensemble.evaluate_ensemble()
+
+for m in [&quot;alpha_index&quot;, &quot;nER_star&quot;, &quot;eBI&quot;]:
+    mean = summary[&quot;metrics&quot;][m][&quot;mean&quot;]
+    std = summary[&quot;metrics&quot;][m][&quot;std&quot;]
+    print(f&quot;{m:22s}: {mean:.4f} ± {std:.4f}&quot;)
+</code></pre>
+<h3 id="exporting-realizations-metrics">Exporting Realizations &amp; Metrics</h3>
+<pre><code class="language-python"># Export network topology and geometry for GIS &amp; visualization
+dgm.to_graphml(G_final, &quot;outputs/my_delta.graphml&quot;)  # For Gephi / Cytoscape
+dgm.to_geojson(G_final, &quot;outputs/my_delta.geojson&quot;)  # For QGIS / ArcGIS / Mapbox
+
+# Export ensemble summary to CSV
+dgm.metrics_to_csv(summary, &quot;outputs/ensemble_metrics.csv&quot;)
+</code></pre>
+<hr />
+<h2 id="4-plotting-visualizing-results">4. Plotting &amp; Visualizing Results</h2>
+<p>DGM provides a high-level spatial visualization suite in <code>dgm.visualization</code> (accessible directly via <code>dgm.plot_network</code>, <code>dgm.plot_tree_vs_network</code>, and <code>dgm.plot_stages</code>).</p>
+<h3 id="1-rendering-a-single-delta-network-dgmplot_network">1. Rendering a Single Delta Network (<code>dgm.plot_network</code>)</h3>
+<p>Render an publication-grade cartographic map displaying sinuous channel polylines, Murray's Law width hierarchies, geomorphic node classifications, and polar shoreline boundaries:</p>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+import dgm
+
+G = dgm.generate(
+    N=45,
+    R_rt=0.35,
+    enable_curved_centerlines=True,
+    min_channel_clearance=0.40,
+    enable_pruning=True,
+    seed=101
+)
+
+fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
+dgm.plot_network(
+    G,
+    ax=ax,
+    curved=True,                 # Render multi-vertex sinuous polylines
+    edge_width=&quot;width&quot;,          # Scale channel thickness by physical width
+    width_scaling=&quot;sqrt&quot;,        # Proportional to hydraulic cross-section
+    min_linewidth=1.0,           # Minimum line thickness in points
+    max_linewidth=6.5,           # Maximum line thickness in points
+    show_nodes=True,             # Classify nodes (apex, outlets, bifurcations, confluences)
+    show_domain=True,            # Draw shoreline arc and domain boundaries
+    orientation=&quot;cartesian&quot;,     # &quot;cartesian&quot; (flow to right), &quot;downward&quot;, or &quot;upward&quot;
+    theme=&quot;light&quot;,               # &quot;light&quot;, &quot;dark&quot;, or &quot;clean&quot;
+    title=&quot;Synthetic River Delta (R_rt = 0.35)&quot;,
+    show_stats=True,             # Display summary statistics badge
+    show_legend=True             # Display geomorphic taxonomy legend
+)
+
+fig.savefig(&quot;outputs/delta_map.png&quot;, bbox_inches=&quot;tight&quot;)
+plt.close(fig)
+</code></pre>
+<h4 id="supported-themes-and-orientations">Supported Themes and Orientations</h4>
+<ul>
+<li><strong>Themes</strong>:</li>
+<li><code>"light"</code>: Clean publication white background, classic river blue channels, dark text.</li>
+<li><code>"dark"</code>: Slate-blue dark mode background with luminous cyan/blue channels.</li>
+<li><code>"clean"</code>: Transparent background with minimal ornamentation.</li>
+<li><strong>Orientations</strong>:</li>
+<li><code>"cartesian"</code>: Apex at $(0, 0)$, flow moves rightward towards $+x$.</li>
+<li><code>"downward"</code>: Apex at top $(0, 0)$, flow moves downward towards $-y$ (traditional map view).</li>
+<li><code>"upward"</code>: Apex at bottom $(0, 0)$, flow moves upward towards $+y$.</li>
+</ul>
+<hr />
+<h3 id="2-side-by-side-tree-vs-network-comparison-dgmplot_tree_vs_network">2. Side-by-Side Tree vs. Network Comparison (<code>dgm.plot_tree_vs_network</code>)</h3>
+<p>Compare the initial dendritic polar tree backbone against the final network with emergent loops, Murray widths, and sinuous meanders:</p>
+<pre><code class="language-python">G_final, stages = dgm.generate(
+    N=50,
+    R_rt=0.50,
+    enable_curved_centerlines=True,
+    enable_pruning=True,
+    return_stages=True,
+    seed=42
+)
+
+fig, (ax_tree, ax_net) = dgm.plot_tree_vs_network(
+    G_tree=stages[&quot;tree&quot;],
+    G_final=G_final,
+    curved=True,
+    orientation=&quot;cartesian&quot;,
+    theme=&quot;light&quot;,
+    figsize=(18, 8),
+    dpi=300,
+    title=&quot;DGM Generative Transition: Tree Backbone vs. Final Hydraulic Network&quot;,
+    show_stats=True,
+    show_legend=True
+)
+
+fig.savefig(&quot;outputs/tree_vs_network.png&quot;, bbox_inches=&quot;tight&quot;)
+plt.close(fig)
+</code></pre>
+<hr />
+<h3 id="3-progressive-4-stage-assembly-evolution-dgmplot_stages">3. Progressive 4-Stage Assembly Evolution (<code>dgm.plot_stages</code>)</h3>
+<p>Visualize how the channel network forms across each stage of the generative pipeline:</p>
+<pre><code class="language-python">_, stages = dgm.generate(
+    N=40,
+    R_rt=0.55,
+    enable_curved_centerlines=True,
+    enable_pruning=True,
+    return_stages=True,
+    seed=77
+)
+
+fig, axes = dgm.plot_stages(
+    stages=stages,
+    curved=True,
+    orientation=&quot;cartesian&quot;,
+    theme=&quot;light&quot;,
+    figsize=(24, 6.5),
+    dpi=300,
+    title=&quot;DGM Multi-Stage Assembly: Tree -&gt; Loops -&gt; Pruning -&gt; Hydraulics &amp; Meanders&quot;
+)
+
+fig.savefig(&quot;outputs/progressive_stages.png&quot;, bbox_inches=&quot;tight&quot;)
+plt.close(fig)
+</code></pre>
+<hr />
+<h3 id="4-hydrodynamic-forcing-spectrum-comparison">4. Hydrodynamic Forcing Spectrum Comparison</h3>
+<p>Demonstrate the morphological transition from river-dominated deltas (dendritic, low loopiness) to tide-dominated deltas (highly looped, flared channels):</p>
+<pre><code class="language-python">regimes = [
+    (&quot;Fluvial-Dominated (R_rt = 0.05)&quot;, 0.05, 101),
+    (&quot;Mixed Fluvial-Tidal (R_rt = 0.50)&quot;, 0.50, 102),
+    (&quot;Tide-Dominated (R_rt = 0.90)&quot;, 0.90, 103),
+]
+
+fig, axes = plt.subplots(1, 3, figsize=(22, 7), dpi=300)
+
+for idx, (label, r_val, s_val) in enumerate(regimes):
+    g = dgm.generate(
+        N=45,
+        R_rt=r_val,
+        enable_curved_centerlines=True,
+        enable_pruning=True,
+        seed=s_val
+    )
+    dgm.plot_network(
+        g,
+        ax=axes[idx],
+        curved=True,
+        theme=&quot;light&quot;,
+        title=label,
+        show_stats=True,
+        show_legend=(idx == 0)
+    )
+
+fig.suptitle(&quot;DGM Hydrodynamic Forcing Spectrum (Fluvial to Tidal)&quot;, fontsize=14, fontweight=&quot;bold&quot;, y=0.98)
+fig.tight_layout()
+fig.savefig(&quot;outputs/forcing_spectrum.png&quot;, bbox_inches=&quot;tight&quot;)
+plt.close(fig)
+</code></pre>
+<hr />
+<h3 id="5-cli-plotting-shortcut">5. CLI Plotting Shortcut</h3>
+<p>You can generate and render delta plots directly from the command line by specifying an image output format (<code>.png</code>, <code>.pdf</code>, <code>.svg</code>):</p>
+<pre><code class="language-bash"># Generate and save a delta network map directly to PNG
+dgm generate -N 55 -R 0.45 --curved --enable-pruning -o outputs/cli_delta.png
+</code></pre>
+<hr />
+<h2 id="5-complete-runnable-script">5. Complete Runnable Script</h2>
+<p>Save the script below as <code>run_walkthrough.py</code> and execute it with <code>python run_walkthrough.py</code> (or <code>uv run run_walkthrough.py</code>) to run the entire pipeline end-to-end:</p>
+<pre><code class="language-python">&quot;&quot;&quot;
+End-to-End Walkthrough Script for DeltaGraphModel (DGM).
+Demonstrates:
+  1. Custom configuration with new parameters
+  2. Single realization generation with stage tracking
+  3. Metric evaluation with the 20-metric geomorphic battery
+  4. Spatial plotting (single realization, stage comparison, and forcing spectrum)
+  5. GraphML and GeoJSON export
+&quot;&quot;&quot;
+
+from pathlib import Path
+import matplotlib.pyplot as plt
+import dgm
+
+
+def main():
+    print(&quot;=&quot; * 70)
+    print(&quot;DeltaGraphModel (DGM): End-to-End Walkthrough Demonstration&quot;)
+    print(&quot;=&quot; * 70)
+
+    # 1. Output directory setup
+    out_dir = Path(&quot;outputs&quot;)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # 2. Configuration setup
+    print(&quot;\n[Step 1] Configuring model parameters...&quot;)
+    cfg = dgm.DGMConfig.load_default()
+    cfg.N = 48
+    cfg.R_rt = 0.45
+    cfg.enable_curved_centerlines = True
+    cfg.min_channel_clearance = 0.40
+    cfg.enable_pruning = True
+    cfg.outlet_tolerance = 0.05
+    cfg.tidal_flare_onset = 0.30
+    cfg.loop_flow_penalty = 0.40
+    cfg.seed = 42
+
+    # 3. Model execution
+    print(&quot;\n[Step 2] Synthesizing delta network with stage extraction...&quot;)
+    G_final, stages = dgm.generate(
+        config=cfg,
+        return_stages=True
+    )
+    print(f&quot;  -&gt; Generated final network: {G_final.number_of_nodes()} nodes, {G_final.number_of_edges()} channels.&quot;)
+
+    # 4. Metric evaluation
+    print(&quot;\n[Step 3] Evaluating 20-metric geomorphic battery...&quot;)
+    battery = dgm.MetricsBattery()
+    metrics = battery.evaluate_all(G_final)
+    print(f&quot;  -&gt; Alpha Loopiness:        {metrics['alpha_index']:.4f}&quot;)
+    print(f&quot;  -&gt; Normalized Entropy Rate: {metrics['nER_star']:.4f}&quot;)
+    print(f&quot;  -&gt; Entropic Braiding Index: {metrics['eBI']:.4f}&quot;)
+    print(f&quot;  -&gt; Global Vulnerability:   {metrics['global_vulnerability']:.4f}&quot;)
+    print(f&quot;  -&gt; Mean Sinuosity:         {metrics['mean_sinuosity']:.3f}&quot;)
+
+    # 5. Spatial Visualization
+    print(&quot;\n[Step 4] Plotting results...&quot;)
+
+    # Plot 1: Detailed single network map
+    fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
+    dgm.plot_network(
+        G_final,
+        ax=ax,
+        curved=True,
+        edge_width=&quot;width&quot;,
+        width_scaling=&quot;sqrt&quot;,
+        theme=&quot;light&quot;,
+        title=&quot;DGM Synthetic River Delta (N=48, R_rt=0.45)&quot;,
+        show_stats=True,
+        show_legend=True
+    )
+    p1 = out_dir / &quot;walkthrough_single_delta.png&quot;
+    fig.savefig(p1, bbox_inches=&quot;tight&quot;)
+    plt.close(fig)
+    print(f&quot;  -&gt; Saved single network plot to: {p1}&quot;)
+
+    # Plot 2: Tree Backbone vs Final Network comparison
+    fig_comp, _ = dgm.plot_tree_vs_network(
+        G_tree=stages[&quot;tree&quot;],
+        G_final=G_final,
+        curved=True,
+        theme=&quot;light&quot;,
+        figsize=(18, 8),
+        dpi=300,
+        title=&quot;DGM Transition: Dendritic Skeleton to Emergent Looped Network&quot;
+    )
+    p2 = out_dir / &quot;walkthrough_tree_vs_network.png&quot;
+    fig_comp.savefig(p2, bbox_inches=&quot;tight&quot;)
+    plt.close(fig_comp)
+    print(f&quot;  -&gt; Saved comparative tree vs network plot to: {p2}&quot;)
+
+    # Plot 3: 4-Stage Progressive Evolution
+    fig_stages, _ = dgm.plot_stages(
+        stages=stages,
+        curved=True,
+        theme=&quot;light&quot;,
+        figsize=(22, 6),
+        dpi=300,
+        title=&quot;DGM Multi-Stage Generative Evolution&quot;
+    )
+    p3 = out_dir / &quot;walkthrough_stages_evolution.png&quot;
+    fig_stages.savefig(p3, bbox_inches=&quot;tight&quot;)
+    plt.close(fig_stages)
+    print(f&quot;  -&gt; Saved progressive stages plot to: {p3}&quot;)
+
+    # 6. Data Export
+    print(&quot;\n[Step 5] Exporting graph data...&quot;)
+    p_graphml = out_dir / &quot;walkthrough_delta.graphml&quot;
+    p_geojson = out_dir / &quot;walkthrough_delta.geojson&quot;
+    dgm.to_graphml(G_final, p_graphml)
+    dgm.to_geojson(G_final, p_geojson)
+    print(f&quot;  -&gt; Saved GraphML to: {p_graphml}&quot;)
+    print(f&quot;  -&gt; Saved GeoJSON to: {p_geojson}&quot;)
+
+    print(&quot;\n&quot; + &quot;=&quot; * 70)
+    print(&quot;Walkthrough completed successfully! Check the outputs/ directory.&quot;)
+    print(&quot;=&quot; * 70)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<hr />
+<h2 id="next-steps">Next Steps</h2>
+<ul>
+<li>Consult the <a href="configuration.md">Configuration Guide</a> to explore all available YAML parameters and distribution specs.</li>
+<li>Learn about the physics and algorithmic invariants in <a href="architecture.md">Architecture &amp; Mathematical Formulation</a>.</li>
+<li>View empirical literature justifications in <a href="parameter_justifications.md">Parameter Justifications</a>.</li>
+<li>Browse complete method and class signatures in the <a href="api_reference.md">API Reference</a>.</li>
+</ul>
+        </article>
+
+        <!-- Page Footer / Next Step Banner -->
+        <div class="mt-12 pt-6 border-t border-white/[0.1] flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-mono text-white/50">
+          <div>
+            Grounding Source for <strong class="text-white">DGM Hybrid RAG</strong>
+          </div>
+          <div class="flex items-center space-x-3">
+            <a href="../index.html?q=Walk me through generating a delta, routing flow, and computing metrics step by step in Python." class="kestrel-btn kestrel-btn-orange text-[10px] py-1 px-3">
+              Ask AI About This Topic
+            </a>
+            <a href="https://github.com/jay-kestrel/dgm" target="_blank" class="kestrel-btn text-[10px] py-1 px-3">
+              View Source on GitHub
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+  </div>
+
+</body>
+</html>
