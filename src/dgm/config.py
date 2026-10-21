@@ -116,7 +116,7 @@ class ParameterBounds:
     width_noise_range: Tuple[float, float] = (0.15, 0.50)
     candidate_dist_scale_range: Tuple[float, float] = (0.15, 0.35)
     tidal_flare_k_range: Tuple[float, float] = (0.8, 2.0)
-    confinement_range: Tuple[float, float] = (0.0, 0.60)
+    confinement_range: Tuple[float, float] = (0.0, 0.50)
     coastal_node_decay_range: Tuple[float, float] = (0.0, 0.80)
     coastal_sinuosity_decay_range: Tuple[float, float] = (0.0, 0.90)
     min_channel_clearance_range: Tuple[float, float] = (0.05, 0.80)
@@ -226,11 +226,12 @@ class DGMConfig:
     outlet_tolerance: float = 0.05
     min_spur_length: float = 0.0
     simplify_pass_through_nodes: bool = False
+    recalculate_reach_sinuosity: bool = True
     max_prune_iterations: int = 5
 
     # Hydraulics section
     routing_mode: str = "width"
-    murray_p: float = 1.70
+    murray_p: float = 1.85
     width_beta: float = 0.745
     manning_eta: float = 1.65
     length_gamma: float = 0.50
@@ -559,6 +560,7 @@ class DGMConfig:
                 "outlet_tolerance": self.outlet_tolerance,
                 "min_spur_length": self.min_spur_length,
                 "simplify_pass_through_nodes": self.simplify_pass_through_nodes,
+                "recalculate_reach_sinuosity": self.recalculate_reach_sinuosity,
                 "max_prune_iterations": self.max_prune_iterations,
             },
             "hydraulics": {
@@ -711,6 +713,7 @@ class DGMConfig:
             "outlet_tolerance": self.outlet_tolerance,
             "min_spur_length": self.min_spur_length,
             "simplify_pass_through_nodes": self.simplify_pass_through_nodes,
+            "recalculate_reach_sinuosity": self.recalculate_reach_sinuosity,
             "max_prune_iterations": self.max_prune_iterations,
             "routing_mode": self.routing_mode,
             "murray_p": self.murray_p,

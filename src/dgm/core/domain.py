@@ -22,7 +22,7 @@ class PolarDomain:
     def __init__(
         self,
         r_shore: float = 10000.0,
-        theta_base: float = 45.0,
+        theta_base: float = 65.0,
         theta_delta: float = 60.0,
         R_rt: float = 0.5,
         confinement: float = 0.0,

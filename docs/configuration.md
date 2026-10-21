@@ -14,7 +14,7 @@ model:
 
 domain:
   r_shore: 10000.0               # Shoreline radius in meters
-  theta_base: 45.0               # Fluvial opening angle in degrees
+  theta_base: 65.0               # Fluvial opening angle in degrees
   theta_delta: 60.0              # Tidal spreading expansion in degrees
   confinement: 0.0               # Lateral valley confinement factor in [0.0, 0.95]
   lateral_valley_width: null     # Optional explicit corridor width (m, |x| <= W/2)
@@ -24,7 +24,12 @@ backbone:
   radial_step_scale_min: 0.65    # Minimum radial step scaling factor
   radial_step_scale_max: 1.35    # Maximum radial step scaling factor
   angular_spread_decay: 0.70     # Radial decay of angular perturbation width
-  coastal_node_decay: 0.35       # Shoreward contraction rate of radial node spacing
+  coastal_node_decay: 0.40       # Shoreward contraction rate of radial node spacing
+  single_branch_spread_factor: 0.35 # Angular deflection factor for non-bifurcating branches
+  bifurcation_spread_min: 0.60   # Lower bound on bifurcation angular spread multiplier
+  bifurcation_spread_max: 1.40   # Upper bound on bifurcation angular spread multiplier
+  base_sinuosity_mean: 0.25      # Mean reach sinuosity offset
+  base_sinuosity_std: 0.15       # Reach sinuosity standard deviation
   coastal_sinuosity_decay: 0.30  # Shoreward reach straightening factor
 
 loops:
@@ -37,7 +42,7 @@ loops:
   target_max_loops_intercept: 0.05 # Scaling intercept for maximum loops vs R_rt
   # Simulated Annealing settings (for 'ner_optimality' loop mechanism)
   sa_initial_temp: 1.0
-  sa_cooling_rate: 0.95
+  sa_cooling_rate: 0.975
   sa_max_steps: 250
 
 pruning:
@@ -51,7 +56,7 @@ pruning:
 
 hydraulics:
   routing_mode: "width"          # Flow partition weighting: "width" or "conductance"
-  murray_p: 1.70                 # Murray's Law exponent: w_parent^p = w_1^p + w_2^p
+  murray_p: 1.85                 # Murray's Law exponent: w_parent^p = w_1^p + w_2^p
   width_beta: 0.745              # Bifurcation width asymmetry factor
   manning_eta: 1.65              # Width exponent in Manning conductance (Ce = w^eta / L^gamma)
   length_gamma: 0.50             # Length friction damping exponent in conductance

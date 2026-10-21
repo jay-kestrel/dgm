@@ -113,10 +113,13 @@ def compute_goodness_of_fit(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str,
     rmse = float(np.sqrt(np.mean(diff ** 2)))
 
     y_range = float(np.max(y_t) - np.min(y_t))
+    mean_val = float(np.mean(np.abs(y_t)))
     if y_range > 1e-12:
         nrmse = float(rmse / y_range)
+    elif mean_val > 1e-12:
+        nrmse = float(rmse / mean_val)
     else:
-        nrmse = 0.0 if rmse < 1e-12 else float(rmse / (y_range + 1e-8))
+        nrmse = 0.0 if rmse < 1e-12 else float(rmse)
 
     ss_res = float(np.sum(diff ** 2))
     ss_tot = float(np.sum((y_t - np.mean(y_t)) ** 2))

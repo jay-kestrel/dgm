@@ -299,7 +299,7 @@ class EmpiricalDelta:
 
 DELTA_FORCING_REGIMES: Dict[str, Dict[str, Any]] = {
     'Amazon': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.25},
-    'Colville': {'forcing_type': 'arctic', 'estimated_R_rt': 0.40},
+    'Colville': {'forcing_type': 'arctic', 'estimated_R_rt': 0.40, 'physical_R_rt': 0.08, 'anastomosis_P0': 0.12},
     'Danube': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.10},
     'Dnieper': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.10},
     'Fly': {'forcing_type': 'tide_influenced', 'estimated_R_rt': 0.85},
@@ -307,8 +307,8 @@ DELTA_FORCING_REGIMES: Dict[str, Dict[str, Any]] = {
     'Hay': {'forcing_type': 'lacustrine', 'estimated_R_rt': 0.05},
     'Irrawaddy': {'forcing_type': 'tide_influenced', 'estimated_R_rt': 0.50},
     'Krishna': {'forcing_type': 'tide_influenced', 'estimated_R_rt': 0.50},
-    'Lena': {'forcing_type': 'arctic', 'estimated_R_rt': 0.45},
-    'Mackenzie': {'forcing_type': 'arctic', 'estimated_R_rt': 0.40},
+    'Lena': {'forcing_type': 'arctic', 'estimated_R_rt': 0.45, 'physical_R_rt': 0.08, 'anastomosis_P0': 0.14},
+    'Mackenzie': {'forcing_type': 'arctic', 'estimated_R_rt': 0.40, 'physical_R_rt': 0.08, 'anastomosis_P0': 0.12},
     'Mahakam': {'forcing_type': 'tide_influenced', 'estimated_R_rt': 0.60},
     'Mahanadi': {'forcing_type': 'tide_influenced', 'estimated_R_rt': 0.55},
     'Mekong': {'forcing_type': 'tide_influenced', 'estimated_R_rt': 0.65},
@@ -325,7 +325,7 @@ DELTA_FORCING_REGIMES: Dict[str, Dict[str, Any]] = {
     'Wairau': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.10},
     'Wax Lake': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.10, 'didnt_name': 'Wax'},
     'Yangtze': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.25},
-    'Yukon': {'forcing_type': 'arctic', 'estimated_R_rt': 0.35},
+    'Yukon': {'forcing_type': 'arctic', 'estimated_R_rt': 0.35, 'physical_R_rt': 0.08, 'anastomosis_P0': 0.10},
 }
 
 

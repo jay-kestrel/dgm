@@ -88,8 +88,11 @@ ensemble = dgm.EnsembleGenerator(
 summary = ensemble.evaluate_ensemble()
 print("Alpha mean:", summary['metrics']['alpha_index']['mean'])
 
-# Export ensemble summary statistics to CSV
-dgm.metrics_to_csv(summary, "outputs/ensemble_summary.csv")
+# Export aggregated ensemble summary statistics (mean, std, percentiles)
+dgm.summary_to_csv(summary, "outputs/ensemble_summary.csv")
+
+# Or export raw realization metric cloud (one row per realization)
+dgm.metrics_to_csv(summary, "outputs/ensemble_realizations.csv")
 ```
 
 ---

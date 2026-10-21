@@ -79,3 +79,23 @@ def test_metrics_to_dataframe_and_csv(tmp_path):
     assert "alpha_index" in df_loaded.columns
     assert np.isclose(df_loaded["alpha_index"].iloc[0], m["alpha_index"])
 
+
+def test_summary_to_dataframe_and_csv(tmp_path):
+    from dgm.generator import EnsembleGenerator
+    from dgm.io.export import summary_to_dataframe, summary_to_csv
+
+    ens = EnsembleGenerator(N=15, num_realizations=3, seed=42)
+    summary = ens.evaluate_ensemble()
+
+    df = summary_to_dataframe(summary)
+    assert "metric" in df.columns
+    assert "mean" in df.columns
+    assert "std" in df.columns
+    assert len(df) > 0
+
+    csv_file = tmp_path / "ensemble_summary.csv"
+    summary_to_csv(summary, csv_file)
+    assert csv_file.exists()
+    assert csv_file.stat().st_size > 0
+
+

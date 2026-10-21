@@ -202,3 +202,31 @@ def metrics_to_csv(metrics_data: Union[Dict[str, Any], List[Dict[str, Any]]], pa
         if tmp_path.exists():
             tmp_path.unlink()
         raise
+
+
+def summary_to_dataframe(summary: Dict[str, Any]) -> pd.DataFrame:
+    """
+    Converts an ensemble summary dictionary into a pandas DataFrame of aggregated statistics
+    (mean, std, min, max, p25, p75 for each metric).
+    """
+    if isinstance(summary, dict) and 'metrics' in summary and isinstance(summary['metrics'], dict):
+        df = pd.DataFrame.from_dict(summary['metrics'], orient='index')
+        df.index.name = 'metric'
+        return df.reset_index()
+    return metrics_to_dataframe(summary)
+
+
+def summary_to_csv(summary: Dict[str, Any], path: Union[str, Path]) -> None:
+    """Saves ensemble summary statistics to a CSV file using safe atomic writing."""
+    df = summary_to_dataframe(summary)
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f".{path.name}.tmp_{uuid.uuid4().hex}")
+    try:
+        df.to_csv(tmp_path, index=False)
+        tmp_path.replace(path)
+    except Exception:
+        if tmp_path.exists():
+            tmp_path.unlink()
+        raise
+

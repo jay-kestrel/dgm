@@ -119,3 +119,12 @@ def test_load_default_with_tuple_and_scalar_overrides():
     cfg_scalar = DGMConfig.load_default(tidal_flare_onset=0.55)
     assert cfg_scalar.tidal_flare_onset == 0.55
     assert "tidal_flare_onset" not in cfg_scalar.distributions
+
+
+def test_config_files_identical():
+    """Verify config/default_config.yaml and src/dgm/default_config.yaml remain synchronized."""
+    repo_root = Path(__file__).resolve().parent.parent
+    cfg1 = (repo_root / "config" / "default_config.yaml").read_text(encoding="utf-8")
+    cfg2 = (repo_root / "src" / "dgm" / "default_config.yaml").read_text(encoding="utf-8")
+    assert cfg1 == cfg2, "config/default_config.yaml and src/dgm/default_config.yaml have drifted!"
+

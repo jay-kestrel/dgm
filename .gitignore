@@ -38,6 +38,13 @@ env/
 .vscode/
 *.swp
 *.swo
+._*
+.Spotlight-V100
+.Trashes
+
+# Linters & caches
+.ruff_cache/
+.mypy_cache/
 
 # Testing & Coverage
 .pytest_cache/
@@ -50,6 +57,8 @@ outputs/
 figures_cache/
 experiments/
 *.log
+src/dgm/data/*.csv
+src/dgm/data/*.npz
 
 # writeup
 writeup/

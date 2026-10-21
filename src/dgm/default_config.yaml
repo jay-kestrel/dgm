@@ -69,12 +69,13 @@ pruning:
   outlet_tolerance: 0.05             # Proximity tolerance fraction for shoreline delivery (r >= r_shore * (1 - outlet_tolerance))
   min_spur_length: 0.0               # Minimum length in meters below which terminal spurs are pruned (0.0 = all inland dead-ends)
   simplify_pass_through_nodes: false # If true, contract degree-2 pass-through nodes into unified edges
+  recalculate_reach_sinuosity: true  # Recalculate consolidated reach sinuosity after degree-2 chain contraction
   max_prune_iterations: 5            # Maximum recursive iterations for cascading spur removal
 
 # --- Step 5: Hydraulics & Markov Flux Routing ---
 hydraulics:
   routing_mode: "width"          # Hydraulic flux routing mode: 'width' (default) or 'conductance'
-  murray_p: 1.70                 # Murray's Law width conservation exponent: w0^p = w1^p + w2^p
+  murray_p: 1.85                 # Murray's Law width conservation exponent: w0^p = w1^p + w2^p
   width_beta: 0.745              # Bifurcation width asymmetry factor (main vs secondary branch)
   manning_eta: 1.65              # Manning hydraulic conductance width exponent (C_e = w^eta / L^gamma)
   length_gamma: 0.50             # Conductance length exponent

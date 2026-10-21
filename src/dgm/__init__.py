@@ -37,6 +37,8 @@ from .io.export import (
     to_geojson,
     metrics_to_csv,
     metrics_to_dataframe,
+    summary_to_csv,
+    summary_to_dataframe,
 )
 from .visualization import (
     plot_network,
@@ -88,6 +90,8 @@ __all__ = [
     "to_geojson",
     "metrics_to_csv",
     "metrics_to_dataframe",
+    "summary_to_csv",
+    "summary_to_dataframe",
     "plot_network",
     "plot_delta",
     "plot_tree_vs_network",
