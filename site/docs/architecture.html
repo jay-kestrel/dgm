@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Architecture &amp; Math | DeltaGraphModel Documentation</title>
-  
+
   <!-- Kestrel Typography: Aldrich (Display), Azeret Mono (Code/HUD), Plus Jakarta Sans (Body) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -55,7 +55,7 @@
       inset: 0;
       width: 100vw;
       height: 100vh;
-      background: 
+      background:
         radial-gradient(circle at 50% -12%, rgba(207, 221, 208, 0.08) 0%, transparent 65%),
         radial-gradient(circle at 90% 10%, rgba(255, 90, 53, 0.04) 0%, transparent 45%);
       pointer-events: none;
@@ -217,7 +217,7 @@
   <!-- Header Navigation -->
   <header class="border-b border-white/[0.1] bg-[#0a0b0a] sticky top-0 z-50 shrink-0">
     <div class="w-full px-4 h-14 flex items-center justify-between">
-      
+
       <!-- Brandmark & Section -->
       <div class="flex items-center space-x-3">
         <a href="../index.html" class="w-8 h-8 bg-white/[0.04] border border-white/[0.2] text-[#ff5a35] flex items-center justify-center font-heading font-bold text-base hover:border-[#ff5a35] transition" title="Go to AI Assistant Front Door">
@@ -250,7 +250,7 @@
 
   <!-- Main Body: Sidebar + Reading Canvas -->
   <div class="flex-1 w-full flex overflow-hidden relative z-10">
-    
+
     <!-- Left Navigation Sidebar -->
     <aside class="w-64 shrink-0 border-r border-white/[0.1] bg-[#0c0e0c] h-full overflow-y-auto hidden md:block">
       <div class="p-3 border-b border-white/[0.1] bg-[#080908] flex items-center justify-between">
@@ -281,7 +281,7 @@
     <!-- Reading Canvas -->
     <main class="flex-1 h-full overflow-y-auto px-6 py-8 md:px-12 lg:px-16 bg-[#0a0b0a]">
       <div class="max-w-4xl mx-auto">
-        
+
         <!-- Breadcrumbs -->
         <div class="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-wider text-white/40 mb-4 pb-2 border-b border-white/[0.06]">
           <a href="index.html" class="hover:text-white transition">Docs</a>
@@ -388,7 +388,7 @@ $$N_{\text{loops}}^{\max} = \lfloor N \cdot (\text{slope} \cdot R_{\text{rt}} + 
 <h2 id="step-5-emergent-hydraulics-murrays-law-conservation">Step 5: Emergent Hydraulics &amp; Murray's Law Conservation</h2>
 <p>Channel widths are solved using an iterative topological relaxation solver conserving Murray's Law at all bifurcations:
 $$w_{\text{parent}}^p = w_{\text{child1}}^p + w_{\text{child2}}^p + \dots$$
-where exponent $p \in [1.2, 2.2]$ (default $1.70$).</p>
+where exponent $p \in [1.2, 2.2]$ (default $1.85$).</p>
 <h3 id="estuarine-tidal-mouth-flaring">Estuarine Tidal Mouth Flaring</h3>
 <p>Tidal prism amplification widens distributary mouths seaward of an onset radius ($r_{\text{onset}} = \text{tidal_flare_onset}$, default $0.30$):
 $$w(r) = w_{\text{river}} \cdot \left((1 - R_{\text{rt}}) + R_{\text{rt}} \exp\left(k_{\text{flare}} \cdot \max\left(0, \frac{r}{r_{\text{shore}}} - r_{\text{onset}}\right)\right)\right)$$</p>

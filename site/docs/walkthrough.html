@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>End-to-End Walkthrough | DeltaGraphModel Documentation</title>
-  
+
   <!-- Kestrel Typography: Aldrich (Display), Azeret Mono (Code/HUD), Plus Jakarta Sans (Body) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -55,7 +55,7 @@
       inset: 0;
       width: 100vw;
       height: 100vh;
-      background: 
+      background:
         radial-gradient(circle at 50% -12%, rgba(207, 221, 208, 0.08) 0%, transparent 65%),
         radial-gradient(circle at 90% 10%, rgba(255, 90, 53, 0.04) 0%, transparent 45%);
       pointer-events: none;
@@ -217,7 +217,7 @@
   <!-- Header Navigation -->
   <header class="border-b border-white/[0.1] bg-[#0a0b0a] sticky top-0 z-50 shrink-0">
     <div class="w-full px-4 h-14 flex items-center justify-between">
-      
+
       <!-- Brandmark & Section -->
       <div class="flex items-center space-x-3">
         <a href="../index.html" class="w-8 h-8 bg-white/[0.04] border border-white/[0.2] text-[#ff5a35] flex items-center justify-center font-heading font-bold text-base hover:border-[#ff5a35] transition" title="Go to AI Assistant Front Door">
@@ -250,7 +250,7 @@
 
   <!-- Main Body: Sidebar + Reading Canvas -->
   <div class="flex-1 w-full flex overflow-hidden relative z-10">
-    
+
     <!-- Left Navigation Sidebar -->
     <aside class="w-64 shrink-0 border-r border-white/[0.1] bg-[#0c0e0c] h-full overflow-y-auto hidden md:block">
       <div class="p-3 border-b border-white/[0.1] bg-[#080908] flex items-center justify-between">
@@ -281,7 +281,7 @@
     <!-- Reading Canvas -->
     <main class="flex-1 h-full overflow-y-auto px-6 py-8 md:px-12 lg:px-16 bg-[#0a0b0a]">
       <div class="max-w-4xl mx-auto">
-        
+
         <!-- Breadcrumbs -->
         <div class="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-wider text-white/40 mb-4 pb-2 border-b border-white/[0.06]">
           <a href="index.html" class="hover:text-white transition">Docs</a>
@@ -295,17 +295,17 @@
         <article class="prose-kestrel">
           <h1 id="end-to-end-walkthrough-from-installation-to-plotting">End-to-End Walkthrough: From Installation to Plotting</h1>
 <p>This walkthrough provides a comprehensive, step-by-step guide to using <strong>DeltaGraphModel (DGM)</strong>. You will learn how to:
-1. <a href="#1-installation--environment-setup">Install and configure your environment</a>
-2. <a href="#2-model-configuration--parameter-tuning">Configure the model and customize physical parameters</a>
+1. <a href="#1-installation-environment-setup">Install and configure your environment</a>
+2. <a href="#2-model-configuration-parameter-tuning">Configure the model and customize physical parameters</a>
 3. <a href="#3-running-the-model">Run single realizations, multi-stage pipelines, and stochastic ensembles</a>
-4. <a href="#4-plotting--visualizing-results">Generate geomorphically accurate 2D cartographic plots and figures</a>
+4. <a href="#4-plotting-visualizing-results">Generate geomorphically accurate 2D cartographic plots and figures</a>
 5. <a href="#5-complete-runnable-script">Run a complete, self-contained end-to-end Python script</a></p>
 <hr />
 <h2 id="1-installation-environment-setup">1. Installation &amp; Environment Setup</h2>
 <p>DGM requires <strong>Python 3.10+</strong>. We recommend using <a href="https://github.com/astral-sh/uv"><code>uv</code></a> for fast, deterministic dependency management, but standard <code>pip</code> and virtual environments are fully supported.</p>
 <h3 id="option-a-using-uv-recommended">Option A: Using <code>uv</code> (Recommended)</h3>
 <pre><code class="language-bash"># Clone the repository
-git clone https://github.com/delta-graphs/dgm.git
+git clone https://github.com/jay-kestrel/dgm.git
 cd dgm
 
 # Create a virtual environment and synchronize all dependencies (including dev tools)
@@ -313,7 +313,7 @@ uv sync --extra dev
 </code></pre>
 <h3 id="option-b-using-standard-python-venv-and-pip">Option B: Using Standard Python <code>venv</code> and <code>pip</code></h3>
 <pre><code class="language-bash"># Clone the repository
-git clone https://github.com/delta-graphs/dgm.git
+git clone https://github.com/jay-kestrel/dgm.git
 cd dgm
 
 # Create and activate a virtual environment
@@ -355,7 +355,7 @@ dgm --help
 <li>
 <p><strong><code>domain</code></strong>: Polar basin geometry &amp; lateral confinement
    - <code>r_shore</code> (<em>float</em>, default <code>10000.0</code> m): Shoreline radius.
-   - <code>theta_base</code> (<em>float</em>, default <code>45.0</code>°): Fluvial opening angle.
+   - <code>theta_base</code> (<em>float</em>, default <code>65.0</code>°): Fluvial opening angle.
    - <code>theta_delta</code> (<em>float</em>, default <code>60.0</code>°): Tidal fan expansion angle.
    - <code>confinement</code> (<em>float</em>, default <code>0.0</code>): Valley wall constriction factor in $[0.0, 0.95]$.
    - <code>lateral_valley_width</code> (<em>float</em>, optional): Fixed maximum corridor width in meters ($|x(r)| \le W/2$).</p>
@@ -363,7 +363,7 @@ dgm --help
 <li>
 <p><strong><code>backbone</code></strong>: Branching tree growth
    - <code>branching_weights</code> (<em>tuple</em>, default <code>(0.50, 0.45, 0.05)</code>): Probabilities of $1$, $2$, or $3$ child branches.
-   - <code>coastal_node_decay</code> (<em>float</em>, default <code>0.35</code>): Shoreward contraction rate of radial inter-junction spacing.
+   - <code>coastal_node_decay</code> (<em>float</em>, default <code>0.40</code>): Shoreward contraction rate of radial inter-junction spacing.
    - <code>coastal_sinuosity_decay</code> (<em>float</em>, default <code>0.30</code>): Shoreward straightening of distributary branches.</p>
 </li>
 <li>
@@ -385,7 +385,7 @@ dgm --help
 </li>
 <li>
 <p><strong><code>hydraulics</code></strong>: Murray's Law width conservation &amp; discharge
-   - <code>murray_p</code> (<em>float</em>, default <code>1.70</code>): Murray's Law exponent ($w_{\text{parent}}^p = w_1^p + w_2^p$).
+   - <code>murray_p</code> (<em>float</em>, default <code>1.85</code>): Murray's Law exponent ($w_{\text{parent}}^p = w_1^p + w_2^p$).
    - <code>width_beta</code> (<em>float</em>, default <code>0.745</code>): Bifurcation width asymmetry factor.
    - <code>apex_width</code> (<em>float</em>, default <code>250.0</code> m): Feeder trunk channel width at the apex.
    - <code>tidal_flare_k</code> (<em>float</em>, default <code>1.40</code>): Seaward exponential width flaring rate.
@@ -841,7 +841,6 @@ if __name__ == &quot;__main__&quot;:
 <ul>
 <li>Consult the <a href="configuration.md">Configuration Guide</a> to explore all available YAML parameters and distribution specs.</li>
 <li>Learn about the physics and algorithmic invariants in <a href="architecture.md">Architecture &amp; Mathematical Formulation</a>.</li>
-<li>View empirical literature justifications in <a href="parameter_justifications.md">Parameter Justifications</a>.</li>
 <li>Browse complete method and class signatures in the <a href="api_reference.md">API Reference</a>.</li>
 </ul>
         </article>

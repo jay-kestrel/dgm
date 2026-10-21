@@ -85,7 +85,17 @@ class MetricsBattery:
         return clean_res
 
     def evaluate_topology(self, G: nx.DiGraph) -> dict[str, Any]:
-        """Tier 1: Topological graph metrics."""
+        """
+        Tier 1: Topological graph metrics.
+        Computes node/edge counts, Betti numbers (betti_0, betti_1), alpha index,
+        junction ratios (num_bifurcations, num_confluences, ratio_vc_vb, recombination_factor),
+        horton_inversion_index, topological_slope, num_outlets, log_num_outlets, resistance_distance,
+        and link_sharing_index.
+
+        Link Sharing Index (LSI) measures network tree-like branch depth and topological
+        path redundancy as the mean normalized shortest-path hop distance from apex to all
+        shoreline outlets: (1 / |outlets|) * sum((d(apex, o) + 1) / N).
+        """
         N = G.number_of_nodes()
         E = G.number_of_edges()
 
@@ -115,9 +125,9 @@ class MetricsBattery:
 
             apex_node = _get_apex_node(G)
             outlets = [n for n in G.nodes() if G.out_degree(n) == 0 and n != apex_node]
-            n_outlets = max(1, len(outlets))
+            n_outlets = len(outlets)
 
-            # Link Sharing Index (LSI): average normalized shortest-path depth (len(path) / N)
+            # Link Sharing Index (LSI): average normalized shortest-path depth ((len(path) + 1) / N)
             sp_lengths = nx.single_source_shortest_path_length(G, apex_node) if apex_node is not None else {}
             lsi_vals = [(sp_lengths[o] + 1) / float(N) for o in outlets if o in sp_lengths]
             link_sharing_index = float(np.mean(lsi_vals)) if lsi_vals else 0.5
@@ -129,7 +139,7 @@ class MetricsBattery:
                 node_to_idx = {n: idx for idx, n in enumerate(nodes_list)}
                 idx_0 = node_to_idx[apex_node]
                 N_g = len(nodes_list)
-                L_unw = nx.laplacian_matrix(G_und).toarray().astype(float)
+                L_unw = nx.laplacian_matrix(G_und, nodelist=nodes_list).toarray().astype(float)
                 J_shift = (1.0 / N_g) * np.ones((N_g, N_g))
                 L_shifted = L_unw + J_shift
                 L_pinv = np.linalg.inv(L_shifted) - J_shift
@@ -280,7 +290,18 @@ class MetricsBattery:
         params: dict[str, Any],
         markov_solution: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
     ) -> dict[str, Any]:
-        """Tier 3: Vulnerability & Resilience metrics (Global Vulnerability V_net, Outlet Flux Entropy H_out)."""
+        """
+        Tier 3: Vulnerability & Resilience metrics (Global Vulnerability V_net, Outlet Flux Entropy H_out).
+
+        Global Vulnerability (V_net) measures network fragility to channel disruptions based on
+        the distribution of outlet Markov fluxes. For each shoreline outlet o with flux Phi_o,
+        the vulnerability contribution is v_o = clamp(1 / (1 + ln(1 + Phi_o * N)), [0.1, 1.0]).
+        V_net is the mean across all outlets: V_net = (1 / |outlets|) * sum(v_o).
+        Higher V_net indicates elevated sensitivity to single-channel failure.
+
+        Outlet Flux Entropy (H_out) measures the Shannon entropy in bits of the normalized
+        flux distribution across shoreline outlets: -sum(p_o * log2(p_o)).
+        """
         N = G.number_of_nodes()
         if N <= 2:
             return {'global_vulnerability': 0.50, 'outlet_flux_entropy': 0.0}
@@ -322,7 +343,15 @@ class MetricsBattery:
         }
 
     def evaluate_geomorphology(self, G: nx.DiGraph) -> dict[str, Any]:
-        """Tier 4: Geomorphic form, sinuosity, dispersion & width scaling metrics."""
+        """
+        Tier 4: Geomorphic form, sinuosity, dispersion & width scaling metrics.
+        Computes mean_width, std_width, width_cv, radial_sinuosity, angular_dispersion,
+        and loop_length_anisotropy.
+
+        Angular dispersion computes the standard deviation of local bifurcation branch
+        deflection angles relative to the incoming channel vector at each branching junction,
+        averaged across all junctions with out-degree >= 2.
+        """
         widths = [d.get('width', 10.0) for u, v, d in G.edges(data=True)]
         if not widths:
             return {
@@ -362,9 +391,28 @@ class MetricsBattery:
             bifurcations = [n for n in G.nodes() if G.out_degree(n) >= 2]
             dispersions = []
             for b in bifurcations:
-                children = list(G.successors(b))
-                theta_c = [G.nodes[c].get('theta', 0.0) for c in children]
-                dispersions.append(float(np.std(theta_c)))
+                xb, yb = float(G.nodes[b].get('x', 0.0)), float(G.nodes[b].get('y', 0.0))
+                preds = list(G.predecessors(b))
+                if preds:
+                    xp, yp = float(G.nodes[preds[0]].get('x', 0.0)), float(G.nodes[preds[0]].get('y', 0.0))
+                    v_in_x, v_in_y = xb - xp, yb - yp
+                else:
+                    v_in_x, v_in_y = xb, yb
+
+                if math.hypot(v_in_x, v_in_y) < 1e-6:
+                    v_in_x, v_in_y = 0.0, 1.0
+                in_angle = math.atan2(v_in_y, v_in_x)
+
+                branch_deflections = []
+                for c in G.successors(b):
+                    xc, yc = float(G.nodes[c].get('x', 0.0)), float(G.nodes[c].get('y', 0.0))
+                    out_angle = math.atan2(yc - yb, xc - xb)
+                    deflection = (out_angle - in_angle + math.pi) % (2.0 * math.pi) - math.pi
+                    branch_deflections.append(deflection)
+
+                if len(branch_deflections) >= 2:
+                    dispersions.append(float(np.std(branch_deflections)))
+
             angular_dispersion = float(np.mean(dispersions)) if dispersions else 0.5
 
             tree_lens = [d.get('length', 10.0) for u, v, d in G.edges(data=True) if d.get('edge_type') == 'tree']

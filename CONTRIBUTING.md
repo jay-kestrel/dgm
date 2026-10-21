@@ -102,7 +102,6 @@ uv run python examples/06_visualize_sinuous_trees_and_networks.py
    - `refactor(...)`: Code cleanup without behavior change
 2. **Documentation**: If adding new parameters or algorithms, update:
    - `config/default_config.yaml` and `src/dgm/default_config.yaml`
-   - `docs/parameter_justifications.md` (cite peer-reviewed literature for parameter defaults and bounds)
    - `docs/configuration.md`
 3. **Tests**: Include unit tests covering new edge cases, boundary conditions, or configuration parameters.
 4. **Open a PR**: Open a Pull Request against `main`. Fill in the PR template explaining the motivation, changes made, and verification steps.

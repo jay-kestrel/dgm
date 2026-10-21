@@ -4,6 +4,7 @@ Emergent Hydraulics, Channel Width Scaling, Conductance, and Markov Flux Solver 
 
 import math
 import warnings
+import zlib
 from typing import Any
 
 import networkx as nx
@@ -95,7 +96,7 @@ def apply_emergent_hydraulics(
         params = {}
 
     w_apex = max(0.1, float(params.get('apex_width', 250.0)))
-    p_exp = max(0.1, float(params.get('murray_p', 1.70)))
+    p_exp = max(0.1, float(params.get('murray_p', 1.85)))
     beta = max(0.01, min(0.99, float(params.get('width_beta', 0.745))))
     R_rt = max(0.0, min(1.0, float(params.get('R_rt', 0.5))))
     r_shore = max(1.0, float(params.get('r_shore', 10000.0)))
@@ -127,7 +128,7 @@ def apply_emergent_hydraulics(
         if n_out == 1:
             branch_fractions[(out_edges[0][0], out_edges[0][1])] = 1.0
         elif n_out >= 2:
-            node_seed = (seed + int(u) * 7919) % 2 ** 31 if isinstance(u, (int, np.integer)) else (seed + abs(hash(str(u)))) % 2 ** 31
+            node_seed = (seed + int(u) * 7919) % 2 ** 31 if isinstance(u, (int, np.integer)) else (seed + (zlib.crc32(str(u).encode()) % (2**31))) % 2 ** 31
             node_rng = np.random.default_rng(node_seed)
 
             primary_frac = node_rng.beta(beta * 4.0, max(0.1, (1.0 - beta) * 4.0))
@@ -188,7 +189,7 @@ def apply_emergent_hydraulics(
             if isinstance(u, (int, np.integer)) and isinstance(v, (int, np.integer)):
                 edge_seed = (seed + int(u) * 7919 + int(v) * 6271) % (2**31)
             else:
-                edge_seed = (seed + abs(hash(str((u, v))))) % (2**31)
+                edge_seed = (seed + (zlib.crc32(str((u, v)).encode()) % (2**31))) % (2**31)
             edge_rng = np.random.default_rng(edge_seed)
 
             r_u = float(G.nodes[u].get('r', 0.0))

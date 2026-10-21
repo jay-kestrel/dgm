@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feature/browser-ai-assistant
     paths:
       - 'docs/**'
       - 'src/dgm/**'

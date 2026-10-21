@@ -107,6 +107,32 @@ def test_set_parameter_scalar_and_distributions():
     assert cfg.tidal_flare_onset == 0.55
     assert cfg.distributions["tidal_flare_onset"] == spec
 
+    # 4. Setting choice / categorical distribution spec dict
+    spec_choice = {"type": "choice", "values": ["potential_field", "ner_optimality"]}
+    cfg.set_parameter("loop_mechanism", spec_choice)
+    assert cfg.loop_mechanism == "potential_field"
+    assert cfg.distributions["loop_mechanism"] == spec_choice
+
+
+def test_seed_validation():
+    """Verify seed validation allows integers >= 0 and None, but rejects negatives, booleans, and non-ints."""
+    assert DGMConfig(seed=0).seed == 0
+    assert DGMConfig(seed=42).seed == 42
+    assert DGMConfig(seed=None).seed is None
+
+    with pytest.raises(ValueError, match="seed must be an integer >= 0"):
+        DGMConfig(seed=-1)
+
+    with pytest.raises(ValueError, match="seed must be an integer >= 0"):
+        DGMConfig(seed=True)
+
+    with pytest.raises(ValueError, match="seed must be an integer >= 0"):
+        DGMConfig(seed=1.5)
+
+    with pytest.raises(ValueError, match="seed must be an integer >= 0"):
+        DGMConfig(seed="42")
+
+
 
 def test_load_default_with_tuple_and_scalar_overrides():
     """Verify load_default accepts tuple range and scalar overrides."""

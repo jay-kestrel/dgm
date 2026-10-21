@@ -1,10 +1,10 @@
 # End-to-End Walkthrough: From Installation to Plotting
 
 This walkthrough provides a comprehensive, step-by-step guide to using **DeltaGraphModel (DGM)**. You will learn how to:
-1. [Install and configure your environment](#1-installation--environment-setup)
-2. [Configure the model and customize physical parameters](#2-model-configuration--parameter-tuning)
+1. [Install and configure your environment](#1-installation-environment-setup)
+2. [Configure the model and customize physical parameters](#2-model-configuration-parameter-tuning)
 3. [Run single realizations, multi-stage pipelines, and stochastic ensembles](#3-running-the-model)
-4. [Generate geomorphically accurate 2D cartographic plots and figures](#4-plotting--visualizing-results)
+4. [Generate geomorphically accurate 2D cartographic plots and figures](#4-plotting-visualizing-results)
 5. [Run a complete, self-contained end-to-end Python script](#5-complete-runnable-script)
 
 ---
@@ -78,14 +78,14 @@ DGM parameterizes river delta channel networks using physically meaningful bound
 
 2. **`domain`**: Polar basin geometry & lateral confinement
    - `r_shore` (*float*, default `10000.0` m): Shoreline radius.
-   - `theta_base` (*float*, default `45.0`°): Fluvial opening angle.
+   - `theta_base` (*float*, default `65.0`°): Fluvial opening angle.
    - `theta_delta` (*float*, default `60.0`°): Tidal fan expansion angle.
    - `confinement` (*float*, default `0.0`): Valley wall constriction factor in $[0.0, 0.95]$.
    - `lateral_valley_width` (*float*, optional): Fixed maximum corridor width in meters ($|x(r)| \le W/2$).
 
 3. **`backbone`**: Branching tree growth
    - `branching_weights` (*tuple*, default `(0.50, 0.45, 0.05)`): Probabilities of $1$, $2$, or $3$ child branches.
-   - `coastal_node_decay` (*float*, default `0.35`): Shoreward contraction rate of radial inter-junction spacing.
+   - `coastal_node_decay` (*float*, default `0.40`): Shoreward contraction rate of radial inter-junction spacing.
    - `coastal_sinuosity_decay` (*float*, default `0.30`): Shoreward straightening of distributary branches.
 
 4. **`loops`**: Emergent loop formation & cross-ties
@@ -104,7 +104,7 @@ DGM parameterizes river delta channel networks using physically meaningful bound
    - `recalculate_reach_sinuosity` (*bool*, default `true`): Recalculates unified reach sinuosity from the process model, preventing double-counting of geometric knees.
 
 6. **`hydraulics`**: Murray's Law width conservation & discharge
-   - `murray_p` (*float*, default `1.70`): Murray's Law exponent ($w_{\text{parent}}^p = w_1^p + w_2^p$).
+   - `murray_p` (*float*, default `1.85`): Murray's Law exponent ($w_{\text{parent}}^p = w_1^p + w_2^p$).
    - `width_beta` (*float*, default `0.745`): Bifurcation width asymmetry factor.
    - `apex_width` (*float*, default `250.0` m): Feeder trunk channel width at the apex.
    - `tidal_flare_k` (*float*, default `1.40`): Seaward exponential width flaring rate.
@@ -635,5 +635,4 @@ if __name__ == "__main__":
 
 - Consult the [Configuration Guide](configuration.md) to explore all available YAML parameters and distribution specs.
 - Learn about the physics and algorithmic invariants in [Architecture & Mathematical Formulation](architecture.md).
-- View empirical literature justifications in [Parameter Justifications](parameter_justifications.md).
 - Browse complete method and class signatures in the [API Reference](api_reference.md).

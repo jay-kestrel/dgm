@@ -97,3 +97,19 @@ def test_broadened_exploration_mode():
     assert res["benchmark_metadata"]["exploration_mode"] == "broad"
     assert res["benchmark_metadata"]["r_rt_uncertainty"] == 0.10
 
+
+def test_reality_check_diagnostics():
+    """Verify physical reality check diagnostics pass across all 4 physical modules."""
+    from dgm.benchmarks.reality_check_diagnostics import run_reality_diagnostics
+
+    res = run_reality_diagnostics()
+    assert "confinement_check" in res
+    assert "scaling_check" in res
+    assert "proximity_check" in res
+    assert "pruning_check" in res
+    assert res["confinement_check"]["passed"]
+    assert res["scaling_check"]["passed"]
+    assert res["proximity_check"]["passed"]
+    assert res["pruning_check"]["passed"]
+
+

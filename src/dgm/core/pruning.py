@@ -5,6 +5,7 @@ prior to Murray's Law width relaxation and Markov flux routing.
 """
 
 import math
+import zlib
 from typing import Any
 
 import networkx as nx
@@ -213,7 +214,7 @@ def simplify_degree_two_chains(
                 if rng is not None:
                     raw_sin = float(rng.lognormal(base_sin_mu, base_sin_sigma))
                 else:
-                    edge_seed = (int(p) * 31337 + int(c) * 7919) % (2**31) if isinstance(p, (int, np.integer)) and isinstance(c, (int, np.integer)) else hash(f"{p}_{c}") % (2**31)
+                    edge_seed = (int(p) * 31337 + int(c) * 7919) % (2**31) if isinstance(p, (int, np.integer)) and isinstance(c, (int, np.integer)) else (zlib.crc32(f"{p}_{c}".encode()) % (2**31))
                     local_rng = np.random.default_rng(edge_seed)
                     raw_sin = float(local_rng.lognormal(base_sin_mu, base_sin_sigma))
 

@@ -97,6 +97,5 @@ dgm ensemble -N 50 -R 0.65 -n 100 --sample-parameters -o ensemble_50.csv
 
 - Follow the [End-to-End Walkthrough](../walkthrough.md) for a comprehensive, runnable walkthrough.
 - Explore the [Configuration Guide & YAML Schema](../configuration.md) to customize parameter distributions.
-- Inspect the [Parameter Literature Justifications](../parameter_justifications.md) for empirical bounds and citations.
 - Run the empirical validation benchmark (`examples/04_empirical_validation_benchmark.py`) to compare ensembles with real-world deltas.
 - Return to [Tutorial 1: Quickstart](01_quickstart.md) or the [Documentation Index](../index.md).

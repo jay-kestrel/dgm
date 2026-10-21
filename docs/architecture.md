@@ -113,7 +113,7 @@ Constructs a candidate network and optimizes link configuration using Simulated 
 
 Channel widths are solved using an iterative topological relaxation solver conserving Murray's Law at all bifurcations:
 $$w_{\text{parent}}^p = w_{\text{child1}}^p + w_{\text{child2}}^p + \dots$$
-where exponent $p \in [1.2, 2.2]$ (default $1.70$).
+where exponent $p \in [1.2, 2.2]$ (default $1.85$).
 
 ### Estuarine Tidal Mouth Flaring
 Tidal prism amplification widens distributary mouths seaward of an onset radius ($r_{\text{onset}} = \text{tidal_flare_onset}$, default $0.30$):

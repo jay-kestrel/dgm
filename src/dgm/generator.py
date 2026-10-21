@@ -195,7 +195,7 @@ class DeltaGenerator:
             raise RuntimeError(
                 f"DGM polar tree backbone generation failed for N={active_N}, R_rt={active_R_rt}: {e}"
             ) from e
-        G_tree_snapshot = G_tree.copy()
+        G_tree_snapshot = G_tree.copy() if return_stages else None
 
         # 3. Apply Emergent Loop Mechanism (Mechanism A or Mechanism B)
         try:
@@ -211,7 +211,7 @@ class DeltaGenerator:
             raise RuntimeError(
                 f"DGM loop mechanism '{active_mech}' failed: {e}"
             ) from e
-        G_looped_snapshot = G_looped.copy()
+        G_looped_snapshot = G_looped.copy() if return_stages else None
 
         # 4. Apply Pre-Hydraulic Network Pruning & Simplification
         if self.config.enable_pruning or params.get('enable_pruning', False):
@@ -226,7 +226,7 @@ class DeltaGenerator:
                 raise RuntimeError(f"DGM network pruning and reach simplification failed: {e}") from e
         else:
             G_pruned = G_looped
-        G_pruned_snapshot = G_pruned.copy()
+        G_pruned_snapshot = G_pruned.copy() if return_stages else None
 
         # 5. Apply Emergent Hydraulics & Channel Widening
         try:
@@ -252,7 +252,7 @@ class DeltaGenerator:
                 num_bends=bends_num,
                 seed=sub_seed
             )
-            if return_stages:
+            if return_stages and G_tree_snapshot is not None:
                 # Synthesize centerlines for the tree backbone snapshot when stages are requested
                 with contextlib.suppress(Exception):
                     generate_channel_centerlines(
@@ -289,15 +289,14 @@ class DeltaGenerator:
         G_final.graph['params'] = params
         G_final.graph['seed'] = seed
 
-        stages = {
-            'tree': G_tree_snapshot,
-            'looped': G_looped_snapshot,
-            'pruned': G_pruned_snapshot,
-            'final': G_final.copy()
-        }
-        G_final.graph['stages'] = stages
-
         if return_stages:
+            stages = {
+                'tree': G_tree_snapshot,
+                'looped': G_looped_snapshot,
+                'pruned': G_pruned_snapshot,
+                'final': G_final.copy()
+            }
+            G_final.graph['stages'] = stages
             return G_final, stages
         return G_final
 
@@ -351,12 +350,10 @@ class EnsembleGenerator:
 
     def generate_ensemble(self) -> list[nx.DiGraph]:
         """Generates an array of M graph realizations."""
-        if self.base_seed is None:
-            raise ValueError('base_seed must be an integer, got None')
-
         graphs = []
+        entropy_rng = np.random.default_rng(None) if self.base_seed is None else None
         for i in range(self.num_realizations):
-            seed = self.base_seed + i * 1000
+            seed = int(entropy_rng.integers(0, 2**31 - 1)) if entropy_rng is not None else (self.base_seed + i * 1000) % (2**31)
 
             # Clone config with realization-specific seed
             cfg = copy.deepcopy(self.config)

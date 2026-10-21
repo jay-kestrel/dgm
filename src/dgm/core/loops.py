@@ -134,7 +134,7 @@ def generate_loops_potential_field(
         # Enforce downstream orientation (r_src < r_tgt)
         r_u, r_v = float(current_G.nodes[u].get('r', 0.0)), float(current_G.nodes[v].get('r', 0.0))
         if abs(r_u - r_v) < 1e-4:
-            src, tgt = (u, v) if u < v else (v, u)
+            src, tgt = (u, v) if i < j else (v, u)
         elif r_u < r_v:
             src, tgt = u, v
         else:
@@ -287,7 +287,7 @@ def generate_loops_ner_optimality(
 
         r_u, r_v = float(current_G.nodes[u].get('r', 0.0)), float(current_G.nodes[v].get('r', 0.0))
         if abs(r_u - r_v) < 1e-4:
-            src, tgt = (u, v) if u < v else (v, u)
+            src, tgt = (u, v) if i < j else (v, u)
         elif r_u < r_v:
             src, tgt = u, v
         else:

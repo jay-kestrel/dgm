@@ -157,3 +157,34 @@ def test_target_nodes_overrides_in_generator_facades():
     ens = sample_ensemble(target_nodes=25, num_realizations=2, base_seed=42)
     assert len(ens) == 2
     assert ens[0].graph["N_input"] == 25
+
+
+def test_metrics_zero_outlets_and_angular_dispersion():
+    """Verify 0-outlet graph reports num_outlets=0, and angular_dispersion calculates branching deflections."""
+    G = nx.DiGraph()
+    G.add_node(0, x=0.0, y=0.0, r=0.0, theta=0.0, node_type="apex")
+    G.add_node(1, x=10.0, y=0.0, r=10.0, theta=0.0, node_type="junction")
+    G.add_node(2, x=20.0, y=0.0, r=20.0, theta=0.0, node_type="junction")
+    G.add_edge(0, 1, width=10.0, length=10.0)
+    G.add_edge(1, 2, width=10.0, length=10.0)
+    G.add_edge(2, 1, width=10.0, length=10.0)
+
+    mb = MetricsBattery()
+    m = mb.evaluate_all(G)
+    assert m["num_outlets"] == 0
+    assert m["log_num_outlets"] == 0.0
+
+    # Test angular dispersion on a network with bifurcation
+    G_bif = nx.DiGraph()
+    G_bif.add_node(0, x=0.0, y=0.0, r=0.0, theta=0.0, node_type="apex")
+    G_bif.add_node(1, x=100.0, y=0.0, r=100.0, theta=0.0, node_type="bifurcation")
+    G_bif.add_node(2, x=200.0, y=50.0, r=206.1, theta=0.24, node_type="outlet")
+    G_bif.add_node(3, x=200.0, y=-50.0, r=206.1, theta=-0.24, node_type="outlet")
+    G_bif.add_edge(0, 1, width=20.0, length=100.0, edge_type="tree")
+    G_bif.add_edge(1, 2, width=14.0, length=111.8, edge_type="tree")
+    G_bif.add_edge(1, 3, width=14.0, length=111.8, edge_type="tree")
+
+    m_bif = mb.evaluate_all(G_bif)
+    assert m_bif["num_outlets"] == 2
+    assert m_bif["angular_dispersion"] > 0.0
+

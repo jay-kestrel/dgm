@@ -467,10 +467,40 @@ class EmpiricalValidationBenchmark:
                 'p_value': float(res_ks.pvalue),
             }
 
-        # Overall composite goodness of fit
-        all_true = np.concatenate([np.array(y_true_dict[k]) for k in PRIMARY_METRICS])
-        all_pred = np.concatenate([np.array(y_pred_dict[k]) for k in PRIMARY_METRICS])
-        overall_gof = compute_goodness_of_fit(all_true, all_pred)
+        # Multi-metric composite goodness of fit avoiding Simpson's paradox:
+        # 1) Individual R2 and NRMSE are computed in gof_by_metric
+        # 2) Mean of individual R2 and NRMSE values across the 6 primary metrics
+        mean_r2 = float(np.mean([gof_by_metric[k]['r2'] for k in PRIMARY_METRICS]))
+        mean_nrmse = float(np.mean([gof_by_metric[k]['nrmse'] for k in PRIMARY_METRICS]))
+        mean_mae = float(np.mean([gof_by_metric[k]['mae'] for k in PRIMARY_METRICS]))
+        mean_rmse = float(np.mean([gof_by_metric[k]['rmse'] for k in PRIMARY_METRICS]))
+
+        # 3) Standardized aggregate where each metric is normalized by empirical mean/std before pooling
+        std_true_list = []
+        std_pred_list = []
+        for k in PRIMARY_METRICS:
+            yt = np.array(y_true_dict[k], dtype=float)
+            yp = np.array(y_pred_dict[k], dtype=float)
+            std_k = float(np.std(yt))
+            mu_k = float(np.mean(yt))
+            scale_k = std_k if std_k > 1e-9 else (abs(mu_k) if abs(mu_k) > 1e-9 else 1.0)
+            std_true_list.append((yt - mu_k) / scale_k)
+            std_pred_list.append((yp - mu_k) / scale_k)
+
+        all_true_std = np.concatenate(std_true_list)
+        all_pred_std = np.concatenate(std_pred_list)
+        std_gof = compute_goodness_of_fit(all_true_std, all_pred_std)
+
+        overall_gof = {
+            'mae': mean_mae,
+            'rmse': mean_rmse,
+            'nrmse': mean_nrmse,
+            'r2': mean_r2,
+            'mean_r2': mean_r2,
+            'mean_nrmse': mean_nrmse,
+            'standardized_r2': std_gof['r2'],
+            'standardized_nrmse': std_gof['nrmse'],
+        }
 
         elapsed = time.time() - t_start
 
@@ -970,7 +1000,8 @@ class EmpiricalValidationBenchmark:
             f"- **Overall Mean Absolute Error (MAE)**: `{overall['mae']:.4f}`",
             f"- **Overall Root Mean Squared Error (RMSE)**: `{overall['rmse']:.4f}`",
             f"- **Overall Normalized RMSE (NRMSE)**: `{overall['nrmse']:.4f}`",
-            f"- **Overall Coefficient of Determination ($R^2$)**: `{overall['r2']:.4f}`",
+            f"- **Overall Mean Coefficient of Determination (Mean $R^2$)**: `{overall['r2']:.4f}`",
+            f"- **Standardized Aggregate $R^2$**: `{overall.get('standardized_r2', overall['r2']):.4f}`",
             "",
             "---",
             "",

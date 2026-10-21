@@ -19,4 +19,5 @@ prune experiments
 prune outputs
 prune writeup
 prune scripts
+prune site
 global-exclude *.py[cod] __pycache__ *.so .DS_Store

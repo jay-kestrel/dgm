@@ -47,7 +47,7 @@ dependencies = [
 Homepage = "https://github.com/jay-kestrel/dgm"
 Repository = "https://github.com/jay-kestrel/dgm"
 Issues = "https://github.com/jay-kestrel/dgm/issues"
-Documentation = "https://github.com/jay-kestrel/dgm/tree/main/docs"
+Documentation = "https://jay-kestrel.github.io/dgm/"
 
 [project.optional-dependencies]
 viz = [

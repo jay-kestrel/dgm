@@ -270,6 +270,8 @@ class DGMConfig:
 
     def validate(self) -> None:
         """Validates configuration parameters and invariants."""
+        if self.seed is not None and (isinstance(self.seed, bool) or not isinstance(self.seed, (int, np.integer)) or self.seed < 0):
+            raise ValueError(f"seed must be an integer >= 0 or None (received {self.seed}).")
         if self.N < 4:
             raise ValueError(f"Node budget N must be >= 4 (received {self.N}).")
         if not (0.0 <= self.R_rt <= 1.0):
@@ -764,6 +766,8 @@ class DGMConfig:
                     setattr(self, name, float(value_or_spec.get("mean", 0.0)))
                 elif value_or_spec["type"] in ("fixed", "constant"):
                     setattr(self, name, float(value_or_spec.get("value", 0.0)))
+                elif value_or_spec["type"] in ("choice", "categorical") and "values" in value_or_spec and len(value_or_spec["values"]) > 0:
+                    setattr(self, name, value_or_spec["values"][0])
         elif isinstance(value_or_spec, (tuple, list)) and len(value_or_spec) == 2 and name != "branching_weights" and all(isinstance(x, (int, float)) for x in value_or_spec):
             low, high = float(value_or_spec[0]), float(value_or_spec[1])
             self.distributions[name] = {"type": "uniform", "low": low, "high": high}

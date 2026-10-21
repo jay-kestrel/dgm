@@ -122,12 +122,11 @@ uv run dgm ensemble -N 50 -R 0.5 -n 30 --sample-parameters -o ensemble.csv
   - Core: `networkx`, `numpy`, `scipy`, `pyyaml`.
   - Extras: `[viz]` (`matplotlib`), `[benchmarks]` (`pandas`, `scikit-learn`, `matplotlib`), `[all]`, `[dev]`.
   - IO utilities (`metrics_to_csv`, `summary_to_csv`) include a standard library `csv` fallback if `pandas` is not installed.
-- **Parameter Justifications**: Every parameter, default value, bounded sampling range, and formal academic citation is documented in [`docs/parameter_justifications.md`](docs/parameter_justifications.md).
 - **Primary Forcing Boundary Conditions**:
   - `N`: Node budget ($N \ge 4$).
   - `R_rt`: River-to-Tidal forcing ratio ($R_{\text{rt}} \in [0.0, 1.0]$).
     - $R_{\text{rt}} \approx 0.05$: River-dominated (dendritic tree, zero/few loops).
-    - $R_{\text{rt}} \approx 0.50$: Mixed fluvial-tidal (moderate loopiness, braided channels).
+    - $R_{\text{rt}} \approx 0.50$: Mixed fluvial-tidal (moderate loopiness, anastomosing channels).
     - $R_{\text{rt}} \ge 0.80$: Tide-dominated (dense anastomosing loops, shoreline flaring).
   - `loop_mechanism`: `'potential_field'` (Mechanism A) or `'ner_optimality'` (Mechanism B).
 - **Distributions**:

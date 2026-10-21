@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `dgm ensemble`: Stochastic ensemble sampling and aggregated statistics export.
 - **Packaging & Community**:
   - Bundled YAML configurations and canonical empirical dataset in standalone wheel distribution.
-  - Added GitHub Actions CI workflow supporting Python 3.10, 3.11, and 3.12.
+  - Added GitHub Actions CI workflow supporting Python 3.10, 3.11, 3.12, and 3.13.
   - Added `CITATION.cff`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and `SECURITY.md`.
 
 ### Changed

@@ -113,3 +113,28 @@ def test_no_global_runtime_warning_filter():
         if action == "ignore" and category is RuntimeWarning and not module:
             raise AssertionError(f"Found global RuntimeWarning ignore filter: {f}")
 
+
+def test_stages_memory_optimization_and_graphml(tmp_path):
+    """Verify return_stages=False does not attach stages dict (GraphML safe), while return_stages=True does."""
+    G = dgm.generate(N=20, R_rt=0.3, return_stages=False, seed=42)
+    assert "stages" not in G.graph
+    # Verify GraphML export writes G cleanly
+    graphml_file = tmp_path / "stage_free.graphml"
+    dgm.to_graphml(G, graphml_file)
+    assert graphml_file.exists() and graphml_file.stat().st_size > 0
+
+    G_with_stages, stages = dgm.generate(N=20, R_rt=0.3, return_stages=True, seed=42)
+    assert "stages" in G_with_stages.graph
+    assert "tree" in stages and "final" in stages
+    assert G_with_stages.graph["stages"] == stages
+
+
+def test_ensemble_generator_base_seed_none():
+    """Verify EnsembleGenerator runs cleanly when base_seed is None, drawing random seeds."""
+    ens = dgm.EnsembleGenerator(N=15, R_rt=0.3, num_realizations=3, base_seed=None)
+    graphs = ens.generate_ensemble()
+    assert len(graphs) == 3
+    for g in graphs:
+        assert g.number_of_nodes() > 0
+
+

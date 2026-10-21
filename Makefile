@@ -38,5 +38,5 @@ site-serve:
 	python3 -m http.server 8000 -d site
 
 clean:
-	rm -rf .pytest_cache .ruff_cache htmlcov .coverage
+	rm -rf .pytest_cache .ruff_cache htmlcov .coverage dist build *.egg-info src/*.egg-info
 	find . -type d -name "__pycache__" -exec rm -rf {} +

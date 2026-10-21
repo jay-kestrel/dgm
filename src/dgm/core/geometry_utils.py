@@ -278,10 +278,12 @@ def extend_leaf_to_shoreline(
             if float(G.nodes[n].get('r', 0.0)) < domain.r_shore:
                 px, py = float(G.nodes[n].get('x', 0.0)), float(G.nodes[n].get('y', 0.0))
                 pred = list(G.predecessors(n))
-                parent_n = pred[0] if pred else None
-                par_pos = (float(G.nodes[parent_n]['x']), float(G.nodes[parent_n]['y'])) if parent_n is not None else None
-
-                other_edges = [e for e in existing_edges if e != (par_pos, (px, py))]
+                preds_info = [
+                    (p, (float(G.nodes[p]['x']), float(G.nodes[p]['y'])))
+                    for p in pred
+                ]
+                incoming_segments = {(par_pos, (px, py)) for _, par_pos in preds_info}
+                other_edges = [e for e in existing_edges if e not in incoming_segments]
 
                 orig_theta = float(G.nodes[n].get('theta', 0.0))
 
@@ -314,22 +316,31 @@ def extend_leaf_to_shoreline(
                     if too_close_node:
                         continue
 
-                    if par_pos is None or (
-                        not edge_intersects_graph(par_pos, (cx, cy), other_edges)
-                        and not edge_too_close_to_graph(par_pos, (cx, cy), other_edges, 15.0)
-                    ):
+                    # Collision detection: ensure none of incoming segments from pred intersect other edges
+                    collides = False
+                    for _, par_pos in preds_info:
+                        if (
+                            edge_intersects_graph(par_pos, (cx, cy), other_edges)
+                            or edge_too_close_to_graph(par_pos, (cx, cy), other_edges, 15.0)
+                        ):
+                            collides = True
+                            break
+
+                    if not collides:
                         G.nodes[n]['r'] = domain.r_shore
                         G.nodes[n]['theta'] = cand_theta
                         G.nodes[n]['x'] = cx
                         G.nodes[n]['y'] = cy
-                        if parent_n is not None and G.has_edge(parent_n, n):
-                            straight_dist = max(10.0, math.hypot(cx - par_pos[0], cy - par_pos[1]))
-                            sinuosity = float(G.edges[parent_n, n].get('sinuosity', 1.0))
-                            G.edges[parent_n, n]['straight_distance'] = straight_dist
-                            G.edges[parent_n, n]['length'] = straight_dist * sinuosity
-                            if (par_pos, (px, py)) in existing_edges:
-                                idx = existing_edges.index((par_pos, (px, py)))
-                                existing_edges[idx] = (par_pos, (cx, cy))
+                        for p, par_pos in preds_info:
+                            if G.has_edge(p, n):
+                                straight_dist = max(10.0, math.hypot(cx - par_pos[0], cy - par_pos[1]))
+                                sinuosity = float(G.edges[p, n].get('sinuosity', 1.0))
+                                G.edges[p, n]['straight_distance'] = straight_dist
+                                G.edges[p, n]['length'] = straight_dist * sinuosity
+                                old_seg = (par_pos, (px, py))
+                                if old_seg in existing_edges:
+                                    idx = existing_edges.index(old_seg)
+                                    existing_edges[idx] = (par_pos, (cx, cy))
                         break
 
             # Set node role: if at or near shoreline (r >= r_shore * 0.95), designate outlet

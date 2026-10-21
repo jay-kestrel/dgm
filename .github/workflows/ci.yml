@@ -44,6 +44,11 @@ jobs:
       - name: Smoke test CLI ensemble
         run: uv run dgm ensemble -N 20 -R 0.5 -n 3 -s 42
 
+      - name: Smoke test example scripts
+        run: |
+          uv run python examples/01_single_realization.py
+          uv run python examples/03_compare_river_vs_tide.py
+
       - name: Build sdist and wheel
         run: uv build
 

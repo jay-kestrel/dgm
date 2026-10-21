@@ -199,7 +199,7 @@ hydraulics:
 
 `DGMConfig.validate()` automatically validates all parameters before execution:
 
-- **$N$**: Must be $\ge 3$.
+- **$N$**: Must be $\ge 4$.
 - **$R_{\text{rt}}$**: Must be in $[0.0, 1.0]$.
 - **$r_{\text{shore}}$**: Must be $> 0$.
 - **$\theta_{\text{base}}$, $\theta_{\text{delta}}$**: Must be $> 0$.
@@ -212,8 +212,4 @@ hydraulics:
 - **`meander_bends`**: Must be $\ge 1$.
 - **`max_prune_iterations`**: Must be $\ge 1$.
 
----
 
-## Physical Assumptions & Literature Citations
-
-For an in-depth reference table detailing every parameter, its mathematical formulation, default value, bounded distribution range, and peer-reviewed academic literature citations, see [Parameter Assumptions & Literature Justifications](parameter_justifications.md).

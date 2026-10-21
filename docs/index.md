@@ -29,7 +29,6 @@
 - **[End-to-End Walkthrough (Installation to Plotting)](walkthrough.md)**: A complete, step-by-step code walkthrough from installation to configuration, running the model, extracting stages, and plotting results.
 - **[Architecture & Mathematical Formulation](architecture.md)**: Detailed 6-stage generative assembly pipeline, mathematical invariants, and hydraulic equations.
 - **[Configuration Guide & YAML Schema](configuration.md)**: Full parameter reference, YAML schema, inline distribution formats, and runtime overrides.
-- **[Parameter Assumptions & Literature Justifications](parameter_justifications.md)**: Comprehensive table documenting every parameter, default values, physical assumptions, and academic literature citations.
 - **[Python API Reference](api_reference.md)**: Complete signature documentation for all top-level functions, classes, and visualization utilities.
 - **[Tutorial 1: Quickstart](tutorials/01_quickstart.md)**: Rapid 5-minute introduction to generating a delta and viewing its metrics.
 - **[Tutorial 2: Sampling Ensembles](tutorials/02_ensemble_clouds.md)**: Sampling stochastic clouds and exporting statistical distributions.
