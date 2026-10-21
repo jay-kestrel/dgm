@@ -9,8 +9,6 @@ import numpy as np
 import scipy.linalg
 import networkx as nx
 
-warnings.filterwarnings('ignore', category=RuntimeWarning)
-
 
 def _get_dag_topological_sort(G: nx.DiGraph) -> List[Any]:
     """
@@ -156,84 +154,86 @@ def apply_emergent_hydraulics(
         G.edges[u, v]['width_river'] = 0.0
 
     # Iterative relaxation solver for Murray's Law width accumulation across DAG & cyclic loop edges
-    for iteration in range(max_iter):
-        max_change = 0.0
+    with np.errstate(divide='ignore', over='ignore', invalid='ignore', under='ignore'), warnings.catch_warnings():
+        warnings.simplefilter('ignore', RuntimeWarning)
+        for iteration in range(max_iter):
+            max_change = 0.0
 
-        for u in topo_nodes:
-            in_edges = list(G.in_edges(u, data=True))
-            if not in_edges:
-                w_u = w_apex if (u == apex_node or G.nodes[u].get('node_type') == 'apex') else 0.0
+            for u in topo_nodes:
+                in_edges = list(G.in_edges(u, data=True))
+                if not in_edges:
+                    w_u = w_apex if (u == apex_node or G.nodes[u].get('node_type') == 'apex') else 0.0
+                else:
+                    w_in_sum = sum((d.get('width_river', 0.0) ** p_exp) for _, _, d in in_edges)
+                    if u == apex_node or G.nodes[u].get('node_type') == 'apex':
+                        w_in_sum += w_apex ** p_exp
+                    w_u = float(w_in_sum ** (1.0 / p_exp)) if w_in_sum > 1e-12 else (
+                        w_apex if (u == apex_node or G.nodes[u].get('node_type') == 'apex') else 0.0
+                    )
+
+                out_edges = list(G.out_edges(u, data=True))
+                n_out = len(out_edges)
+                if n_out == 0:
+                    continue
+                for src, tgt, _ in out_edges:
+                    f = branch_fractions.get((src, tgt), 1.0)
+                    w_child = w_u * (f ** (1.0 / p_exp))
+                    old_w = G.edges[src, tgt].get('width_river', 0.0)
+                    G.edges[src, tgt]['width_river'] = w_child
+                    max_change = max(max_change, abs(w_child - old_w))
+
+            if max_change < tol and iteration > 0:
+                break
+
+        # Compute final emergent width and conductance for all edges
+        for u, v, d in G.edges(data=True):
+            if isinstance(u, (int, np.integer)) and isinstance(v, (int, np.integer)):
+                edge_seed = (seed + int(u) * 7919 + int(v) * 6271) % (2**31)
             else:
-                w_in_sum = sum((d.get('width_river', 0.0) ** p_exp) for _, _, d in in_edges)
-                if u == apex_node or G.nodes[u].get('node_type') == 'apex':
-                    w_in_sum += w_apex ** p_exp
-                w_u = float(w_in_sum ** (1.0 / p_exp)) if w_in_sum > 1e-12 else (
-                    w_apex if (u == apex_node or G.nodes[u].get('node_type') == 'apex') else 0.0
-                )
+                edge_seed = (seed + abs(hash(str((u, v))))) % (2**31)
+            edge_rng = np.random.default_rng(edge_seed)
 
-            out_edges = list(G.out_edges(u, data=True))
-            n_out = len(out_edges)
-            if n_out == 0:
-                continue
-            for src, tgt, _ in out_edges:
-                f = branch_fractions.get((src, tgt), 1.0)
-                w_child = w_u * (f ** (1.0 / p_exp))
-                old_w = G.edges[src, tgt].get('width_river', 0.0)
-                G.edges[src, tgt]['width_river'] = w_child
-                max_change = max(max_change, abs(w_child - old_w))
+            r_u = float(G.nodes[u].get('r', 0.0))
+            r_v = float(G.nodes[v].get('r', 0.0))
+            r_mid = (r_u + r_v) / 2.0
 
-        if max_change < tol and iteration > 0:
-            break
+            w_river = float(d.get('width_river', 0.0))
 
-    # Compute final emergent width and conductance for all edges
-    for u, v, d in G.edges(data=True):
-        if isinstance(u, (int, np.integer)) and isinstance(v, (int, np.integer)):
-            edge_seed = (seed + int(u) * 7919 + int(v) * 6271) % (2**31)
-        else:
-            edge_seed = (seed + abs(hash(str((u, v))))) % (2**31)
-        edge_rng = np.random.default_rng(edge_seed)
+            # Multiplicative estuarine flaring with numerical exponent overflow guard
+            flare_arg = min(50.0, max(0.0, k_flare * (r_mid / r_shore - tidal_flare_onset)))
+            flare_factor = math.exp(flare_arg)
+            w_emergent = w_river * ((1.0 - R_rt) + R_rt * flare_factor)
 
-        r_u = float(G.nodes[u].get('r', 0.0))
-        r_v = float(G.nodes[v].get('r', 0.0))
-        r_mid = (r_u + r_v) / 2.0
+            if 'width_noise' in d:
+                noise = float(d['width_noise'])
+            else:
+                noise = float(edge_rng.lognormal(0.0, sigma_w))
+                d['width_noise'] = noise
 
-        w_river = float(d.get('width_river', 0.0))
+            w_final = max(min_width, w_emergent * noise)
+            d['width'] = w_final
 
-        # Multiplicative estuarine flaring with numerical exponent overflow guard
-        flare_arg = min(50.0, max(0.0, k_flare * (r_mid / r_shore - tidal_flare_onset)))
-        flare_factor = math.exp(flare_arg)
-        w_emergent = w_river * ((1.0 - R_rt) + R_rt * flare_factor)
+            # Compute Euclidean physical length
+            x_u, y_u = float(G.nodes[u].get('x', 0.0)), float(G.nodes[u].get('y', 0.0))
+            x_v, y_v = float(G.nodes[v].get('x', 0.0)), float(G.nodes[v].get('y', 0.0))
+            straight_dist = max(1.0, math.sqrt((x_v - x_u)**2 + (y_v - y_u)**2))
 
-        if 'width_noise' in d:
-            noise = float(d['width_noise'])
-        else:
-            noise = float(edge_rng.lognormal(0.0, sigma_w))
-            d['width_noise'] = noise
+            if 'sinuosity' in d:
+                sinuosity = float(d['sinuosity'])
+            else:
+                r_ratio = min(1.0, max(0.0, r_mid / max(1.0, r_shore)))
+                raw_sin = float(edge_rng.lognormal(base_sin_mu, base_sin_sigma))
+                sin_decay_mult = max(0.0, 1.0 - coastal_sin_decay * r_ratio)
+                sinuosity = max(1.0, 1.0 + (raw_sin - 1.0) * sin_decay_mult)
+                d['sinuosity'] = sinuosity
 
-        w_final = max(min_width, w_emergent * noise)
-        d['width'] = w_final
+            sinuosity = max(1.0, sinuosity)
+            length = max(1.0, straight_dist * sinuosity)
+            d['straight_distance'] = straight_dist
+            d['length'] = length
 
-        # Compute Euclidean physical length
-        x_u, y_u = float(G.nodes[u].get('x', 0.0)), float(G.nodes[u].get('y', 0.0))
-        x_v, y_v = float(G.nodes[v].get('x', 0.0)), float(G.nodes[v].get('y', 0.0))
-        straight_dist = max(1.0, math.sqrt((x_v - x_u)**2 + (y_v - y_u)**2))
-
-        if 'sinuosity' in d:
-            sinuosity = float(d['sinuosity'])
-        else:
-            r_ratio = min(1.0, max(0.0, r_mid / max(1.0, r_shore)))
-            raw_sin = float(edge_rng.lognormal(base_sin_mu, base_sin_sigma))
-            sin_decay_mult = max(0.0, 1.0 - coastal_sin_decay * r_ratio)
-            sinuosity = max(1.0, 1.0 + (raw_sin - 1.0) * sin_decay_mult)
-            d['sinuosity'] = sinuosity
-
-        sinuosity = max(1.0, sinuosity)
-        length = max(1.0, straight_dist * sinuosity)
-        d['straight_distance'] = straight_dist
-        d['length'] = length
-
-        # Open-channel conductance C_e = w_e^eta / L_e^gamma
-        d['conductance'] = max(1e-12, (w_final ** manning_eta) / (length ** length_gamma))
+            # Open-channel conductance C_e = w_e^eta / L_e^gamma
+            d['conductance'] = max(1e-12, (w_final ** manning_eta) / (length ** length_gamma))
 
     return G
 
@@ -267,40 +267,41 @@ def solve_markov_flux(
     routing_mode = params.get('routing_mode', 'width') if params else 'width'
     eta = max(0.01, float(params.get('manning_eta', params.get('eta', 1.65)) if params else 1.65))
 
-    # Conductance / Flow Partition Matrix C
-    C = np.zeros((N, N))
-    for u, v, d in G.edges(data=True):
-        if routing_mode == 'width':
-            w_val = max(1e-4, float(d.get('width', 1.0)))
-            C[n_map[u], n_map[v]] = max(0.0, float(w_val ** eta))
-        else:
-            C[n_map[u], n_map[v]] = max(0.0, float(d.get('conductance', 1.0)))
+    with np.errstate(divide='ignore', over='ignore', invalid='ignore', under='ignore'), warnings.catch_warnings():
+        warnings.simplefilter('ignore', RuntimeWarning)
+        # Conductance / Flow Partition Matrix C
+        C = np.zeros((N, N))
+        for u, v, d in G.edges(data=True):
+            if routing_mode == 'width':
+                w_val = max(1e-4, float(d.get('width', 1.0)))
+                C[n_map[u], n_map[v]] = max(0.0, float(w_val ** eta))
+            else:
+                C[n_map[u], n_map[v]] = max(0.0, float(d.get('conductance', 1.0)))
 
-    # Markov transition matrix W
-    W = np.zeros((N, N))
-    for i in range(N):
-        row_sum = np.sum(C[i, :])
-        if np.isfinite(row_sum) and row_sum > 1e-12:
-            W[i, :] = C[i, :] / row_sum
-        else:
-            W[i, i] = 1.0
+        # Markov transition matrix W
+        W = np.zeros((N, N))
+        for i in range(N):
+            row_sum = np.sum(C[i, :])
+            if np.isfinite(row_sum) and row_sum > 1e-12:
+                W[i, :] = C[i, :] / row_sum
+            else:
+                W[i, i] = 1.0
 
-    # Source flux vector S0: unit flux at apex
-    S0 = np.zeros(N)
-    S0[apex_idx] = 1.0
+        # Source flux vector S0: unit flux at apex
+        S0 = np.zeros(N)
+        S0[apex_idx] = 1.0
 
-    T_indices = [idx for idx, n in enumerate(nodes) if G.out_degree(n) > 0]
-    A_indices = [idx for idx, n in enumerate(nodes) if G.out_degree(n) == 0]
+        T_indices = [idx for idx, n in enumerate(nodes) if G.out_degree(n) > 0]
+        A_indices = [idx for idx, n in enumerate(nodes) if G.out_degree(n) == 0]
 
-    if len(T_indices) == 0:
-        return C, W, S0
+        if len(T_indices) == 0:
+            return C, W, S0
 
-    Q = W[np.ix_(T_indices, T_indices)]
-    S0_T = S0[T_indices]
+        Q = W[np.ix_(T_indices, T_indices)]
+        S0_T = S0[T_indices]
 
-    I_Q_T = np.eye(len(T_indices)) - Q.T
+        I_Q_T = np.eye(len(T_indices)) - Q.T
 
-    with np.errstate(divide='ignore', over='ignore', invalid='ignore', under='ignore'):
         try:
             phi_T = np.linalg.solve(I_Q_T, S0_T)
             if not np.all(np.isfinite(phi_T)):

@@ -423,18 +423,22 @@ def plot_network(
 
     used_node_types = set()
     if show_nodes:
-        for n, d in G_work.nodes(data=True):
-            nx_val = float(d.get("x", 0.0))
-            ny_val = float(d.get("y", 0.0))
-            px, py = _transform_point(nx_val, ny_val, orientation)
-
-            if node_style == "type":
+        if node_style == "type":
+            grouped_nodes: Dict[str, List[Tuple[float, float]]] = {}
+            for n, d in G_work.nodes(data=True):
+                nx_val = float(d.get("x", 0.0))
+                ny_val = float(d.get("y", 0.0))
+                px, py = _transform_point(nx_val, ny_val, orientation)
                 ntype = _infer_node_type(G_work, n, d.get("node_type"))
                 used_node_types.add(ntype)
+                grouped_nodes.setdefault(ntype, []).append((px, py))
+
+            for ntype, pts_list in grouped_nodes.items():
                 style = node_tax_styles.get(ntype, node_tax_styles["internal"])
                 s_val = node_size * style["size_mult"]
+                pts_arr = np.asarray(pts_list, dtype=float)
                 ax.scatter(
-                    px, py,
+                    pts_arr[:, 0], pts_arr[:, 1],
                     s=s_val,
                     c=style["color"],
                     marker=style["marker"],
@@ -443,9 +447,15 @@ def plot_network(
                     alpha=0.95,
                     zorder=style["zorder"]
                 )
-            else:
+        else:
+            pts_list = [
+                _transform_point(float(d.get("x", 0.0)), float(d.get("y", 0.0)), orientation)
+                for _, d in G_work.nodes(data=True)
+            ]
+            if pts_list:
+                pts_arr = np.asarray(pts_list, dtype=float)
                 ax.scatter(
-                    px, py,
+                    pts_arr[:, 0], pts_arr[:, 1],
                     s=node_size,
                     c=pal["node_internal"],
                     marker="o",
@@ -522,7 +532,7 @@ def plot_network(
 
     # 6. Optional Statistics Overlay Badge
     if show_stats:
-        betti1 = int(G_work.number_of_edges() - G_work.number_of_nodes() + nx.number_connected_components(G_work.to_undirected()))
+        betti1 = max(0, int(G_work.number_of_edges() - G_work.number_of_nodes() + nx.number_weakly_connected_components(G_work)))
         widths_all = [float(d.get("width", 0.0)) for _, _, d in G_work.edges(data=True) if "width" in d]
         sins_all = [float(d.get("sinuosity", 1.0)) for _, _, d in G_work.edges(data=True) if "sinuosity" in d]
 
@@ -539,9 +549,18 @@ def plot_network(
             stat_lines.append(f"Mean Width:     {mean_w:.1f} m")
 
         stat_text = "\n".join(stat_lines)
+        loc_map = {
+            "lower left": (0.03, 0.04, "left", "bottom"),
+            "upper left": (0.03, 0.96, "left", "top"),
+            "lower right": (0.97, 0.04, "right", "bottom"),
+            "upper right": (0.97, 0.96, "right", "top"),
+        }
+        sx, sy, sha, sva = loc_map.get(stats_loc.lower(), (0.03, 0.04, "left", "bottom"))
         ax.text(
-            0.03, 0.04, stat_text,
+            sx, sy, stat_text,
             transform=ax.transAxes,
+            ha=sha,
+            va=sva,
             fontsize=8.0,
             family="monospace",
             color=pal["text"],

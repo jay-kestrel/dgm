@@ -83,3 +83,34 @@ def test_top_level_io_exports(tmp_path):
 
     dgm.metrics_to_csv(m, csv_path)
     assert csv_path.exists() and csv_path.stat().st_size > 0
+
+
+def test_sampled_N_and_R_rt_respected_in_generator():
+    """Verify sampled N and R_rt from config distributions are used by DeltaGenerator."""
+    cfg = dgm.DGMConfig(
+        N=20,
+        R_rt=0.1,
+        sample_parameters=True,
+        seed=42,
+        distributions={
+            "N": {"type": "fixed", "value": 42},
+            "R_rt": {"type": "fixed", "value": 0.85},
+        },
+    )
+    gen = dgm.DeltaGenerator(cfg)
+    G = gen.generate(seed_override=42)
+
+    assert G.graph["N_input"] == 42
+    assert np.isclose(G.graph["R_rt"], 0.85)
+    assert G.graph["params"]["N"] == 42
+    assert np.isclose(G.graph["params"]["R_rt"], 0.85)
+
+
+def test_no_global_runtime_warning_filter():
+    """Verify importing dgm does not inject a global ignore filter for RuntimeWarning."""
+    import warnings
+    for f in warnings.filters:
+        action, _msg, category, module, _lineno = f
+        if action == "ignore" and category is RuntimeWarning and not module:
+            raise AssertionError(f"Found global RuntimeWarning ignore filter: {f}")
+

@@ -10,6 +10,7 @@ import numpy as np
 import networkx as nx
 
 from .domain import PolarDomain
+from .geometry_utils import edge_intersects_graph
 
 
 def refresh_node_types(G: nx.DiGraph, r_shore: float, outlet_tolerance: float = 0.05) -> None:
@@ -184,6 +185,17 @@ def simplify_degree_two_chains(
             # Check for existing multi-vertex polylines (>2 points)
             has_curved_in = 'coordinates' in d_in and len(d_in['coordinates']) > 2
             has_curved_out = 'coordinates' in d_out and len(d_out['coordinates']) > 2
+
+            if not (has_curved_in or has_curved_out):
+                # Planarity guard: ensure straight chord (p, c) does not intersect any existing edge
+                other_edges = [
+                    ((float(simplified_G.nodes[u]['x']), float(simplified_G.nodes[u]['y'])),
+                     (float(simplified_G.nodes[v]['x']), float(simplified_G.nodes[v]['y'])))
+                    for u, v in simplified_G.edges()
+                    if u != n and v != n
+                ]
+                if edge_intersects_graph((x_p, y_p), (x_c, y_c), other_edges):
+                    continue
 
             if has_curved_in or has_curved_out:
                 reach_len = max(straight_dist, total_len)

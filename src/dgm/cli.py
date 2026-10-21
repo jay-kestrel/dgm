@@ -11,6 +11,58 @@ from .generator import DeltaGenerator, EnsembleGenerator
 from .io.export import to_graphml, to_geojson, metrics_to_csv
 
 
+def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
+    """Adds shared geomorphic, topological, and configuration CLI arguments to a subparser."""
+    parser.add_argument("-N", "--nodes", type=int, default=50, help="Target number of nodes/junctions (default: 50)")
+    parser.add_argument("-R", "--r-rt", type=float, default=0.5, help="River-to-Tidal forcing ratio in [0, 1] (default: 0.5)")
+    parser.add_argument("-C", "--confinement", type=float, default=None, help="Lateral valley confinement in [0, 0.95] (default: 0.0)")
+    parser.add_argument("-W", "--lateral-valley-width", type=float, default=None, help="Explicit maximum lateral valley corridor width in meters (default: unconstrained)")
+    parser.add_argument("--coastal-node-decay", type=float, default=None, help="Shoreward decay rate of radial node spacing in [0, 0.8]")
+    parser.add_argument("--coastal-sinuosity-decay", type=float, default=None, help="Shoreward decay rate of channel sinuosity excess in [0, 0.9]")
+    parser.add_argument("--curved", "--enable-curved-centerlines", dest="curved", action="store_true", default=None, help="Generate curved polyline channel centerlines")
+    parser.add_argument("--min-channel-clearance", type=float, default=None, help="Channel clearance fraction for meander amplitude in [0.05, 1.0]")
+    parser.add_argument("--enable-pruning", dest="enable_pruning", action="store_true", default=None, help="Enable pre-hydraulic dead-end spur pruning")
+    parser.add_argument("--simplify-chains", dest="simplify_chains", action="store_true", default=None, help="Simplify degree-2 pass-through node chains")
+    parser.add_argument("--min-spur-length", type=float, default=None, help="Minimum channel length for inland spurs to be retained")
+
+
+def _build_config_from_parsed(parsed: argparse.Namespace) -> DGMConfig:
+    """Constructs a validated DGMConfig from parsed CLI arguments."""
+    if parsed.config:
+        cfg = DGMConfig.from_yaml(
+            parsed.config,
+            N=parsed.nodes,
+            R_rt=parsed.r_rt,
+            loop_mechanism=parsed.mechanism,
+        )
+    else:
+        cfg = DGMConfig.load_default()
+        cfg.N = parsed.nodes
+        cfg.R_rt = parsed.r_rt
+        cfg.loop_mechanism = parsed.mechanism
+
+    if parsed.command == "generate":
+        cfg.seed = parsed.seed
+
+    override_map = {
+        "confinement": parsed.confinement,
+        "lateral_valley_width": parsed.lateral_valley_width,
+        "coastal_node_decay": parsed.coastal_node_decay,
+        "coastal_sinuosity_decay": parsed.coastal_sinuosity_decay,
+        "enable_curved_centerlines": parsed.curved,
+        "min_channel_clearance": parsed.min_channel_clearance,
+        "enable_pruning": parsed.enable_pruning,
+        "simplify_pass_through_nodes": parsed.simplify_chains,
+        "min_spur_length": parsed.min_spur_length,
+    }
+    for attr_name, val in override_map.items():
+        if val is not None:
+            setattr(cfg, attr_name, val)
+            cfg.distributions.pop(attr_name, None)
+
+    return cfg
+
+
 def main(args=None):
     parser = argparse.ArgumentParser(
         prog="dgm",
@@ -20,17 +72,7 @@ def main(args=None):
 
     # Command: generate
     gen_parser = subparsers.add_parser("generate", help="Generate a single synthetic delta graph realization")
-    gen_parser.add_argument("-N", "--nodes", type=int, default=50, help="Target number of nodes/junctions (default: 50)")
-    gen_parser.add_argument("-R", "--r-rt", type=float, default=0.5, help="River-to-Tidal forcing ratio in [0, 1] (default: 0.5)")
-    gen_parser.add_argument("-C", "--confinement", type=float, default=None, help="Lateral valley confinement in [0, 0.95] (default: 0.0)")
-    gen_parser.add_argument("-W", "--lateral-valley-width", type=float, default=None, help="Explicit maximum lateral valley corridor width in meters (default: unconstrained)")
-    gen_parser.add_argument("--coastal-node-decay", type=float, default=None, help="Shoreward decay rate of radial node spacing in [0, 0.8]")
-    gen_parser.add_argument("--coastal-sinuosity-decay", type=float, default=None, help="Shoreward decay rate of channel sinuosity excess in [0, 0.9]")
-    gen_parser.add_argument("--curved", "--enable-curved-centerlines", dest="curved", action="store_true", default=None, help="Generate curved polyline channel centerlines")
-    gen_parser.add_argument("--min-channel-clearance", type=float, default=None, help="Channel clearance fraction for meander amplitude in [0.05, 1.0]")
-    gen_parser.add_argument("--enable-pruning", dest="enable_pruning", action="store_true", default=None, help="Enable pre-hydraulic dead-end spur pruning")
-    gen_parser.add_argument("--simplify-chains", dest="simplify_chains", action="store_true", default=None, help="Simplify degree-2 pass-through node chains")
-    gen_parser.add_argument("--min-spur-length", type=float, default=None, help="Minimum channel length for inland spurs to be retained")
+    _add_common_arguments(gen_parser)
     gen_parser.add_argument("-m", "--mechanism", choices=["potential_field", "ner_optimality"], default="potential_field", help="Loop reconnection engine")
     gen_parser.add_argument("-c", "--config", type=str, default=None, help="Path to custom YAML configuration file")
     gen_parser.add_argument("-s", "--seed", type=int, default=42, help="Random seed (default: 42)")
@@ -38,17 +80,7 @@ def main(args=None):
 
     # Command: ensemble
     ens_parser = subparsers.add_parser("ensemble", help="Sample an ensemble cloud of delta realizations")
-    ens_parser.add_argument("-N", "--nodes", type=int, default=50, help="Target number of nodes/junctions (default: 50)")
-    ens_parser.add_argument("-R", "--r-rt", type=float, default=0.5, help="River-to-Tidal forcing ratio in [0, 1] (default: 0.5)")
-    ens_parser.add_argument("-C", "--confinement", type=float, default=None, help="Lateral valley confinement in [0, 0.95] (default: 0.0)")
-    ens_parser.add_argument("-W", "--lateral-valley-width", type=float, default=None, help="Explicit maximum lateral valley corridor width in meters (default: unconstrained)")
-    ens_parser.add_argument("--coastal-node-decay", type=float, default=None, help="Shoreward decay rate of radial node spacing in [0, 0.8]")
-    ens_parser.add_argument("--coastal-sinuosity-decay", type=float, default=None, help="Shoreward decay rate of channel sinuosity excess in [0, 0.9]")
-    ens_parser.add_argument("--curved", "--enable-curved-centerlines", dest="curved", action="store_true", default=None, help="Generate curved polyline channel centerlines")
-    ens_parser.add_argument("--min-channel-clearance", type=float, default=None, help="Channel clearance fraction for meander amplitude in [0.05, 1.0]")
-    ens_parser.add_argument("--enable-pruning", dest="enable_pruning", action="store_true", default=None, help="Enable pre-hydraulic dead-end spur pruning")
-    ens_parser.add_argument("--simplify-chains", dest="simplify_chains", action="store_true", default=None, help="Simplify degree-2 pass-through node chains")
-    ens_parser.add_argument("--min-spur-length", type=float, default=None, help="Minimum channel length for inland spurs to be retained")
+    _add_common_arguments(ens_parser)
     ens_parser.add_argument("-n", "--num-realizations", type=int, default=30, help="Number of realizations to sample (default: 30)")
     ens_parser.add_argument("-m", "--mechanism", choices=["potential_field", "ner_optimality"], default="potential_field", help="Loop reconnection engine")
     ens_parser.add_argument("-c", "--config", type=str, default=None, help="Path to custom YAML configuration file")
@@ -63,42 +95,15 @@ def main(args=None):
         return 0
 
     try:
+        if parsed.nodes < 4:
+            sys.stderr.write(f"Error: Node budget (-N / --nodes) must be >= 4 (received {parsed.nodes}).\n")
+            return 1
+        if not (0.0 <= parsed.r_rt <= 1.0):
+            sys.stderr.write(f"Error: River-to-Tidal forcing ratio (-R / --r-rt) must be in [0.0, 1.0] (received {parsed.r_rt}).\n")
+            return 1
+
         if parsed.command == "generate":
-            if parsed.nodes < 4:
-                sys.stderr.write(f"Error: Node budget (-N / --nodes) must be >= 4 (received {parsed.nodes}).\n")
-                return 1
-            if not (0.0 <= parsed.r_rt <= 1.0):
-                sys.stderr.write(f"Error: River-to-Tidal forcing ratio (-R / --r-rt) must be in [0.0, 1.0] (received {parsed.r_rt}).\n")
-                return 1
-
-            if parsed.config:
-                cfg = DGMConfig.from_yaml(parsed.config, N=parsed.nodes, R_rt=parsed.r_rt, loop_mechanism=parsed.mechanism, seed=parsed.seed)
-            else:
-                cfg = DGMConfig.load_default()
-                cfg.N = parsed.nodes
-                cfg.R_rt = parsed.r_rt
-                cfg.loop_mechanism = parsed.mechanism
-                cfg.seed = parsed.seed
-
-            if parsed.confinement is not None:
-                cfg.confinement = parsed.confinement
-            if parsed.lateral_valley_width is not None:
-                cfg.lateral_valley_width = parsed.lateral_valley_width
-            if parsed.coastal_node_decay is not None:
-                cfg.coastal_node_decay = parsed.coastal_node_decay
-            if parsed.coastal_sinuosity_decay is not None:
-                cfg.coastal_sinuosity_decay = parsed.coastal_sinuosity_decay
-            if parsed.curved is not None:
-                cfg.enable_curved_centerlines = parsed.curved
-            if parsed.min_channel_clearance is not None:
-                cfg.min_channel_clearance = parsed.min_channel_clearance
-            if parsed.enable_pruning is not None:
-                cfg.enable_pruning = parsed.enable_pruning
-            if parsed.simplify_chains is not None:
-                cfg.simplify_pass_through_nodes = parsed.simplify_chains
-            if parsed.min_spur_length is not None:
-                cfg.min_spur_length = parsed.min_spur_length
-
+            cfg = _build_config_from_parsed(parsed)
             gen = DeltaGenerator(cfg)
             G = gen.generate()
             metrics = gen.evaluate_metrics(G)
@@ -134,49 +139,11 @@ def main(args=None):
             return 0
 
         elif parsed.command == "ensemble":
-            if parsed.nodes < 4:
-                sys.stderr.write(f"Error: Node budget (-N / --nodes) must be >= 4 (received {parsed.nodes}).\n")
-                return 1
-            if not (0.0 <= parsed.r_rt <= 1.0):
-                sys.stderr.write(f"Error: River-to-Tidal forcing ratio (-R / --r-rt) must be in [0.0, 1.0] (received {parsed.r_rt}).\n")
-                return 1
             if parsed.num_realizations < 1:
                 sys.stderr.write(f"Error: Number of realizations (-n / --num-realizations) must be >= 1 (received {parsed.num_realizations}).\n")
                 return 1
 
-            if parsed.config:
-                cfg = DGMConfig.from_yaml(parsed.config, N=parsed.nodes, R_rt=parsed.r_rt, loop_mechanism=parsed.mechanism)
-            else:
-                cfg = DGMConfig.load_default()
-                cfg.N = parsed.nodes
-                cfg.R_rt = parsed.r_rt
-                cfg.loop_mechanism = parsed.mechanism
-
-            if parsed.confinement is not None:
-                cfg.confinement = parsed.confinement
-                cfg.distributions.pop("confinement", None)
-            if parsed.lateral_valley_width is not None:
-                cfg.lateral_valley_width = parsed.lateral_valley_width
-                cfg.distributions.pop("lateral_valley_width", None)
-            if parsed.coastal_node_decay is not None:
-                cfg.coastal_node_decay = parsed.coastal_node_decay
-                cfg.distributions.pop("coastal_node_decay", None)
-            if parsed.coastal_sinuosity_decay is not None:
-                cfg.coastal_sinuosity_decay = parsed.coastal_sinuosity_decay
-                cfg.distributions.pop("coastal_sinuosity_decay", None)
-            if parsed.curved is not None:
-                cfg.enable_curved_centerlines = parsed.curved
-            if parsed.min_channel_clearance is not None:
-                cfg.min_channel_clearance = parsed.min_channel_clearance
-                cfg.distributions.pop("min_channel_clearance", None)
-            if parsed.enable_pruning is not None:
-                cfg.enable_pruning = parsed.enable_pruning
-            if parsed.simplify_chains is not None:
-                cfg.simplify_pass_through_nodes = parsed.simplify_chains
-            if parsed.min_spur_length is not None:
-                cfg.min_spur_length = parsed.min_spur_length
-                cfg.distributions.pop("min_spur_length", None)
-
+            cfg = _build_config_from_parsed(parsed)
             cfg.sample_parameters = parsed.sample_parameters
 
             ens = EnsembleGenerator(

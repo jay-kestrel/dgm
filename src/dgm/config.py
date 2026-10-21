@@ -13,8 +13,19 @@ import numpy as np
 
 
 PKG_CONFIG_PATH = Path(__file__).resolve().parent / "default_config.yaml"
+PKG_SUBDIR_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "default_config.yaml"
 REPO_CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "default_config.yaml"
-DEFAULT_CONFIG_PATH = PKG_CONFIG_PATH if PKG_CONFIG_PATH.exists() else REPO_CONFIG_PATH
+
+
+def _resolve_default_config_path() -> Path:
+    """Resolves the default YAML configuration path across package and repository layouts."""
+    for candidate in (PKG_CONFIG_PATH, PKG_SUBDIR_CONFIG_PATH, REPO_CONFIG_PATH):
+        if candidate.exists():
+            return candidate
+    return REPO_CONFIG_PATH
+
+
+DEFAULT_CONFIG_PATH = _resolve_default_config_path()
 
 
 def sample_from_spec(spec: Dict[str, Any], rng: np.random.Generator) -> float:

@@ -82,6 +82,14 @@ def compute_edge_clearance(
             if dist < min_dist:
                 min_dist = dist
 
+        # Also check distance from endpoints of (a, b) to segment (p_u, p_v)
+        dist_a = point_to_segment_distance(a, p_u, p_v)
+        if dist_a < min_dist:
+            min_dist = dist_a
+        dist_b = point_to_segment_distance(b, p_u, p_v)
+        if dist_b < min_dist:
+            min_dist = dist_b
+
     return float(min_dist)
 
 

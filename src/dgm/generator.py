@@ -26,6 +26,89 @@ from .metrics import MetricsBattery
 _UNSET = object()
 
 
+def _build_or_update_config(
+    config: Optional[Union[str, Path, DGMConfig]] = None,
+    target_nodes: Optional[int] = None,
+    confinement: Optional[float] = None,
+    lateral_valley_width: Optional[float] = None,
+    coastal_node_decay: Optional[float] = None,
+    coastal_sinuosity_decay: Optional[float] = None,
+    enable_curved_centerlines: Optional[bool] = None,
+    min_channel_clearance: Optional[float] = None,
+    enable_pruning: Optional[bool] = None,
+    prune_inland_dead_ends: Optional[bool] = None,
+    min_spur_length: Optional[float] = None,
+    simplify_pass_through_nodes: Optional[bool] = None,
+    seed: Any = _UNSET,
+    base_attrs: Optional[Dict[str, Any]] = None,
+    **overrides: Any,
+) -> DGMConfig:
+    """
+    Initializes or deep-copies a DGMConfig instance, applies baseline attributes and
+    explicit keyword overrides (removing overridden keys from stochastic distributions),
+    and validates the resulting configuration.
+    """
+    if isinstance(config, (str, Path)):
+        cfg = DGMConfig.from_yaml(config)
+    elif isinstance(config, DGMConfig):
+        cfg = copy.deepcopy(config)
+    elif config is None:
+        cfg = DGMConfig.load_default()
+    else:
+        raise TypeError(f"Unsupported config type: {type(config).__name__}")
+
+    if base_attrs:
+        for k, v in base_attrs.items():
+            if hasattr(cfg, k):
+                setattr(cfg, k, v)
+
+    for k, v in overrides.items():
+        if k == "target_nodes":
+            if v is not None:
+                cfg.N = int(v)
+                cfg.distributions.pop("N", None)
+        elif hasattr(cfg, k):
+            setattr(cfg, k, v)
+            cfg.distributions.pop(k, None)
+        else:
+            cfg.extensions[k] = v
+            cfg.distributions.pop(k, None)
+
+    if target_nodes is not None:
+        cfg.N = int(target_nodes)
+        cfg.distributions.pop("N", None)
+
+    float_opts = {
+        "confinement": confinement,
+        "lateral_valley_width": lateral_valley_width,
+        "coastal_node_decay": coastal_node_decay,
+        "coastal_sinuosity_decay": coastal_sinuosity_decay,
+        "min_channel_clearance": min_channel_clearance,
+        "min_spur_length": min_spur_length,
+    }
+    for k, v in float_opts.items():
+        if v is not None:
+            setattr(cfg, k, float(v))
+            cfg.distributions.pop(k, None)
+
+    bool_opts = {
+        "enable_curved_centerlines": enable_curved_centerlines,
+        "enable_pruning": enable_pruning,
+        "prune_inland_dead_ends": prune_inland_dead_ends,
+        "simplify_pass_through_nodes": simplify_pass_through_nodes,
+    }
+    for k, v in bool_opts.items():
+        if v is not None:
+            setattr(cfg, k, bool(v))
+            cfg.distributions.pop(k, None)
+
+    if seed is not _UNSET:
+        cfg.seed = seed
+
+    cfg.validate()
+    return cfg
+
+
 class DeltaGenerator:
     """
     Primary generator for single synthetic delta graph realizations.
@@ -37,25 +120,11 @@ class DeltaGenerator:
         target_nodes: Optional[int] = None,
         **overrides
     ):
-        if config is not None:
-            self.config = copy.deepcopy(config)
-        else:
-            self.config = DGMConfig.load_default()
-
-        if target_nodes is not None:
-            self.config.N = int(target_nodes)
-            self.config.distributions.pop('N', None)
-
-        if overrides:
-            for k, v in overrides.items():
-                if k == 'target_nodes':
-                    self.config.N = int(v)
-                    self.config.distributions.pop('N', None)
-                elif hasattr(self.config, k):
-                    setattr(self.config, k, v)
-                self.config.distributions.pop(k, None)
-
-        self.config.validate()
+        self.config = _build_or_update_config(
+            config=config,
+            target_nodes=target_nodes,
+            **overrides
+        )
         self.battery = MetricsBattery()
 
     def generate(
@@ -90,6 +159,13 @@ class DeltaGenerator:
 
         # Get parameter set (sampled from distributions or deterministic defaults)
         params = self.config.get_active_parameters(rng)
+        active_N = int(params.get('N', self.config.N))
+        active_R_rt = float(params.get('R_rt', self.config.R_rt))
+        active_mech = str(params.get('loop_mechanism', self.config.loop_mechanism))
+        params['N'] = active_N
+        params['N_target'] = active_N
+        params['R_rt'] = active_R_rt
+        params['loop_mechanism'] = active_mech
 
         # 1. Initialize Polar Domain
         try:
@@ -97,7 +173,7 @@ class DeltaGenerator:
                 r_shore=params['r_shore'],
                 theta_base=params['theta_base'],
                 theta_delta=params['theta_delta'],
-                R_rt=self.config.R_rt,
+                R_rt=active_R_rt,
                 confinement=params.get('confinement', self.config.confinement),
                 lateral_valley_width=params.get('lateral_valley_width', self.config.lateral_valley_width)
             )
@@ -107,15 +183,15 @@ class DeltaGenerator:
         # 2. Generate Polar Growth Tree Backbone
         try:
             G_tree = generate_polar_tree_backbone(
-                N_target=self.config.N,
-                R_rt=self.config.R_rt,
+                N_target=active_N,
+                R_rt=active_R_rt,
                 domain=domain,
                 params=params,
                 rng=rng
             )
         except Exception as e:
             raise RuntimeError(
-                f"DGM polar tree backbone generation failed for N={self.config.N}, R_rt={self.config.R_rt}: {e}"
+                f"DGM polar tree backbone generation failed for N={active_N}, R_rt={active_R_rt}: {e}"
             ) from e
         G_tree_snapshot = G_tree.copy()
 
@@ -124,14 +200,14 @@ class DeltaGenerator:
             G_looped = apply_loop_mechanism(
                 G=G_tree,
                 domain=domain,
-                mechanism=self.config.loop_mechanism,
+                mechanism=active_mech,
                 params=params,
                 rng=rng,
                 seed=sub_seed
             )
         except Exception as e:
             raise RuntimeError(
-                f"DGM loop mechanism '{self.config.loop_mechanism}' failed: {e}"
+                f"DGM loop mechanism '{active_mech}' failed: {e}"
             ) from e
         G_looped_snapshot = G_looped.copy()
 
@@ -174,17 +250,18 @@ class DeltaGenerator:
                 num_bends=bends_num,
                 seed=sub_seed
             )
-            # Also synthesize centerlines for the tree backbone snapshot
-            try:
-                generate_channel_centerlines(
-                    G=G_tree_snapshot,
-                    clearance_fraction=clr_frac,
-                    num_points=pts_num,
-                    num_bends=bends_num,
-                    seed=sub_seed
-                )
-            except Exception:
-                pass
+            if return_stages:
+                # Synthesize centerlines for the tree backbone snapshot when stages are requested
+                try:
+                    generate_channel_centerlines(
+                        G=G_tree_snapshot,
+                        clearance_fraction=clr_frac,
+                        num_points=pts_num,
+                        num_bends=bends_num,
+                        seed=sub_seed
+                    )
+                except Exception:
+                    pass
         else:
             G_final = apply_channel_proximity_constraints(
                 G=G_final,
@@ -192,8 +269,8 @@ class DeltaGenerator:
             )
 
         # Attach run metadata to graph
-        G_final.graph['N_input'] = self.config.N
-        G_final.graph['R_rt'] = self.config.R_rt
+        G_final.graph['N_input'] = active_N
+        G_final.graph['R_rt'] = active_R_rt
         G_final.graph['confinement'] = domain.confinement
         G_final.graph['lateral_valley_width'] = domain.lateral_valley_width
         G_final.graph['coastal_node_decay'] = params.get('coastal_node_decay', self.config.coastal_node_decay)
@@ -208,7 +285,7 @@ class DeltaGenerator:
         G_final.graph['min_channel_clearance'] = clr_frac
         G_final.graph['num_polyline_points'] = pts_num
         G_final.graph['meander_bends'] = bends_num
-        G_final.graph['loop_mechanism'] = self.config.loop_mechanism
+        G_final.graph['loop_mechanism'] = active_mech
         G_final.graph['params'] = params
         G_final.graph['seed'] = seed
 
@@ -251,38 +328,25 @@ class EnsembleGenerator:
         if num_realizations < 1:
             raise ValueError(f"num_realizations must be >= 1 (received {num_realizations}).")
 
-        self.N = int(target_nodes) if target_nodes is not None else N
+        eff_target = overrides.get("target_nodes", target_nodes)
+        self.N = int(eff_target) if eff_target is not None else N
         self.R_rt = R_rt
         self.num_realizations = num_realizations
         self.loop_mechanism = loop_mechanism
         self.sample_parameters = sample_parameters
         self.base_seed = int(base_seed) if base_seed is not None else None
 
-        if config is not None:
-            self.config = copy.deepcopy(config)
-        else:
-            self.config = DGMConfig.load_default()
-
-        self.config.N = self.N
-        self.config.R_rt = self.R_rt
-        self.config.loop_mechanism = self.loop_mechanism
-        self.config.sample_parameters = self.sample_parameters
-
-        if target_nodes is not None:
-            self.config.N = int(target_nodes)
-            self.config.distributions.pop('N', None)
-
-        if overrides:
-            for k, v in overrides.items():
-                if k == 'target_nodes':
-                    self.N = int(v)
-                    self.config.N = int(v)
-                    self.config.distributions.pop('N', None)
-                elif hasattr(self.config, k):
-                    setattr(self.config, k, v)
-                self.config.distributions.pop(k, None)
-
-        self.config.validate()
+        self.config = _build_or_update_config(
+            config=config,
+            target_nodes=target_nodes,
+            base_attrs={
+                "N": self.N,
+                "R_rt": self.R_rt,
+                "loop_mechanism": self.loop_mechanism,
+                "sample_parameters": self.sample_parameters,
+            },
+            **overrides
+        )
         self.battery = MetricsBattery()
 
     def generate_ensemble(self) -> List[nx.DiGraph]:
@@ -290,7 +354,6 @@ class EnsembleGenerator:
         if self.base_seed is None:
             raise ValueError('base_seed must be an integer, got None')
 
-        import copy
         graphs = []
         for i in range(self.num_realizations):
             seed = self.base_seed + i * 1000
@@ -371,73 +434,23 @@ def generate(
     if target_nodes is not None:
         N = int(target_nodes)
 
-    if isinstance(config, (str, Path)):
-        cfg = DGMConfig.from_yaml(config, N=N, R_rt=R_rt, **overrides)
-    elif isinstance(config, DGMConfig):
-        cfg = copy.deepcopy(config)
-        cfg.N = N
-        cfg.R_rt = R_rt
-        for k, v in overrides.items():
-            if k == 'target_nodes':
-                cfg.N = int(v)
-                cfg.distributions.pop('N', None)
-            elif hasattr(cfg, k):
-                setattr(cfg, k, v)
-            cfg.distributions.pop(k, None)
-    else:
-        cfg = DGMConfig.load_default()
-        cfg.N = N
-        cfg.R_rt = R_rt
-        for k, v in overrides.items():
-            if k == 'target_nodes':
-                cfg.N = int(v)
-                cfg.distributions.pop('N', None)
-            elif hasattr(cfg, k):
-                setattr(cfg, k, v)
-            cfg.distributions.pop(k, None)
-
-    if target_nodes is not None:
-        cfg.N = int(target_nodes)
-        cfg.distributions.pop('N', None)
-
-    if confinement is not None:
-        cfg.confinement = float(confinement)
-        cfg.distributions.pop("confinement", None)
-
-    if lateral_valley_width is not None:
-        cfg.lateral_valley_width = float(lateral_valley_width)
-        cfg.distributions.pop("lateral_valley_width", None)
-
-    if coastal_node_decay is not None:
-        cfg.coastal_node_decay = float(coastal_node_decay)
-        cfg.distributions.pop("coastal_node_decay", None)
-
-    if coastal_sinuosity_decay is not None:
-        cfg.coastal_sinuosity_decay = float(coastal_sinuosity_decay)
-        cfg.distributions.pop("coastal_sinuosity_decay", None)
-
-    if enable_curved_centerlines is not None:
-        cfg.enable_curved_centerlines = bool(enable_curved_centerlines)
-
-    if min_channel_clearance is not None:
-        cfg.min_channel_clearance = float(min_channel_clearance)
-        cfg.distributions.pop("min_channel_clearance", None)
-
-    if enable_pruning is not None:
-        cfg.enable_pruning = bool(enable_pruning)
-
-    if prune_inland_dead_ends is not None:
-        cfg.prune_inland_dead_ends = bool(prune_inland_dead_ends)
-
-    if min_spur_length is not None:
-        cfg.min_spur_length = float(min_spur_length)
-        cfg.distributions.pop("min_spur_length", None)
-
-    if simplify_pass_through_nodes is not None:
-        cfg.simplify_pass_through_nodes = bool(simplify_pass_through_nodes)
-
-    if seed is not _UNSET:
-        cfg.seed = seed
+    cfg = _build_or_update_config(
+        config=config,
+        target_nodes=target_nodes,
+        confinement=confinement,
+        lateral_valley_width=lateral_valley_width,
+        coastal_node_decay=coastal_node_decay,
+        coastal_sinuosity_decay=coastal_sinuosity_decay,
+        enable_curved_centerlines=enable_curved_centerlines,
+        min_channel_clearance=min_channel_clearance,
+        enable_pruning=enable_pruning,
+        prune_inland_dead_ends=prune_inland_dead_ends,
+        min_spur_length=min_spur_length,
+        simplify_pass_through_nodes=simplify_pass_through_nodes,
+        seed=seed,
+        base_attrs={"N": N, "R_rt": R_rt},
+        **overrides
+    )
 
     gen = DeltaGenerator(cfg)
     return gen.generate(return_stages=return_stages)
@@ -468,70 +481,22 @@ def sample_ensemble(
     if target_nodes is not None:
         N = int(target_nodes)
 
-    if isinstance(config, (str, Path)):
-        cfg = DGMConfig.from_yaml(config, N=N, R_rt=R_rt, **overrides)
-    elif isinstance(config, DGMConfig):
-        cfg = copy.deepcopy(config)
-        cfg.N = N
-        cfg.R_rt = R_rt
-        for k, v in overrides.items():
-            if k == 'target_nodes':
-                cfg.N = int(v)
-                cfg.distributions.pop('N', None)
-            elif hasattr(cfg, k):
-                setattr(cfg, k, v)
-            cfg.distributions.pop(k, None)
-    else:
-        cfg = DGMConfig.load_default()
-        cfg.N = N
-        cfg.R_rt = R_rt
-        for k, v in overrides.items():
-            if k == 'target_nodes':
-                cfg.N = int(v)
-                cfg.distributions.pop('N', None)
-            elif hasattr(cfg, k):
-                setattr(cfg, k, v)
-            cfg.distributions.pop(k, None)
-
-    if target_nodes is not None:
-        cfg.N = int(target_nodes)
-        cfg.distributions.pop('N', None)
-
-    if confinement is not None:
-        cfg.confinement = float(confinement)
-        cfg.distributions.pop("confinement", None)
-
-    if lateral_valley_width is not None:
-        cfg.lateral_valley_width = float(lateral_valley_width)
-        cfg.distributions.pop("lateral_valley_width", None)
-
-    if coastal_node_decay is not None:
-        cfg.coastal_node_decay = float(coastal_node_decay)
-        cfg.distributions.pop("coastal_node_decay", None)
-
-    if coastal_sinuosity_decay is not None:
-        cfg.coastal_sinuosity_decay = float(coastal_sinuosity_decay)
-        cfg.distributions.pop("coastal_sinuosity_decay", None)
-
-    if enable_curved_centerlines is not None:
-        cfg.enable_curved_centerlines = bool(enable_curved_centerlines)
-
-    if min_channel_clearance is not None:
-        cfg.min_channel_clearance = float(min_channel_clearance)
-        cfg.distributions.pop("min_channel_clearance", None)
-
-    if enable_pruning is not None:
-        cfg.enable_pruning = bool(enable_pruning)
-
-    if prune_inland_dead_ends is not None:
-        cfg.prune_inland_dead_ends = bool(prune_inland_dead_ends)
-
-    if min_spur_length is not None:
-        cfg.min_spur_length = float(min_spur_length)
-        cfg.distributions.pop("min_spur_length", None)
-
-    if simplify_pass_through_nodes is not None:
-        cfg.simplify_pass_through_nodes = bool(simplify_pass_through_nodes)
+    cfg = _build_or_update_config(
+        config=config,
+        target_nodes=target_nodes,
+        confinement=confinement,
+        lateral_valley_width=lateral_valley_width,
+        coastal_node_decay=coastal_node_decay,
+        coastal_sinuosity_decay=coastal_sinuosity_decay,
+        enable_curved_centerlines=enable_curved_centerlines,
+        min_channel_clearance=min_channel_clearance,
+        enable_pruning=enable_pruning,
+        prune_inland_dead_ends=prune_inland_dead_ends,
+        min_spur_length=min_spur_length,
+        simplify_pass_through_nodes=simplify_pass_through_nodes,
+        base_attrs={"N": N, "R_rt": R_rt},
+        **overrides
+    )
 
     ens = EnsembleGenerator(
         N=N,

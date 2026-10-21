@@ -397,3 +397,26 @@ def test_simplify_contracts_to_terminal_outlet():
     assert simplified_G.edges[0, 2]['sinuosity'] == pytest.approx(1.0)
 
 
+def test_simplify_chains_planarity_guard():
+    """Verify simplify_degree_two_chains refuses to contract a bent chain if the chord crosses another edge."""
+    G = nx.DiGraph()
+    G.add_node(0, x=0.0, y=0.0, r=0.0, theta=0.0, node_type='apex')
+    # Pass-through node 1 bends around obstacle edge (3 -> 4)
+    G.add_node(1, x=2000.0, y=2000.0, r=2828.0, theta=0.785)
+    G.add_node(2, x=4000.0, y=0.0, r=4000.0, theta=0.0, node_type='outlet')
+
+    # Obstacle edge (3 -> 4) crosses the straight chord (0,0)->(4000,0) at (2000,0)
+    G.add_node(3, x=2000.0, y=-500.0, r=2061.0, theta=-0.24)
+    G.add_node(4, x=2000.0, y=500.0, r=2061.0, theta=0.24)
+
+    G.add_edge(0, 1, length=2828.0, straight_distance=2828.0, sinuosity=1.0, edge_type='tree')
+    G.add_edge(1, 2, length=2828.0, straight_distance=2828.0, sinuosity=1.0, edge_type='tree')
+    G.add_edge(3, 4, length=1000.0, straight_distance=1000.0, sinuosity=1.0, edge_type='tree')
+
+    simplified_G, count = simplify_degree_two_chains(G, r_shore=4000.0)
+    assert count == 0
+    assert 1 in simplified_G
+    assert not simplified_G.has_edge(0, 2)
+
+
+

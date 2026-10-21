@@ -218,12 +218,6 @@ def edge_too_close_to_graph(
     p1x, p1y = float(p1[0]), float(p1[1])
     p2x, p2y = float(p2[0]), float(p2[1])
 
-    sample_points = (
-        (0.50 * (p1x + p2x), 0.50 * (p1y + p2y)),
-        (0.25 * p1x + 0.75 * p2x, 0.25 * p1y + 0.75 * p2y),
-        (0.75 * p1x + 0.25 * p2x, 0.75 * p1y + 0.25 * p2y),
-    )
-
     min_px = p1x if p1x < p2x else p2x
     max_px = p2x if p1x < p2x else p1x
     min_py = p1y if p1y < p2y else p2y
@@ -251,25 +245,12 @@ def edge_too_close_to_graph(
            (min_qy - max_py > min_clearance) or (min_py - max_qy > min_clearance):
             continue
 
-        # Check endpoints of each segment against the other segment
+        # For non-intersecting 2D line segments, the shortest distance occurs at one of the 4 endpoints
         if point_to_segment_distance(p1, e_q1, e_q2) < min_clearance or \
            point_to_segment_distance(p2, e_q1, e_q2) < min_clearance or \
            point_to_segment_distance(e_q1, p1, p2) < min_clearance or \
            point_to_segment_distance(e_q2, p1, p2) < min_clearance:
             return True
-
-        for pt in sample_points:
-            if point_to_segment_distance(pt, e_q1, e_q2) < min_clearance:
-                return True
-
-        e_samples = (
-            (0.50 * (q1x + q2x), 0.50 * (q1y + q2y)),
-            (0.25 * q1x + 0.75 * q2x, 0.25 * q1y + 0.75 * q2y),
-            (0.75 * q1x + 0.25 * q2x, 0.75 * q1y + 0.25 * q2y),
-        )
-        for e_pt in e_samples:
-            if point_to_segment_distance(e_pt, p1, p2) < min_clearance:
-                return True
 
     return False
 

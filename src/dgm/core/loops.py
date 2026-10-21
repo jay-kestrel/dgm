@@ -20,6 +20,28 @@ from .geometry_utils import (
     incident_angle_between_segments
 )
 from .hydraulics import apply_emergent_hydraulics, solve_markov_flux
+from .pruning import refresh_node_types
+
+
+def _update_node_type_single(G: nx.DiGraph, node: Any, r_shore: float, outlet_tolerance: float = 0.05) -> None:
+    """Updates a single node's node_type consistently with refresh_node_types."""
+    if G.nodes[node].get('node_type') == 'apex' or node == 0:
+        G.nodes[node]['node_type'] = 'apex'
+        return
+    in_deg = G.in_degree(node)
+    out_deg = G.out_degree(node)
+    r = float(G.nodes[node].get('r', 0.0))
+    shore_cutoff = max(0.0, float(r_shore) * (1.0 - float(outlet_tolerance)))
+    if out_deg == 0:
+        G.nodes[node]['node_type'] = 'outlet' if r >= shore_cutoff else 'dead_end'
+    elif out_deg >= 3:
+        G.nodes[node]['node_type'] = 'trifurcation'
+    elif out_deg == 2:
+        G.nodes[node]['node_type'] = 'bifurcation'
+    elif in_deg >= 2:
+        G.nodes[node]['node_type'] = 'confluence'
+    else:
+        G.nodes[node]['node_type'] = 'internal'
 
 
 def apply_loop_mechanism(
@@ -209,12 +231,11 @@ def generate_loops_potential_field(
                 )
                 existing_edges.append((p1, p2))
 
-                if current_G.out_degree(src) >= 2 and current_G.nodes[src].get('node_type') != 'apex':
-                    current_G.nodes[src]['node_type'] = 'bifurcation'
-                if current_G.in_degree(tgt) >= 2 and current_G.nodes[tgt].get('node_type') != 'apex':
-                    current_G.nodes[tgt]['node_type'] = 'confluence'
+                _update_node_type_single(current_G, src, r_shore)
+                _update_node_type_single(current_G, tgt, r_shore)
 
     extend_leaf_to_shoreline(current_G, domain, existing_edges)
+    refresh_node_types(current_G, r_shore)
     return current_G
 
 
@@ -347,10 +368,8 @@ def generate_loops_ner_optimality(
             )
             existing_edges.append((p1, p2))
 
-            if current_G.out_degree(src) >= 2 and current_G.nodes[src].get('node_type') != 'apex':
-                current_G.nodes[src]['node_type'] = 'bifurcation'
-            if current_G.in_degree(tgt) >= 2 and current_G.nodes[tgt].get('node_type') != 'apex':
-                current_G.nodes[tgt]['node_type'] = 'confluence'
+            _update_node_type_single(current_G, src, r_shore)
+            _update_node_type_single(current_G, tgt, r_shore)
 
     current_G = apply_emergent_hydraulics(current_G, params, seed=seed)
     _, W, phi = solve_markov_flux(current_G, params)
@@ -410,10 +429,8 @@ def generate_loops_ner_optimality(
             current_ner_star = test_ner_star
 
             src, tgt = edge_to_remove
-            if current_G.out_degree(src) == 1 and current_G.nodes[src].get('node_type') != 'apex':
-                current_G.nodes[src]['node_type'] = 'internal'
-            if current_G.in_degree(tgt) <= 1 and current_G.nodes[tgt].get('node_type') != 'apex':
-                current_G.nodes[tgt]['node_type'] = 'internal'
+            _update_node_type_single(current_G, src, r_shore)
+            _update_node_type_single(current_G, tgt, r_shore)
 
         T = max(1e-6, T * alpha)
 
@@ -425,4 +442,5 @@ def generate_loops_ner_optimality(
     ]
 
     extend_leaf_to_shoreline(current_G, domain, existing_edges)
+    refresh_node_types(current_G, r_shore)
     return current_G

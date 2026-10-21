@@ -368,19 +368,19 @@ def get_empirical_deltas(dataset_dir: Optional[Union[str, Path]] = None, force_r
     if _CACHED_EMPIRICAL_DELTAS is not None and not force_reload and dataset_dir is None:
         return _CACHED_EMPIRICAL_DELTAS
 
-    loader = DIDNTLoader(dataset_dir)
-    if not loader.is_available():
-        bundled = load_bundled_canonical_deltas()
-        if dataset_dir is None and bundled:
-            _CACHED_EMPIRICAL_DELTAS = bundled
-        return bundled
-
     # If dataset_dir is None and not force_reload, prefer fast bundled canonical deltas
     if dataset_dir is None and not force_reload:
         bundled = load_bundled_canonical_deltas()
         if bundled:
             _CACHED_EMPIRICAL_DELTAS = bundled
             return bundled
+
+    loader = DIDNTLoader(dataset_dir)
+    if not loader.is_available():
+        bundled = load_bundled_canonical_deltas()
+        if dataset_dir is None and bundled:
+            _CACHED_EMPIRICAL_DELTAS = bundled
+        return bundled
 
     battery = MetricsBattery()
     deltas = []
@@ -437,7 +437,103 @@ def get_empirical_deltas_dict(dataset_dir: Optional[Union[str, Path]] = None) ->
     return {d.name: d.to_dict() for d in get_empirical_deltas(dataset_dir=dataset_dir)}
 
 
+class _LazyEmpiricalDeltasDict(dict):
+    """
+    Lazy dictionary proxy for CANONICAL_EMPIRICAL_DELTAS that defers disk I/O
+    until the dictionary is first accessed while remaining a full dict subclass.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._loaded = False
+
+    def _ensure_loaded(self) -> None:
+        if not self._loaded:
+            super().update(get_empirical_deltas_dict())
+            self._loaded = True
+
+    def __getitem__(self, key: str) -> Dict[str, Any]:
+        self._ensure_loaded()
+        return super().__getitem__(key)
+
+    def __setitem__(self, key: str, value: Dict[str, Any]) -> None:
+        self._ensure_loaded()
+        super().__setitem__(key, value)
+
+    def __delitem__(self, key: str) -> None:
+        self._ensure_loaded()
+        super().__delitem__(key)
+
+    def __contains__(self, key: object) -> bool:
+        self._ensure_loaded()
+        return super().__contains__(key)
+
+    def __iter__(self):
+        self._ensure_loaded()
+        return super().__iter__()
+
+    def __len__(self) -> int:
+        self._ensure_loaded()
+        return super().__len__()
+
+    def __bool__(self) -> bool:
+        self._ensure_loaded()
+        return bool(super().__len__())
+
+    def __repr__(self) -> str:
+        self._ensure_loaded()
+        return super().__repr__()
+
+    def __eq__(self, other: object) -> bool:
+        self._ensure_loaded()
+        return super().__eq__(other)
+
+    def __ne__(self, other: object) -> bool:
+        self._ensure_loaded()
+        return super().__ne__(other)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        self._ensure_loaded()
+        return super().get(key, default)
+
+    def keys(self):
+        self._ensure_loaded()
+        return super().keys()
+
+    def values(self):
+        self._ensure_loaded()
+        return super().values()
+
+    def items(self):
+        self._ensure_loaded()
+        return super().items()
+
+    def copy(self) -> Dict[str, Dict[str, Any]]:
+        self._ensure_loaded()
+        return super().copy()
+
+    def pop(self, key: str, *args: Any) -> Any:
+        self._ensure_loaded()
+        return super().pop(key, *args)
+
+    def popitem(self) -> Any:
+        self._ensure_loaded()
+        return super().popitem()
+
+    def setdefault(self, key: str, default: Any = None) -> Any:
+        self._ensure_loaded()
+        return super().setdefault(key, default)
+
+    def update(self, *args: Any, **kwargs: Any) -> None:
+        self._ensure_loaded()
+        super().update(*args, **kwargs)
+
+    def clear(self) -> None:
+        self._loaded = True
+        super().clear()
+
+
 # Backwards compatibility aliases
 EmpiricalDeltaV2 = EmpiricalDelta
 get_empirical_deltas_v2 = get_empirical_deltas
-CANONICAL_EMPIRICAL_DELTAS = get_empirical_deltas_dict()
+CANONICAL_EMPIRICAL_DELTAS: Dict[str, Dict[str, Any]] = _LazyEmpiricalDeltasDict()

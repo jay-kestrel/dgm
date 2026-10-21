@@ -100,3 +100,17 @@ def test_didnt_loader_mock_dataset(tmp_path):
     assert G.nodes[2]["node_type"] == "outlet"
     assert G.has_edge(0, 1)
     assert G.has_edge(1, 2)
+
+
+def test_lazy_canonical_empirical_deltas():
+    """Verify CANONICAL_EMPIRICAL_DELTAS behaves as a full dictionary and loads lazily on demand."""
+    from dgm.io.datasets import CANONICAL_EMPIRICAL_DELTAS, _LazyEmpiricalDeltasDict
+
+    lazy_dict = _LazyEmpiricalDeltasDict()
+    assert lazy_dict._loaded is False
+    assert isinstance(lazy_dict, dict)
+    assert len(lazy_dict) == 28
+    assert lazy_dict._loaded is True
+    assert "Mississippi" in CANONICAL_EMPIRICAL_DELTAS
+    assert CANONICAL_EMPIRICAL_DELTAS["Mississippi"]["nodes"] > 0
+
