@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-[#0a0b0a] text-white">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architecture &amp; Math | DeltaGraphModel Documentation</title>
+  
+  <!-- Kestrel Typography: Aldrich (Display), Azeret Mono (Code/HUD), Plus Jakarta Sans (Body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Aldrich&family=Azeret+Mono:ital,wght@0,300..700;1,300..700&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            kestrel: {
+              bg: '#0a0b0a',
+              panel: '#0c0e0c',
+              terminal: '#060706',
+              border: 'rgba(255, 255, 255, 0.1)',
+              orange: '#ff5a35',
+              lime: '#c4f94a',
+              teal: '#cfddd0',
+            }
+          },
+          fontFamily: {
+            heading: ['Aldrich', 'sans-serif'],
+            mono: ['"Azeret Mono"', 'monospace'],
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    *, ::before, ::after {
+      border-radius: 0px !important;
+    }
+    body {
+      background-color: #0a0b0a;
+      color: #ffffff;
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    .teal-ambient {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: 
+        radial-gradient(circle at 50% -12%, rgba(207, 221, 208, 0.08) 0%, transparent 65%),
+        radial-gradient(circle at 90% 10%, rgba(255, 90, 53, 0.04) 0%, transparent 45%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    /* Custom square scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #070807; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); }
+    ::-webkit-scrollbar-thumb:hover { background: #ff5a35; }
+
+    /* Kestrel Buttons */
+    .kestrel-btn {
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.6875rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 500;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      padding: 0.45rem 0.85rem;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+    }
+    .kestrel-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+    .kestrel-btn-orange {
+      background: #ff5a35;
+      border-color: #ff5a35;
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 0 14px rgba(255, 90, 53, 0.3);
+    }
+    .kestrel-btn-orange:hover {
+      background: #ff7a5a;
+      border-color: #ff7a5a;
+      box-shadow: 0 0 20px rgba(255, 90, 53, 0.45);
+    }
+
+    /* Markdown prose formatting */
+    .prose-kestrel h1 {
+      font-family: 'Aldrich', sans-serif;
+      font-size: 1.75rem;
+      line-height: 1.25;
+      color: #ffffff;
+      margin-top: 1.5rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 0.5rem;
+    }
+    .prose-kestrel h2 {
+      font-family: 'Aldrich', sans-serif;
+      font-size: 1.25rem;
+      line-height: 1.35;
+      color: #ffffff;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 0.35rem;
+    }
+    .prose-kestrel h3 {
+      font-family: 'Aldrich', sans-serif;
+      font-size: 1rem;
+      color: #ffffff;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .prose-kestrel p {
+      margin-bottom: 1rem;
+      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 0.875rem;
+    }
+    .prose-kestrel ul, .prose-kestrel ol {
+      margin-left: 1.5rem;
+      margin-bottom: 1.25rem;
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 0.875rem;
+      line-height: 1.7;
+    }
+    .prose-kestrel ul { list-style-type: square; }
+    .prose-kestrel ol { list-style-type: decimal; }
+    .prose-kestrel li { margin-bottom: 0.35rem; }
+    .prose-kestrel pre {
+      background: #050605;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 1rem;
+      overflow-x: auto;
+      margin: 1.25rem 0;
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.75rem;
+      line-height: 1.55;
+      color: #e2e8f0;
+    }
+    .prose-kestrel code {
+      background: rgba(255, 255, 255, 0.08);
+      color: #c4f94a;
+      padding: 0.15rem 0.35rem;
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .prose-kestrel pre code {
+      background: transparent;
+      color: #e2e8f0;
+      padding: 0;
+      border: none;
+    }
+    .prose-kestrel table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      font-size: 0.8rem;
+    }
+    .prose-kestrel th {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 0.6rem 0.85rem;
+      text-align: left;
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #ffffff;
+    }
+    .prose-kestrel td {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 0.6rem 0.85rem;
+      color: rgba(255, 255, 255, 0.75);
+    }
+    .prose-kestrel tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .prose-kestrel blockquote {
+      border-left: 2px solid #ff5a35;
+      background: rgba(255, 90, 53, 0.05);
+      padding: 0.75rem 1rem;
+      margin: 1.25rem 0;
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.85);
+    }
+    .prose-kestrel a {
+      color: #ff5a35;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased text-white bg-[#0a0b0a] relative selection:bg-[#ff5a35]/30 selection:text-white">
+
+  <!-- Ambient Light Layer -->
+  <div class="teal-ambient" aria-hidden="true"></div>
+
+  <!-- Header Navigation -->
+  <header class="border-b border-white/[0.1] bg-[#0a0b0a] sticky top-0 z-50 shrink-0">
+    <div class="w-full px-4 h-14 flex items-center justify-between">
+      
+      <!-- Brandmark & Section -->
+      <div class="flex items-center space-x-3">
+        <a href="../index.html" class="w-8 h-8 bg-white/[0.04] border border-white/[0.2] text-[#ff5a35] flex items-center justify-center font-heading font-bold text-base hover:border-[#ff5a35] transition" title="Go to AI Assistant Front Door">
+          Δ
+        </a>
+        <div class="flex items-center space-x-2">
+          <a href="../index.html" class="font-heading text-sm sm:text-base tracking-wider text-white hover:text-[#ff5a35] transition">
+            DeltaGraphModel
+          </a>
+          <span class="text-white/30 font-mono text-xs">/</span>
+          <span class="text-xs font-mono text-[#ff5a35] uppercase tracking-wider">
+            Architecture &amp; Math
+          </span>
+        </div>
+      </div>
+
+      <!-- Header Actions -->
+      <div class="flex items-center space-x-3">
+        <a href="../index.html?q=Explain the 5 core pipeline stages, Murray&#x27;s law hydraulics, and loop engines in DGM." class="kestrel-btn kestrel-btn-orange text-[10px] py-1 px-3" title="Ask DGM Assistant about this document">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>
+          <span>Ask AI About This</span>
+        </a>
+        <a href="../index.html" class="kestrel-btn text-[10px] py-1 px-3">
+          <span>AI Terminal &rarr;</span>
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Body: Sidebar + Reading Canvas -->
+  <div class="flex-1 w-full flex overflow-hidden relative z-10">
+    
+    <!-- Left Navigation Sidebar -->
+    <aside class="w-64 shrink-0 border-r border-white/[0.1] bg-[#0c0e0c] h-full overflow-y-auto hidden md:block">
+      <div class="p-3 border-b border-white/[0.1] bg-[#080908] flex items-center justify-between">
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white/50">Documentation</span>
+        <span class="text-[9px] font-mono text-[#c4f94a]">[ VERIFIED ]</span>
+      </div>
+      <nav class="py-2">
+        <div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Getting Started</div>
+<a href="index.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Overview</a>
+<div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Core Theory</div>
+<a href="architecture.html" class="block px-3 py-1.5 text-xs transition bg-white/[0.08] text-[#ff5a35] border-l-2 border-l-[#ff5a35] font-semibold">Architecture &amp; Math</a>
+<a href="configuration.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">YAML Configuration</a>
+<div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Reference</div>
+<a href="api_reference.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Python API Reference</a>
+<div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Tutorials</div>
+<a href="walkthrough.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">End-to-End Walkthrough</a>
+<a href="tutorial_01_quickstart.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Tutorial 01: Quickstart</a>
+<a href="tutorial_02_ensemble_clouds.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Tutorial 02: Ensembles</a>
+      </nav>
+      <div class="p-4 mt-6 border-t border-white/[0.08] bg-white/[0.01]">
+        <div class="text-[10px] font-mono text-white/40 uppercase mb-2">Need Instant Answers?</div>
+        <a href="../index.html" class="block w-full text-center kestrel-btn text-[10px] py-2">
+          Open AI Terminal
+        </a>
+      </div>
+    </aside>
+
+    <!-- Reading Canvas -->
+    <main class="flex-1 h-full overflow-y-auto px-6 py-8 md:px-12 lg:px-16 bg-[#0a0b0a]">
+      <div class="max-w-4xl mx-auto">
+        
+        <!-- Breadcrumbs -->
+        <div class="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-wider text-white/40 mb-4 pb-2 border-b border-white/[0.06]">
+          <a href="index.html" class="hover:text-white transition">Docs</a>
+          <span>&gt;</span>
+          <span>Core Theory</span>
+          <span>&gt;</span>
+          <span class="text-[#ff5a35]">Architecture &amp; Math</span>
+        </div>
+
+        <!-- Markdown Body -->
+        <article class="prose-kestrel">
+          <h1 id="dgm-mathematical-formulation-architecture">DGM Mathematical Formulation &amp; Architecture</h1>
+<p>The <strong>DeltaGraphModel (DGM)</strong> generative pipeline executes seven sequential computational steps to synthesize realistic, hydraulically consistent delta channel networks (DCNs):</p>
+<pre><code>┌────────────────────────────────────────────────────────────────────────┐
+│                        DGM GENERATIVE PIPELINE                         │
+├────────────────────────────────────────────────────────────────────────┤
+│ Inputs: N (Nodes), R_rt (River-to-Tidal Ratio ∈ [0, 1]), YAML Config   │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ STEP 1: Polar Domain Geometry &amp; Lateral Valley Confinement             │
+│ θ_open = (θ_base + Δθ · R_rt) · (1 - C_conf)  |  |x(r)| ≤ W_valley / 2 │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ STEP 2: Polar Tree Backbone Growth &amp; Shoreward Spatial Scaling         │
+│ Δr(r) = Δr_0 · (1 - λ_node · r/r_shore) | S(r) = 1 + (S_0 - 1)·(1-λ_sin)│
+│ Jordan Curve Planarity Filter (0 edge crossings via 2D AABB indexing) │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ STEP 3: Emergent Loop Engines (core.loops)                             │
+│ ├─ Mechanism A: Spatial Potential-Field Reconnection (KDTree P_loop)   │
+│ └─ Mechanism B: Thermodynamic nER* Annealing under Channel Budgets     │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ STEP 4: Pre-Hydraulic Pruning &amp; Reach Simplification (core.pruning)    │
+│ ├─ Inland dead-end spur removal with coastal outlet buffer (tol_out)  │
+│ └─ Degree-2 chain contraction with unified reach sinuosity model       │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ STEP 5: Emergent Hydraulics &amp; Murray's Law (core.hydraulics)           │
+│ ├─ Murray's Law conservation: w_0^p = w_1^p + w_2^p                    │
+│ ├─ Estuarine flaring with onset radius: w(r) ∝ exp(k·(r/r_s - r_onset))│
+│ └─ Secondary loop conductance penalty &amp; Manning capacity (C_e)        │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ STEP 6: Curved Polyline Channel Geometry (core.channel_geometry)       │
+│ ├─ Harmonic Dirichlet meanders: y(s) = sin(2π·bends·s) · sin(πs)       │
+│ ├─ Analytical proximity clearance bounding: A_max = C_clear · d_clear  │
+│ └─ Conductance re-synchronization with sinuous reach length            │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ STEP 7: Markov Flux Routing Solver &amp; Metrics Battery (core.hydraulics) │
+│ ├─ Transient submatrix flux throughput: (I - Q^T) Φ_T = S_0,T          │
+│ └─ 20-metric geomorphic battery: α, β1/N, nER*, eBI, V_net, D_net      │
+└────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr />
+<h2 id="step-1-polar-domain-geometry-valley-confinement">Step 1: Polar Domain Geometry &amp; Valley Confinement</h2>
+<p>The delta apex is positioned at origin $(r=0, \theta=0)$. The marine shoreline boundary is located at radius $r = R_{\text{shore}}$ (default $10,000 \text{ m}$). Marine hydrodynamic energy expands active sectoral fan spreading, while valley confinement narrows it:</p>
+<p>$$\theta_{\text{open}}(R_{\text{rt}}, C_{\text{conf}}) = (\theta_{\text{base}} + \Delta \theta \cdot R_{\text{rt}}) \cdot (1 - C_{\text{conf}})$$</p>
+<p>Lateral valley corridor boundaries clamp Cartesian coordinate excursions:
+$$|x(r)| \le \frac{W_{\text{valley}}}{2}$$</p>
+<hr />
+<h2 id="step-2-polar-tree-backbone-growth-shoreward-spatial-scaling">Step 2: Polar Tree Backbone Growth &amp; Shoreward Spatial Scaling</h2>
+<p>A directed branching tree is grown outwards from apex. Branching order $k \in {1, 2, 3}$ is sampled stochastically according to <code>branching_weights</code>.</p>
+<ul>
+<li><strong>Shoreward Node Contraction</strong>: Inter-junction distance contracts as channels approach the sea:
+  $$\Delta r(r) = \Delta r_0 \cdot \max(0.2, 1 - \lambda_{\text{node}} \cdot r / r_{\text{shore}})$$</li>
+<li><strong>Coastal Sinuosity Straightening</strong>: Distributaries straighten in the seaward reach:
+  $$S(r) = \max\left(1.0, 1.0 + (S_0 - 1.0) \cdot \max\left(0, 1 - \lambda_{\text{sin}} \cdot \frac{r_{\text{mid}}}{r_{\text{shore}}}\right)\right)$$</li>
+</ul>
+<p>Planarity is strictly preserved using 2D Axis-Aligned Bounding Box (AABB) fast rejection combined with the Jordan Curve orientation predicate, guaranteeing 0 unphysical edge crossings.</p>
+<hr />
+<h2 id="step-3-emergent-loop-engines">Step 3: Emergent Loop Engines</h2>
+<h3 id="mechanism-a-spatial-potential-field-reconnection">Mechanism A: Spatial Potential-Field Reconnection</h3>
+<p>Evaluates candidate pairs $(u, v)$ via KDTree nearest-neighbor queries:
+$$P_{\text{loop}}(u, v \mid R_{\text{rt}}) = \min(0.95, (P_0 + c_0 R_{\text{rt}}) \cdot e^{-d(u,v)/l_0} \cdot \max(0, \cos(\Delta \theta_{uv})))$$</p>
+<p>Links are added under strict planarity and degree bounds ($k_{\text{in}} \le 2, k_{\text{out}} \le 3$). Maximum allowable loops scale with marine forcing:
+$$N_{\text{loops}}^{\max} = \lfloor N \cdot (\text{slope} \cdot R_{\text{rt}} + \text{intercept}) \rfloor$$</p>
+<h3 id="mechanism-b-thermodynamic-ner-optimality">Mechanism B: Thermodynamic nER* Optimality</h3>
+<p>Constructs a candidate network and optimizes link configuration using Simulated Annealing to maximize Non-Local Shannon Entropy Rate ($nER^*$) under a total channel count budget.</p>
+<hr />
+<h2 id="step-4-pre-hydraulic-network-pruning-simplification">Step 4: Pre-Hydraulic Network Pruning &amp; Simplification</h2>
+<ul>
+<li><strong>Inland Dead-End Pruning &amp; Coastal Protection</strong>: Cascades through leaf nodes terminating inland without reaching the shoreline envelope:
+  $$r &lt; r_{\text{shore}} \cdot (1 - \epsilon_{\text{shore}})$$
+  where $\epsilon_{\text{shore}} = \text{outlet_tolerance}$ (default $0.05$). This accommodates coastal rugosity while guaranteeing 100% shoreline outlet delivery matching DIDNT observations.</li>
+<li><strong>Degree-2 Reach Simplification</strong>: Contracts non-branching pass-through chains ($d_{\text{in}}=1, d_{\text{out}}=1$) into direct links between morphological junctions. When <code>recalculate_reach_sinuosity=True</code>, a unified reach sinuosity is drawn from the lognormal process model rather than compounding discrete knees, matching RivGraph and DIDNT reach-scale standards. Continuous polyline coordinates are preserved across merged vertices.</li>
+</ul>
+<hr />
+<h2 id="step-5-emergent-hydraulics-murrays-law-conservation">Step 5: Emergent Hydraulics &amp; Murray's Law Conservation</h2>
+<p>Channel widths are solved using an iterative topological relaxation solver conserving Murray's Law at all bifurcations:
+$$w_{\text{parent}}^p = w_{\text{child1}}^p + w_{\text{child2}}^p + \dots$$
+where exponent $p \in [1.2, 2.2]$ (default $1.70$).</p>
+<h3 id="estuarine-tidal-mouth-flaring">Estuarine Tidal Mouth Flaring</h3>
+<p>Tidal prism amplification widens distributary mouths seaward of an onset radius ($r_{\text{onset}} = \text{tidal_flare_onset}$, default $0.30$):
+$$w(r) = w_{\text{river}} \cdot \left((1 - R_{\text{rt}}) + R_{\text{rt}} \exp\left(k_{\text{flare}} \cdot \max\left(0, \frac{r}{r_{\text{shore}}} - r_{\text{onset}}\right)\right)\right)$$</p>
+<h3 id="secondary-loop-resistance-penalty">Secondary Loop Resistance Penalty</h3>
+<p>To capture narrower cross-sections ($36\%-60\%$ of branch width) and higher floodplain bed elevations in anastomosing cross-ties (Gao et al. 2023), loop conductances are scaled by <code>loop_flow_penalty</code> (default $0.40$):
+$$C_{\text{loop}} = C_e \times \text{loop_flow_penalty}$$</p>
+<p>Manning conductance scales as $C_e = w_e^\eta / L_e^\gamma$ (default $\eta = 1.65, \gamma = 0.50$).</p>
+<hr />
+<h2 id="step-6-curved-polyline-channel-geometry-proximity-constraints">Step 6: Curved Polyline Channel Geometry &amp; Proximity Constraints</h2>
+<p>Meander amplitudes are constrained by lateral proximity to non-incident channels:
+$$A_{\max} = \max(0.0, d_{\text{clearance}} \cdot C_{\text{clear}})$$
+$$S_{\max} = 1.0 + \left(\frac{\pi A_{\max}}{L}\right)^2$$</p>
+<p>Centerline trajectories are generated via harmonic sine curves satisfying Dirichlet boundary conditions (zero displacement at nodes):
+$$y(s) = A \cdot \sin(2\pi \cdot \text{bends} \cdot s) \cdot \sin(\pi s)$$</p>
+<p>When curved centerlines update reach length, hydraulic conductance $C_e = w^\eta / L^\gamma$ is automatically re-synchronized.</p>
+<hr />
+<h2 id="step-7-markov-flux-routing-solver-metrics-battery">Step 7: Markov Flux Routing Solver &amp; Metrics Battery</h2>
+<p>Steady-state water fluxes are solved via the transient submatrix formulation (Tejedor et al., 2017):
+$$(I - Q^T) \Phi_T = S_{0,T}$$
+$$\Phi_A = S_{0,A} + W[T, A]^T \Phi_T$$</p>
+<p>The 20-metric geomorphic battery computes:
+- <strong>Topological form</strong>: $\alpha$, $\beta_1/N$, $V_b$, $V_c$, $V_c/V_b$, $\Gamma$.
+- <strong>Entropy &amp; Braiding</strong>: $nER^*$, $eBI$.
+- <strong>Energetic dissipation</strong>: Total dissipation $D<strong>\text{net}}$, varianc</strong>dissipation.
+- <strong>Dynamic vulnerabil</strong>y**: Global vulnerability $V_{\text{net}}$, max channel vulnerability.
+- <strong>Hydraulic geometry</strong>: Mean width, width CV, mean reach sinuosity, shoreline delivery ratio.</p>
+<hr />
+<h2 id="multi-stage-generative-pipeline-inspection">Multi-Stage Generative Pipeline Inspection</h2>
+<p>When <code>dgm.generate(..., return_stages=True)</code> is called, DGM captures and returns snapshots at key pipeline milestones:
+1. <code>'tree'</code>: Polar tree backbone before loop closure.
+2. <code>'looped'</code>: Network after spatial potential-field loop addition.
+3. <code>'pruned'</code>: Simplified and pruned network before hydraulics.
+4. <code>'final'</code>: Complete network with Murray widths, sinuous polylines, and Markov fluxes.</p>
+<p>These snapshots can be directly rendered side-by-side using <code>dgm.plot_stages</code> or <code>dgm.plot_tree_vs_network</code>.</p>
+        </article>
+
+        <!-- Page Footer / Next Step Banner -->
+        <div class="mt-12 pt-6 border-t border-white/[0.1] flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-mono text-white/50">
+          <div>
+            Grounding Source for <strong class="text-white">DGM Hybrid RAG</strong>
+          </div>
+          <div class="flex items-center space-x-3">
+            <a href="../index.html?q=Explain the 5 core pipeline stages, Murray&#x27;s law hydraulics, and loop engines in DGM." class="kestrel-btn kestrel-btn-orange text-[10px] py-1 px-3">
+              Ask AI About This Topic
+            </a>
+            <a href="https://github.com/jay-kestrel/dgm" target="_blank" class="kestrel-btn text-[10px] py-1 px-3">
+              View Source on GitHub
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+  </div>
+
+</body>
+</html>

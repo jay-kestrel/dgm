@@ -155,15 +155,49 @@ uv run --extra dev pytest tests -v
 
 ---
 
+## Documentation & Interactive AI Assistant Portal
+
+DGM includes a client-side **Interactive Documentation Portal & AI Assistant** (`site/`) styled with a high-precision, dark tactical HUD aesthetic inspired by [Kestrel Intelligence](https://kestrelintelligence.com/).
+
+### Key Features
+- **In-Browser Hybrid RAG**: Combines BM25 lexical search with precomputed 384-d semantic vector embeddings (`all-MiniLM-L6-v2`, float16) evaluated entirely client-side.
+- **Local Neural Synthesis**: Runs open-weight coding models (e.g., `Qwen2.5-Coder-0.5B`, `SmolLM2-360M`) directly in your browser via [Transformers.js](https://huggingface.co/docs/transformers.js) with WebGPU acceleration and WASM CPU fallback (100% private, zero server API keys needed).
+- **Tactical Tri-Mode HUD**: Adaptive layout supporting Dual View (`⌘1`), Full-Width Chat with 38px Collapsible Telemetry Spine (`⌘2` or `⌘B`), and Full-Width Retrieval (`⌘3`).
+- **Complete HTML Guides**: Full narrative documentation rendered into styled HTML pages with two-way deep links to the AI assistant.
+
+### Quick Commands via `Makefile`
+
+```bash
+# Preview the portal locally at http://localhost:8000
+make site-serve
+
+# Rebuild complete site (HTML docs + search index + vector embeddings)
+make site-build
+
+# Regenerate only the BM25 search index and 384-d vector embeddings
+make site-index
+
+# Run complete pytest suite
+make test
+```
+
+### Automated GitHub Pages Deployment (CI/CD)
+
+The documentation portal deploys automatically to GitHub Pages via `.github/workflows/deploy-pages.yml`:
+- **Automated Embedding & Docs Generation**: On every push to `main`, GitHub Actions automatically installs `uv`, executes `scripts/build_docs_site.py` to recompute vector embeddings and build HTML docs in ~15 seconds, and publishes the static artifact.
+- **Zero Drift**: Documentation updates and codebase docstrings are immediately reflected in the live RAG search index with zero manual intervention.
+
+---
+
 ## Documentation
 
-Comprehensive documentation is available in the [`docs/`](docs/) directory:
+Comprehensive documentation is available in the [`docs/`](docs/) directory and the web portal:
 - [Architecture & Mathematical Model](docs/architecture.md)
 - [Configuration & YAML Schema](docs/configuration.md)
-- [Parameter Assumptions & Literature Justifications](docs/parameter_justifications.md)
 - [Python API Reference](docs/api_reference.md)
 - [Tutorial 1: Quickstart](docs/tutorials/01_quickstart.md)
 - [Tutorial 2: Ensemble Sampling](docs/tutorials/02_ensemble_clouds.md)
+- [End-to-End Walkthrough](docs/walkthrough.md)
 - [Developer & Agent Guide](AGENTS.md)
 - [Global Empirical Validation Report](outputs/VALIDATION_REPORT.md)
 - [Planetary Mega-Delta Benchmark Report](outputs/MEGA_DELTA_BENCHMARK_REPORT.md)

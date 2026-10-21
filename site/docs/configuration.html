@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-[#0a0b0a] text-white">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YAML Configuration | DeltaGraphModel Documentation</title>
+  
+  <!-- Kestrel Typography: Aldrich (Display), Azeret Mono (Code/HUD), Plus Jakarta Sans (Body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Aldrich&family=Azeret+Mono:ital,wght@0,300..700;1,300..700&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            kestrel: {
+              bg: '#0a0b0a',
+              panel: '#0c0e0c',
+              terminal: '#060706',
+              border: 'rgba(255, 255, 255, 0.1)',
+              orange: '#ff5a35',
+              lime: '#c4f94a',
+              teal: '#cfddd0',
+            }
+          },
+          fontFamily: {
+            heading: ['Aldrich', 'sans-serif'],
+            mono: ['"Azeret Mono"', 'monospace'],
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    *, ::before, ::after {
+      border-radius: 0px !important;
+    }
+    body {
+      background-color: #0a0b0a;
+      color: #ffffff;
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    .teal-ambient {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: 
+        radial-gradient(circle at 50% -12%, rgba(207, 221, 208, 0.08) 0%, transparent 65%),
+        radial-gradient(circle at 90% 10%, rgba(255, 90, 53, 0.04) 0%, transparent 45%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    /* Custom square scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #070807; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); }
+    ::-webkit-scrollbar-thumb:hover { background: #ff5a35; }
+
+    /* Kestrel Buttons */
+    .kestrel-btn {
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.6875rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 500;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      padding: 0.45rem 0.85rem;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+    }
+    .kestrel-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+    .kestrel-btn-orange {
+      background: #ff5a35;
+      border-color: #ff5a35;
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 0 14px rgba(255, 90, 53, 0.3);
+    }
+    .kestrel-btn-orange:hover {
+      background: #ff7a5a;
+      border-color: #ff7a5a;
+      box-shadow: 0 0 20px rgba(255, 90, 53, 0.45);
+    }
+
+    /* Markdown prose formatting */
+    .prose-kestrel h1 {
+      font-family: 'Aldrich', sans-serif;
+      font-size: 1.75rem;
+      line-height: 1.25;
+      color: #ffffff;
+      margin-top: 1.5rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 0.5rem;
+    }
+    .prose-kestrel h2 {
+      font-family: 'Aldrich', sans-serif;
+      font-size: 1.25rem;
+      line-height: 1.35;
+      color: #ffffff;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 0.35rem;
+    }
+    .prose-kestrel h3 {
+      font-family: 'Aldrich', sans-serif;
+      font-size: 1rem;
+      color: #ffffff;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .prose-kestrel p {
+      margin-bottom: 1rem;
+      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 0.875rem;
+    }
+    .prose-kestrel ul, .prose-kestrel ol {
+      margin-left: 1.5rem;
+      margin-bottom: 1.25rem;
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 0.875rem;
+      line-height: 1.7;
+    }
+    .prose-kestrel ul { list-style-type: square; }
+    .prose-kestrel ol { list-style-type: decimal; }
+    .prose-kestrel li { margin-bottom: 0.35rem; }
+    .prose-kestrel pre {
+      background: #050605;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 1rem;
+      overflow-x: auto;
+      margin: 1.25rem 0;
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.75rem;
+      line-height: 1.55;
+      color: #e2e8f0;
+    }
+    .prose-kestrel code {
+      background: rgba(255, 255, 255, 0.08);
+      color: #c4f94a;
+      padding: 0.15rem 0.35rem;
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .prose-kestrel pre code {
+      background: transparent;
+      color: #e2e8f0;
+      padding: 0;
+      border: none;
+    }
+    .prose-kestrel table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      font-size: 0.8rem;
+    }
+    .prose-kestrel th {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 0.6rem 0.85rem;
+      text-align: left;
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #ffffff;
+    }
+    .prose-kestrel td {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 0.6rem 0.85rem;
+      color: rgba(255, 255, 255, 0.75);
+    }
+    .prose-kestrel tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .prose-kestrel blockquote {
+      border-left: 2px solid #ff5a35;
+      background: rgba(255, 90, 53, 0.05);
+      padding: 0.75rem 1rem;
+      margin: 1.25rem 0;
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.85);
+    }
+    .prose-kestrel a {
+      color: #ff5a35;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased text-white bg-[#0a0b0a] relative selection:bg-[#ff5a35]/30 selection:text-white">
+
+  <!-- Ambient Light Layer -->
+  <div class="teal-ambient" aria-hidden="true"></div>
+
+  <!-- Header Navigation -->
+  <header class="border-b border-white/[0.1] bg-[#0a0b0a] sticky top-0 z-50 shrink-0">
+    <div class="w-full px-4 h-14 flex items-center justify-between">
+      
+      <!-- Brandmark & Section -->
+      <div class="flex items-center space-x-3">
+        <a href="../index.html" class="w-8 h-8 bg-white/[0.04] border border-white/[0.2] text-[#ff5a35] flex items-center justify-center font-heading font-bold text-base hover:border-[#ff5a35] transition" title="Go to AI Assistant Front Door">
+          Δ
+        </a>
+        <div class="flex items-center space-x-2">
+          <a href="../index.html" class="font-heading text-sm sm:text-base tracking-wider text-white hover:text-[#ff5a35] transition">
+            DeltaGraphModel
+          </a>
+          <span class="text-white/30 font-mono text-xs">/</span>
+          <span class="text-xs font-mono text-[#ff5a35] uppercase tracking-wider">
+            YAML Configuration
+          </span>
+        </div>
+      </div>
+
+      <!-- Header Actions -->
+      <div class="flex items-center space-x-3">
+        <a href="../index.html?q=How do DGM parameters, stochastic distributions, and validation constraints work in default_config.yaml?" class="kestrel-btn kestrel-btn-orange text-[10px] py-1 px-3" title="Ask DGM Assistant about this document">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>
+          <span>Ask AI About This</span>
+        </a>
+        <a href="../index.html" class="kestrel-btn text-[10px] py-1 px-3">
+          <span>AI Terminal &rarr;</span>
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Body: Sidebar + Reading Canvas -->
+  <div class="flex-1 w-full flex overflow-hidden relative z-10">
+    
+    <!-- Left Navigation Sidebar -->
+    <aside class="w-64 shrink-0 border-r border-white/[0.1] bg-[#0c0e0c] h-full overflow-y-auto hidden md:block">
+      <div class="p-3 border-b border-white/[0.1] bg-[#080908] flex items-center justify-between">
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white/50">Documentation</span>
+        <span class="text-[9px] font-mono text-[#c4f94a]">[ VERIFIED ]</span>
+      </div>
+      <nav class="py-2">
+        <div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Getting Started</div>
+<a href="index.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Overview</a>
+<div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Core Theory</div>
+<a href="architecture.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Architecture &amp; Math</a>
+<a href="configuration.html" class="block px-3 py-1.5 text-xs transition bg-white/[0.08] text-[#ff5a35] border-l-2 border-l-[#ff5a35] font-semibold">YAML Configuration</a>
+<div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Reference</div>
+<a href="api_reference.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Python API Reference</a>
+<div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Tutorials</div>
+<a href="walkthrough.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">End-to-End Walkthrough</a>
+<a href="tutorial_01_quickstart.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Tutorial 01: Quickstart</a>
+<a href="tutorial_02_ensemble_clouds.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Tutorial 02: Ensembles</a>
+      </nav>
+      <div class="p-4 mt-6 border-t border-white/[0.08] bg-white/[0.01]">
+        <div class="text-[10px] font-mono text-white/40 uppercase mb-2">Need Instant Answers?</div>
+        <a href="../index.html" class="block w-full text-center kestrel-btn text-[10px] py-2">
+          Open AI Terminal
+        </a>
+      </div>
+    </aside>
+
+    <!-- Reading Canvas -->
+    <main class="flex-1 h-full overflow-y-auto px-6 py-8 md:px-12 lg:px-16 bg-[#0a0b0a]">
+      <div class="max-w-4xl mx-auto">
+        
+        <!-- Breadcrumbs -->
+        <div class="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-wider text-white/40 mb-4 pb-2 border-b border-white/[0.06]">
+          <a href="index.html" class="hover:text-white transition">Docs</a>
+          <span>&gt;</span>
+          <span>Core Theory</span>
+          <span>&gt;</span>
+          <span class="text-[#ff5a35]">YAML Configuration</span>
+        </div>
+
+        <!-- Markdown Body -->
+        <article class="prose-kestrel">
+          <h1 id="dgm-configuration-yaml-schema-guide">DGM Configuration &amp; YAML Schema Guide</h1>
+<p>All physical parameters, boundary conditions, solver settings, and stochastic distributions in DGM can be specified via YAML files or programmatically via <a href="api_reference.md#dgmconfig"><code>DGMConfig</code></a>.</p>
+<h2 id="complete-yaml-schema">Complete YAML Schema</h2>
+<pre><code class="language-yaml">model:
+  N: 50                          # Total node budget (junctions &amp; outlets)
+  R_rt: 0.5                      # Relative River-to-Tidal forcing ratio in [0, 1]
+  loop_mechanism: &quot;potential_field&quot; # &quot;potential_field&quot; or &quot;ner_optimality&quot;
+  sample_parameters: false       # If true, sample active parameters from 'distributions'
+  seed: 42                       # Random seed for reproducibility
+
+domain:
+  r_shore: 10000.0               # Shoreline radius in meters
+  theta_base: 65.0               # Fluvial opening angle in degrees
+  theta_delta: 60.0              # Tidal spreading expansion in degrees
+  confinement: 0.0               # Lateral valley confinement factor in [0.0, 0.95]
+  lateral_valley_width: null     # Optional explicit corridor width (m, |x| &lt;= W/2)
+
+backbone:
+  branching_weights: [0.50, 0.45, 0.05] # Probabilities for {1, 2, 3} child branches
+  radial_step_scale_min: 0.65    # Minimum radial step scaling factor
+  radial_step_scale_max: 1.35    # Maximum radial step scaling factor
+  angular_spread_decay: 0.70     # Radial decay of angular perturbation width
+  coastal_node_decay: 0.40       # Shoreward contraction rate of radial node spacing
+  single_branch_spread_factor: 0.35 # Angular deflection factor for non-bifurcating branches
+  bifurcation_spread_min: 0.60   # Lower bound on bifurcation angular spread multiplier
+  bifurcation_spread_max: 1.40   # Upper bound on bifurcation angular spread multiplier
+  base_sinuosity_mean: 0.25      # Mean reach sinuosity offset
+  base_sinuosity_std: 0.15       # Reach sinuosity standard deviation
+  coastal_sinuosity_decay: 0.30  # Shoreward reach straightening factor
+
+loops:
+  candidate_dist_scale: 0.25     # Distance scale l0 = scale * r_shore
+  reconnection_prob_base: 0.55   # c0 tidal reconnection factor
+  anastomosis_prob_base: 0.0     # P0 inland anastomosis factor
+  max_in_degree: 2               # Maximum incoming degree allowed per junction
+  max_out_degree: 3              # Maximum outgoing degree allowed per junction
+  target_max_loops_slope: 0.22   # Scaling slope for maximum loops vs R_rt
+  target_max_loops_intercept: 0.05 # Scaling intercept for maximum loops vs R_rt
+  # Simulated Annealing settings (for 'ner_optimality' loop mechanism)
+  sa_initial_temp: 1.0
+  sa_cooling_rate: 0.975
+  sa_max_steps: 250
+
+pruning:
+  enable_pruning: false          # Toggle pre-hydraulic pruning &amp; simplification
+  prune_inland_dead_ends: true   # Remove blind inland channel fingers (100% ocean delivery)
+  outlet_tolerance: 0.05         # Coastal buffer fraction: r &gt;= r_shore * (1 - tol)
+  min_spur_length: 0.0           # Length threshold (m) below which dead-end spurs are pruned
+  simplify_pass_through_nodes: false # Contract degree-2 chains into direct reaches
+  recalculate_reach_sinuosity: true  # Recalculate unified reach sinuosity from process model
+  max_prune_iterations: 5        # Upper bound on cascading pruning passes
+
+hydraulics:
+  routing_mode: &quot;width&quot;          # Flow partition weighting: &quot;width&quot; or &quot;conductance&quot;
+  murray_p: 1.85                 # Murray's Law exponent: w_parent^p = w_1^p + w_2^p
+  width_beta: 0.745              # Bifurcation width asymmetry factor
+  manning_eta: 1.65              # Width exponent in Manning conductance (Ce = w^eta / L^gamma)
+  length_gamma: 0.50             # Length friction damping exponent in conductance
+  apex_width: 250.0              # Trunk feeder channel width at apex (m)
+  width_noise: 0.30              # Lognormal width variation sigma
+  tidal_flare_k: 1.40            # Seaward exponential tidal flaring rate
+  tidal_flare_onset: 0.30        # Normalized radius (r / r_shore) where tidal flaring initiates
+  loop_flow_penalty: 0.40        # Conductance penalty factor on secondary loop channels
+  min_channel_width: 0.1         # Minimum width cutoff (m)
+  relaxation_max_iter: 15        # Iteration cap for Murray relaxation solver
+  relaxation_tol: 1e-4           # Convergence tolerance for width relaxation
+
+channel_geometry:
+  enable_curved_centerlines: false # Generate harmonic sinuous polyline centerlines
+  min_channel_clearance: 0.40    # Clearance safety fraction bounding meander amplitude
+  num_polyline_points: 21        # Vertex count per reach polyline
+  meander_bends: 1               # Number of harmonic meander half-wavelengths per reach
+
+distributions:
+  murray_p:
+    type: &quot;uniform&quot;
+    low: 1.20
+    high: 2.20
+  width_beta:
+    type: &quot;uniform&quot;
+    low: 0.50
+    high: 0.99
+  apex_width:
+    type: &quot;uniform&quot;
+    low: 50.0
+    high: 500.0
+  tidal_flare_onset:
+    type: &quot;uniform&quot;
+    low: 0.10
+    high: 0.50
+  loop_flow_penalty:
+    type: &quot;uniform&quot;
+    low: 0.20
+    high: 0.70
+  outlet_tolerance:
+    type: &quot;uniform&quot;
+    low: 0.02
+    high: 0.10
+
+extensions: {}                   # Custom plugin / hook parameters
+</code></pre>
+<hr />
+<h2 id="supported-distribution-types">Supported Distribution Types</h2>
+<p>When <code>sample_parameters: true</code>, active parameters are sampled from the <code>distributions</code> block. Supported specifications include:</p>
+<ul>
+<li><strong><code>uniform</code></strong>: Requires <code>low</code> and <code>high</code>.
+  <code>yaml
+  tidal_flare_onset:
+    type: "uniform"
+    low: 0.15
+    high: 0.45</code></li>
+<li><strong><code>normal</code> / <code>gaussian</code></strong>: Requires <code>mean</code> and <code>std</code>, with optional <code>min</code>/<code>max</code> clamps.
+  <code>yaml
+  apex_width:
+    type: "normal"
+    mean: 250.0
+    std: 35.0
+    min: 50.0</code></li>
+<li><strong><code>lognormal</code></strong>: Requires <code>mean</code> and <code>sigma</code>, with optional <code>min</code>/<code>max</code>.
+  <code>yaml
+  base_sinuosity:
+    type: "lognormal"
+    mean: 0.15
+    sigma: 0.20</code></li>
+<li><strong><code>choice</code> / <code>categorical</code></strong>: Requires <code>values</code> list and optional <code>weights</code> list.
+  <code>yaml
+  murray_p:
+    type: "choice"
+    values: [1.50, 1.70, 2.00]
+    weights: [0.2, 0.6, 0.2]</code></li>
+<li><strong><code>fixed</code> / <code>constant</code></strong>: Requires <code>value</code>.</li>
+</ul>
+<hr />
+<h2 id="working-with-configurations-in-python">Working with Configurations in Python</h2>
+<h3 id="1-loading-overrides">1. Loading &amp; Overrides</h3>
+<pre><code class="language-python">import dgm
+
+# Load default settings
+cfg = dgm.DGMConfig.load_default()
+
+# Load custom YAML with runtime overrides
+cfg = dgm.DGMConfig.from_yaml(&quot;my_run.yaml&quot;, N=75, R_rt=0.8)
+
+# Sample active parameters
+sampled = cfg.sample_distribution_parameters()
+</code></pre>
+<h3 id="2-setting-parameters-dynamic-distributions-set_parameter">2. Setting Parameters &amp; Dynamic Distributions (<code>set_parameter</code>)</h3>
+<p>The <code>cfg.set_parameter()</code> method provides a clean, unified interface to adjust any parameter as a constant, a uniform range tuple <code>(low, high)</code>, or a full distribution specification:</p>
+<pre><code class="language-python"># Fixed value (removes from stochastic sampling)
+cfg.set_parameter(&quot;tidal_flare_onset&quot;, 0.35)
+
+# Uniform distribution shorthand using a 2-tuple (low, high)
+cfg.set_parameter(&quot;loop_flow_penalty&quot;, (0.25, 0.55))
+
+# Full distribution dictionary
+cfg.set_parameter(&quot;apex_width&quot;, {
+    &quot;type&quot;: &quot;normal&quot;,
+    &quot;mean&quot;: 300.0,
+    &quot;std&quot;: 30.0,
+    &quot;min&quot;: 100.0
+})
+</code></pre>
+<h3 id="3-inline-distribution-specifications-in-yaml">3. Inline Distribution Specifications in YAML</h3>
+<p>In YAML, parameters under any section can also be declared directly as distributions or ranges:</p>
+<pre><code class="language-yaml">hydraulics:
+  tidal_flare_onset: [0.20, 0.40]      # Automatically parsed as uniform [0.20, 0.40]
+  loop_flow_penalty:
+    type: &quot;uniform&quot;
+    low: 0.30
+    high: 0.60
+</code></pre>
+<hr />
+<h2 id="parameter-validation-rules">Parameter Validation Rules</h2>
+<p><code>DGMConfig.validate()</code> automatically validates all parameters before execution:</p>
+<ul>
+<li><strong>$N$</strong>: Must be $\ge 3$.</li>
+<li><strong>$R_{\text{rt}}$</strong>: Must be in $[0.0, 1.0]$.</li>
+<li><strong>$r_{\text{shore}}$</strong>: Must be $&gt; 0$.</li>
+<li><strong>$\theta_{\text{base}}$, $\theta_{\text{delta}}$</strong>: Must be $&gt; 0$.</li>
+<li><strong><code>confinement</code></strong>: Must be in $[0.0, 0.95]$.</li>
+<li><strong><code>outlet_tolerance</code></strong>: Must be in $[0.001, 0.50]$.</li>
+<li><strong><code>tidal_flare_onset</code></strong>: Must be in $[0.0, 1.0)$.</li>
+<li><strong><code>loop_flow_penalty</code></strong>: Must be in $(0.0, 1.0]$.</li>
+<li><strong><code>min_channel_clearance</code></strong>: Must be in $[0.05, 1.0]$.</li>
+<li><strong><code>num_polyline_points</code></strong>: Must be $\ge 3$.</li>
+<li><strong><code>meander_bends</code></strong>: Must be $\ge 1$.</li>
+<li><strong><code>max_prune_iterations</code></strong>: Must be $\ge 1$.</li>
+</ul>
+<hr />
+<h2 id="physical-assumptions-literature-citations">Physical Assumptions &amp; Literature Citations</h2>
+<p>For an in-depth reference table detailing every parameter, its mathematical formulation, default value, bounded distribution range, and peer-reviewed academic literature citations, see <a href="parameter_justifications.md">Parameter Assumptions &amp; Literature Justifications</a>.</p>
+        </article>
+
+        <!-- Page Footer / Next Step Banner -->
+        <div class="mt-12 pt-6 border-t border-white/[0.1] flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-mono text-white/50">
+          <div>
+            Grounding Source for <strong class="text-white">DGM Hybrid RAG</strong>
+          </div>
+          <div class="flex items-center space-x-3">
+            <a href="../index.html?q=How do DGM parameters, stochastic distributions, and validation constraints work in default_config.yaml?" class="kestrel-btn kestrel-btn-orange text-[10px] py-1 px-3">
+              Ask AI About This Topic
+            </a>
+            <a href="https://github.com/jay-kestrel/dgm" target="_blank" class="kestrel-btn text-[10px] py-1 px-3">
+              View Source on GitHub
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+  </div>
+
+</body>
+</html>

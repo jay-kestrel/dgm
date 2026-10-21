@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-[#0a0b0a] text-white">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tutorial 01: Quickstart | DeltaGraphModel Documentation</title>
+  
+  <!-- Kestrel Typography: Aldrich (Display), Azeret Mono (Code/HUD), Plus Jakarta Sans (Body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Aldrich&family=Azeret+Mono:ital,wght@0,300..700;1,300..700&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            kestrel: {
+              bg: '#0a0b0a',
+              panel: '#0c0e0c',
+              terminal: '#060706',
+              border: 'rgba(255, 255, 255, 0.1)',
+              orange: '#ff5a35',
+              lime: '#c4f94a',
+              teal: '#cfddd0',
+            }
+          },
+          fontFamily: {
+            heading: ['Aldrich', 'sans-serif'],
+            mono: ['"Azeret Mono"', 'monospace'],
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    *, ::before, ::after {
+      border-radius: 0px !important;
+    }
+    body {
+      background-color: #0a0b0a;
+      color: #ffffff;
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    .teal-ambient {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: 
+        radial-gradient(circle at 50% -12%, rgba(207, 221, 208, 0.08) 0%, transparent 65%),
+        radial-gradient(circle at 90% 10%, rgba(255, 90, 53, 0.04) 0%, transparent 45%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    /* Custom square scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #070807; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); }
+    ::-webkit-scrollbar-thumb:hover { background: #ff5a35; }
+
+    /* Kestrel Buttons */
+    .kestrel-btn {
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.6875rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 500;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      padding: 0.45rem 0.85rem;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+    }
+    .kestrel-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+    .kestrel-btn-orange {
+      background: #ff5a35;
+      border-color: #ff5a35;
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 0 14px rgba(255, 90, 53, 0.3);
+    }
+    .kestrel-btn-orange:hover {
+      background: #ff7a5a;
+      border-color: #ff7a5a;
+      box-shadow: 0 0 20px rgba(255, 90, 53, 0.45);
+    }
+
+    /* Markdown prose formatting */
+    .prose-kestrel h1 {
+      font-family: 'Aldrich', sans-serif;
+      font-size: 1.75rem;
+      line-height: 1.25;
+      color: #ffffff;
+      margin-top: 1.5rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 0.5rem;
+    }
+    .prose-kestrel h2 {
+      font-family: 'Aldrich', sans-serif;
+      font-size: 1.25rem;
+      line-height: 1.35;
+      color: #ffffff;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 0.35rem;
+    }
+    .prose-kestrel h3 {
+      font-family: 'Aldrich', sans-serif;
+      font-size: 1rem;
+      color: #ffffff;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .prose-kestrel p {
+      margin-bottom: 1rem;
+      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 0.875rem;
+    }
+    .prose-kestrel ul, .prose-kestrel ol {
+      margin-left: 1.5rem;
+      margin-bottom: 1.25rem;
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 0.875rem;
+      line-height: 1.7;
+    }
+    .prose-kestrel ul { list-style-type: square; }
+    .prose-kestrel ol { list-style-type: decimal; }
+    .prose-kestrel li { margin-bottom: 0.35rem; }
+    .prose-kestrel pre {
+      background: #050605;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 1rem;
+      overflow-x: auto;
+      margin: 1.25rem 0;
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.75rem;
+      line-height: 1.55;
+      color: #e2e8f0;
+    }
+    .prose-kestrel code {
+      background: rgba(255, 255, 255, 0.08);
+      color: #c4f94a;
+      padding: 0.15rem 0.35rem;
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .prose-kestrel pre code {
+      background: transparent;
+      color: #e2e8f0;
+      padding: 0;
+      border: none;
+    }
+    .prose-kestrel table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      font-size: 0.8rem;
+    }
+    .prose-kestrel th {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 0.6rem 0.85rem;
+      text-align: left;
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #ffffff;
+    }
+    .prose-kestrel td {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 0.6rem 0.85rem;
+      color: rgba(255, 255, 255, 0.75);
+    }
+    .prose-kestrel tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .prose-kestrel blockquote {
+      border-left: 2px solid #ff5a35;
+      background: rgba(255, 90, 53, 0.05);
+      padding: 0.75rem 1rem;
+      margin: 1.25rem 0;
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.85);
+    }
+    .prose-kestrel a {
+      color: #ff5a35;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased text-white bg-[#0a0b0a] relative selection:bg-[#ff5a35]/30 selection:text-white">
+
+  <!-- Ambient Light Layer -->
+  <div class="teal-ambient" aria-hidden="true"></div>
+
+  <!-- Header Navigation -->
+  <header class="border-b border-white/[0.1] bg-[#0a0b0a] sticky top-0 z-50 shrink-0">
+    <div class="w-full px-4 h-14 flex items-center justify-between">
+      
+      <!-- Brandmark & Section -->
+      <div class="flex items-center space-x-3">
+        <a href="../index.html" class="w-8 h-8 bg-white/[0.04] border border-white/[0.2] text-[#ff5a35] flex items-center justify-center font-heading font-bold text-base hover:border-[#ff5a35] transition" title="Go to AI Assistant Front Door">
+          Δ
+        </a>
+        <div class="flex items-center space-x-2">
+          <a href="../index.html" class="font-heading text-sm sm:text-base tracking-wider text-white hover:text-[#ff5a35] transition">
+            DeltaGraphModel
+          </a>
+          <span class="text-white/30 font-mono text-xs">/</span>
+          <span class="text-xs font-mono text-[#ff5a35] uppercase tracking-wider">
+            Tutorial 01: Quickstart
+          </span>
+        </div>
+      </div>
+
+      <!-- Header Actions -->
+      <div class="flex items-center space-x-3">
+        <a href="../index.html?q=How do I run the DGM quickstart example and export to GraphML or GeoJSON?" class="kestrel-btn kestrel-btn-orange text-[10px] py-1 px-3" title="Ask DGM Assistant about this document">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>
+          <span>Ask AI About This</span>
+        </a>
+        <a href="../index.html" class="kestrel-btn text-[10px] py-1 px-3">
+          <span>AI Terminal &rarr;</span>
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Body: Sidebar + Reading Canvas -->
+  <div class="flex-1 w-full flex overflow-hidden relative z-10">
+    
+    <!-- Left Navigation Sidebar -->
+    <aside class="w-64 shrink-0 border-r border-white/[0.1] bg-[#0c0e0c] h-full overflow-y-auto hidden md:block">
+      <div class="p-3 border-b border-white/[0.1] bg-[#080908] flex items-center justify-between">
+        <span class="text-[10px] font-mono uppercase tracking-widest text-white/50">Documentation</span>
+        <span class="text-[9px] font-mono text-[#c4f94a]">[ VERIFIED ]</span>
+      </div>
+      <nav class="py-2">
+        <div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Getting Started</div>
+<a href="index.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Overview</a>
+<div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Core Theory</div>
+<a href="architecture.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Architecture &amp; Math</a>
+<a href="configuration.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">YAML Configuration</a>
+<div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Reference</div>
+<a href="api_reference.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Python API Reference</a>
+<div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Tutorials</div>
+<a href="walkthrough.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">End-to-End Walkthrough</a>
+<a href="tutorial_01_quickstart.html" class="block px-3 py-1.5 text-xs transition bg-white/[0.08] text-[#ff5a35] border-l-2 border-l-[#ff5a35] font-semibold">Tutorial 01: Quickstart</a>
+<a href="tutorial_02_ensemble_clouds.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Tutorial 02: Ensembles</a>
+      </nav>
+      <div class="p-4 mt-6 border-t border-white/[0.08] bg-white/[0.01]">
+        <div class="text-[10px] font-mono text-white/40 uppercase mb-2">Need Instant Answers?</div>
+        <a href="../index.html" class="block w-full text-center kestrel-btn text-[10px] py-2">
+          Open AI Terminal
+        </a>
+      </div>
+    </aside>
+
+    <!-- Reading Canvas -->
+    <main class="flex-1 h-full overflow-y-auto px-6 py-8 md:px-12 lg:px-16 bg-[#0a0b0a]">
+      <div class="max-w-4xl mx-auto">
+        
+        <!-- Breadcrumbs -->
+        <div class="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-wider text-white/40 mb-4 pb-2 border-b border-white/[0.06]">
+          <a href="index.html" class="hover:text-white transition">Docs</a>
+          <span>&gt;</span>
+          <span>Tutorials</span>
+          <span>&gt;</span>
+          <span class="text-[#ff5a35]">Tutorial 01: Quickstart</span>
+        </div>
+
+        <!-- Markdown Body -->
+        <article class="prose-kestrel">
+          <h1 id="tutorial-1-quickstart">Tutorial 1: Quickstart</h1>
+<p>In this tutorial, you will generate your first synthetic river delta network, inspect its geomorphic metrics, and plot a 2D cartographic map.</p>
+<blockquote>
+<p>[!TIP]
+For a detailed guide covering installation, custom YAML configurations, multi-stage pipeline extraction, and advanced plotting, see the <a href="../walkthrough.md">End-to-End Walkthrough</a>.</p>
+</blockquote>
+<hr />
+<h2 id="1-quickstart-code">1. Quickstart Code</h2>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+import dgm
+
+# 1. Generate a delta realization with sinuous centerlines and pruning
+G = dgm.generate(
+    N=50,
+    R_rt=0.45,
+    enable_curved_centerlines=True,
+    enable_pruning=True,
+    seed=42
+)
+
+print(f&quot;Generated delta: {G.number_of_nodes()} nodes, {G.number_of_edges()} channels.&quot;)
+
+# 2. Evaluate the 20-metric geomorphic battery
+battery = dgm.MetricsBattery()
+metrics = battery.evaluate_all(G)
+
+print(f&quot;Alpha Index (Loopiness):          {metrics['alpha_index']:.4f}&quot;)
+print(f&quot;Normalized Entropy Rate (nER*):   {metrics['nER_star']:.4f}&quot;)
+print(f&quot;Entropic Braiding Index (eBI):    {metrics['eBI']:.4f}&quot;)
+print(f&quot;Mean Channel Sinuosity:           {metrics['mean_sinuosity']:.3f}&quot;)
+
+# 3. Plot a publication-quality 2D map
+fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
+dgm.plot_network(
+    G,
+    ax=ax,
+    curved=True,
+    edge_width=&quot;width&quot;,
+    width_scaling=&quot;sqrt&quot;,
+    theme=&quot;light&quot;,
+    title=&quot;DGM Quickstart: Synthetic Delta Network (R_rt = 0.45)&quot;,
+    show_stats=True,
+    show_legend=True
+)
+fig.savefig(&quot;quickstart_delta.png&quot;, bbox_inches=&quot;tight&quot;)
+plt.close(fig)
+print(&quot;Saved map to quickstart_delta.png&quot;)
+
+# 4. Export graph for GIS and network analysis
+dgm.to_graphml(G, &quot;quickstart_delta.graphml&quot;)  # For Gephi / Cytoscape
+dgm.to_geojson(G, &quot;quickstart_delta.geojson&quot;)  # For QGIS / ArcGIS
+</code></pre>
+<hr />
+<h2 id="2-using-the-cli">2. Using the CLI</h2>
+<p>You can also generate deltas and render plots directly from the command line:</p>
+<pre><code class="language-bash"># Export network topology to GraphML or GeoJSON
+dgm generate -N 60 -R 0.5 --curved --enable-pruning -o delta_60.graphml
+dgm generate -N 60 -R 0.5 --curved --enable-pruning -o delta_60.geojson
+
+# Render directly to an image (.png, .pdf, or .svg)
+dgm generate -N 60 -R 0.5 --curved --enable-pruning -o delta_60.png
+</code></pre>
+<hr />
+<h2 id="next-steps">Next Steps</h2>
+<ul>
+<li>Follow the <a href="../walkthrough.md">End-to-End Walkthrough</a> for a complete step-by-step tour from installation to advanced visualization.</li>
+<li>Proceed to <a href="02_ensemble_clouds.md">Tutorial 2: Sampling Ensemble Clouds</a> to explore stochastic parameter variation.</li>
+<li>Review the <a href="../api_reference.md">Python API Reference</a> for full method signatures.</li>
+<li>Understand the underlying physics in <a href="../architecture.md">Architecture &amp; Mathematical Formulation</a>.</li>
+<li>Return to the <a href="../index.md">Documentation Index</a>.</li>
+</ul>
+        </article>
+
+        <!-- Page Footer / Next Step Banner -->
+        <div class="mt-12 pt-6 border-t border-white/[0.1] flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-mono text-white/50">
+          <div>
+            Grounding Source for <strong class="text-white">DGM Hybrid RAG</strong>
+          </div>
+          <div class="flex items-center space-x-3">
+            <a href="../index.html?q=How do I run the DGM quickstart example and export to GraphML or GeoJSON?" class="kestrel-btn kestrel-btn-orange text-[10px] py-1 px-3">
+              Ask AI About This Topic
+            </a>
+            <a href="https://github.com/jay-kestrel/dgm" target="_blank" class="kestrel-btn text-[10px] py-1 px-3">
+              View Source on GitHub
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+  </div>
+
+</body>
+</html>

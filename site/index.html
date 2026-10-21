@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-[#0a0b0a] text-white">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeltaGraphModel | Autonomous Topology & Hybrid RAG Assistant</title>
+  
+  <!-- Kestrel Intelligence Typography: Aldrich (Display), Azeret Mono (Code/HUD), Plus Jakarta Sans (Body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Aldrich&family=Azeret+Mono:ital,wght@0,300..700;1,300..700&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- MiniSearch for instant client-side lexical BM25 search -->
+  <script src="https://cdn.jsdelivr.net/npm/minisearch@7.1.0/dist/umd/index.min.js"></script>
+  <!-- Marked.js for clean Markdown & code block rendering in chat -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            kestrel: {
+              bg: '#0a0b0a',
+              panel: '#0c0e0c',
+              terminal: '#060706',
+              border: 'rgba(255, 255, 255, 0.1)',
+              'border-subtle': 'rgba(255, 255, 255, 0.06)',
+              'border-hover': 'rgba(255, 255, 255, 0.25)',
+              orange: '#ff5a35',
+              'orange-glow': 'rgba(255, 90, 53, 0.35)',
+              'orange-dark': '#e04724',
+              lime: '#c4f94a',
+              'lime-glow': 'rgba(196, 249, 74, 0.3)',
+              teal: '#cfddd0',
+              muted: 'rgba(255, 255, 255, 0.6)',
+              subtle: 'rgba(255, 255, 255, 0.4)',
+            }
+          },
+          fontFamily: {
+            heading: ['Aldrich', 'sans-serif'],
+            mono: ['"Azeret Mono"', 'monospace'],
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Global Reset: Force Sharp Squared Geometry */
+    *, ::before, ::after {
+      border-radius: 0px !important;
+    }
+
+    body {
+      background-color: #0a0b0a;
+      color: #ffffff;
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Ambient Lighting Overlay */
+    .teal-ambient {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: 
+        radial-gradient(circle at 50% -12%, rgba(207, 221, 208, 0.08) 0%, transparent 65%),
+        radial-gradient(circle at 90% 10%, rgba(255, 90, 53, 0.04) 0%, transparent 45%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Subtle Hairline Grid */
+    .tactical-grid {
+      background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+
+    /* Precision Square Scrollbars */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: #070807; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); }
+    ::-webkit-scrollbar-thumb:hover { background: #ff5a35; }
+
+    /* Segmented Layout Mode Switcher */
+    .kestrel-layout-btn {
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.35rem 0.65rem;
+      color: rgba(255, 255, 255, 0.55);
+      background: transparent;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+    }
+    .kestrel-layout-btn:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .kestrel-layout-btn.active {
+      color: #ff5a35;
+      background: rgba(255, 90, 53, 0.12);
+      border-color: rgba(255, 90, 53, 0.4);
+    }
+
+    /* Squared Kestrel Tactical Buttons */
+    .kestrel-btn {
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.6875rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 500;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      padding: 0.5rem 0.85rem;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      cursor: pointer;
+    }
+    .kestrel-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+    .kestrel-btn-orange {
+      background: #ff5a35;
+      border-color: #ff5a35;
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 0 14px rgba(255, 90, 53, 0.3);
+    }
+    .kestrel-btn-orange:hover {
+      background: #ff7a5a;
+      border-color: #ff7a5a;
+      box-shadow: 0 0 20px rgba(255, 90, 53, 0.45);
+    }
+    .kestrel-btn-orange:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Result Row (Precision Segmented Data Cell) */
+    .result-row {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      background: transparent;
+      transition: all 0.15s ease;
+      border-left: 2px solid transparent;
+      cursor: pointer;
+    }
+    .result-row:hover {
+      background: rgba(255, 255, 255, 0.04);
+      border-left-color: #ff5a35;
+    }
+    .result-row:last-child {
+      border-bottom: none;
+    }
+
+    /* Markdown Styling in Squared Console */
+    .prose-chat pre {
+      background: #050605;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 0.75rem;
+      overflow-x: auto;
+      margin: 0.5rem 0;
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.725rem;
+      line-height: 1.5;
+      color: #e2e8f0;
+    }
+    .prose-chat code {
+      background: rgba(255, 255, 255, 0.08);
+      color: #c4f94a;
+      padding: 0.1rem 0.3rem;
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.725rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .prose-chat pre code {
+      background: transparent;
+      color: #e2e8f0;
+      padding: 0;
+      border: none;
+    }
+    .prose-chat p { margin-bottom: 0.5rem; }
+    .prose-chat p:last-child { margin-bottom: 0; }
+    .prose-chat ul, .prose-chat ol { margin-left: 1.15rem; margin-bottom: 0.5rem; list-style-type: square; }
+    .prose-chat h3 {
+      font-family: 'Aldrich', sans-serif;
+      color: #fff;
+      font-size: 0.85rem;
+      margin-top: 0.7rem;
+      margin-bottom: 0.3rem;
+    }
+    .prose-chat a {
+      color: #ff5a35;
+      text-decoration: underline;
+    }
+
+    /* Modal Top Accent Line */
+    .modal-accent-line {
+      height: 2px;
+      background: linear-gradient(90deg, #ff5a35 0%, #ff9d00 50%, #c4f94a 100%);
+      width: 100%;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased text-white bg-[#0a0b0a] relative selection:bg-[#ff5a35]/30 selection:text-white">
+
+  <!-- Ambient Light Layer -->
+  <div class="teal-ambient" aria-hidden="true"></div>
+
+  <!-- Kestrel Header Navigation (Edge-to-Edge Hairline Bar) -->
+  <header class="border-b border-white/[0.1] bg-[#0a0b0a] sticky top-0 z-50 shrink-0">
+    <div class="w-full px-4 h-14 flex items-center justify-between">
+      
+      <!-- Left: Brandmark & Status -->
+      <div class="flex items-center space-x-3">
+        <a href="#" class="w-8 h-8 bg-white/[0.04] border border-white/[0.2] text-[#ff5a35] flex items-center justify-center font-heading font-bold text-base hover:border-[#ff5a35] transition">
+          Δ
+        </a>
+        <div class="flex items-center space-x-2.5">
+          <span class="font-heading text-sm sm:text-base tracking-wider text-white">
+            DeltaGraphModel
+          </span>
+          <span class="hidden xl:inline-flex items-center gap-1.5 text-[9px] font-mono uppercase bg-white/[0.03] text-white/70 px-2 py-0.5 border border-white/[0.1] tracking-widest">
+            <span class="w-1.5 h-1.5 bg-[#c4f94a]"></span>
+            Autonomous Topology & RAG
+          </span>
+        </div>
+      </div>
+
+      <!-- Center: Tactical Tri-Mode HUD Layout Switcher -->
+      <div class="inline-flex items-center border border-white/[0.15] bg-[#0c0e0c] p-0.5" id="layoutSwitcher" role="tablist">
+        <button id="layoutBtnDual" onclick="setLayout('dual')" class="kestrel-layout-btn active" title="Dual Split View (⌘1)">
+          <svg class="w-3 h-3 fill-current" viewBox="0 0 16 16"><path d="M1 2h6v12H1V2zm8 0h6v12H9V2z" fill-rule="evenodd"/></svg>
+          <span class="hidden sm:inline">Dual</span>
+        </button>
+        <button id="layoutBtnChat" onclick="setLayout('chat')" class="kestrel-layout-btn" title="Focus Chat (⌘2 or ⌘B)">
+          <svg class="w-3 h-3 fill-current" viewBox="0 0 16 16"><path d="M1 2h14v12H1V2z" fill-rule="evenodd"/></svg>
+          <span class="hidden sm:inline">Chat</span>
+        </button>
+        <button id="layoutBtnRetrieval" onclick="setLayout('retrieval')" class="kestrel-layout-btn" title="Focus Retrieval (⌘3)">
+          <svg class="w-3 h-3 fill-current" viewBox="0 0 16 16"><path d="M1 2h14v12H1V2z" fill-rule="evenodd"/></svg>
+          <span class="hidden sm:inline">Retrieval</span>
+        </button>
+      </div>
+
+      <!-- Right: Telemetry Status & Nav CTA -->
+      <div class="flex items-center space-x-2 sm:space-x-3 text-xs">
+        <span id="embedStatusBadge" class="hidden lg:inline-flex items-center gap-1.5 text-[9px] font-mono uppercase bg-white/[0.03] text-white/60 px-2 py-1 border border-white/[0.1] tracking-wider">
+          <span class="w-1.5 h-1.5 bg-[#ff5a35]"></span>
+          Vectors: Loading...
+        </span>
+        
+        <a href="docs/index.html" class="kestrel-btn text-[10px] py-1 px-2.5" title="View Full Documentation & Guides">
+          <span>▤ Docs & Guides</span>
+        </a>
+
+        <a href="https://github.com/jay-kestrel/dgm" target="_blank" class="kestrel-btn text-[10px] py-1 px-3">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+          <span class="hidden sm:inline">GitHub</span>
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Unified Workspace: Adaptive Tri-Mode HUD -->
+  <main id="workspaceContainer" class="flex-1 w-full flex overflow-hidden relative z-10">
+
+    <!-- 38px Collapsed Spine (Visible when Retrieval is Collapsed in Chat Mode) -->
+    <aside id="retrievalSpine" onclick="setLayout('dual')" class="hidden w-[38px] shrink-0 border-r border-white/[0.1] bg-[#0c0e0c] hover:bg-white/[0.04] transition cursor-pointer flex flex-col items-center py-3 select-none group" title="Expand Retrieval (⌘B)">
+      <button class="w-6 h-6 flex items-center justify-center text-white/50 group-hover:text-[#ff5a35] border border-white/[0.1] mb-4 bg-white/[0.02]" title="Expand Retrieval (⌘B)">
+        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+      </button>
+      <div class="[writing-mode:vertical-rl] rotate-180 flex items-center gap-2.5 text-[9px] font-mono tracking-widest uppercase text-white/40 group-hover:text-white transition">
+        <span class="text-[#ff5a35] font-bold">01 //</span>
+        <span>HYBRID RETRIEVAL</span>
+        <span id="spineResultBadge" class="bg-white/[0.06] text-[#c4f94a] px-1 py-0.5 border border-white/[0.1]">345</span>
+      </div>
+    </aside>
+
+    <!-- Left Panel: Hybrid Retrieval Engine -->
+    <section id="retrievalPanel" class="w-full md:w-[420px] lg:w-[38%] shrink-0 flex flex-col h-full border-r border-white/[0.1] bg-[#0c0e0c] overflow-hidden">
+      
+      <!-- Panel Header Bar with Quick Collapse Button -->
+      <div class="px-3.5 py-2.5 border-b border-white/[0.1] bg-white/[0.02] flex items-center justify-between shrink-0">
+        <div class="flex items-center space-x-2">
+          <span class="text-[10px] font-mono text-[#ff5a35] font-semibold tracking-wider">01 //</span>
+          <h2 class="font-heading text-xs tracking-wider uppercase text-white font-normal">Hybrid Retrieval</h2>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span id="searchModeLabel" class="text-[9px] font-mono text-white/50 uppercase tracking-widest hidden sm:inline">BM25 Lexical</span>
+          <button onclick="setLayout('chat')" class="w-6 h-6 flex items-center justify-center text-white/40 hover:text-white hover:border-[#ff5a35] border border-white/[0.1] bg-white/[0.02] transition" title="Collapse Pane (⌘B)">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search Input Bar -->
+      <div class="p-3 border-b border-white/[0.1] bg-[#070807] shrink-0">
+        <div class="relative">
+          <input 
+            id="searchInput" 
+            type="text" 
+            placeholder="Search functions, equations, deltas, parameters... (⌘K)" 
+            class="w-full bg-[#0c0e0c] text-white placeholder-white/35 text-xs font-sans pl-8 pr-3 py-2 border border-white/[0.15] focus:outline-none focus:border-[#ff5a35] transition"
+          />
+          <svg class="w-3.5 h-3.5 text-white/40 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Quick Preset Filter Matrix -->
+      <div class="px-3 py-2 border-b border-white/[0.1] bg-white/[0.015] flex flex-wrap gap-1 text-[10px] font-mono shrink-0">
+        <button onclick="setQuery('murray_p width splitting')" class="bg-white/[0.03] hover:bg-white/[0.08] hover:border-[#ff5a35] hover:text-[#ff5a35] text-white/60 px-2 py-0.5 border border-white/[0.1] transition-colors">murray_p</button>
+        <button onclick="setQuery('R_rt tidal forcing ratio')" class="bg-white/[0.03] hover:bg-white/[0.08] hover:border-[#ff5a35] hover:text-[#ff5a35] text-white/60 px-2 py-0.5 border border-white/[0.1] transition-colors">R_rt</button>
+        <button onclick="setQuery('nER_star spectral loop engine')" class="bg-white/[0.03] hover:bg-white/[0.08] hover:border-[#ff5a35] hover:text-[#ff5a35] text-white/60 px-2 py-0.5 border border-white/[0.1] transition-colors">nER_star</button>
+        <button onclick="setQuery('remove dead end channels')" class="bg-white/[0.03] hover:bg-white/[0.08] hover:border-[#ff5a35] hover:text-[#ff5a35] text-white/60 px-2 py-0.5 border border-white/[0.1] transition-colors">pruning</button>
+        <button onclick="setQuery('Lena Delta arctic metrics')" class="bg-white/[0.03] hover:bg-white/[0.08] hover:border-[#ff5a35] hover:text-[#ff5a35] text-white/60 px-2 py-0.5 border border-white/[0.1] transition-colors">Lena</button>
+      </div>
+
+      <!-- Search Stats Telemetry Strip -->
+      <div class="px-4 py-1.5 border-b border-white/[0.08] bg-[#070807] flex items-center justify-between text-[9px] font-mono text-white/40 tracking-wider shrink-0 uppercase">
+        <span id="resultCount">Loading index...</span>
+        <span>Grounding Evidence</span>
+      </div>
+
+      <!-- Results List (Precision Data Rows) -->
+      <div id="resultsList" class="flex-1 overflow-y-auto">
+        <!-- Result rows injected via JS -->
+      </div>
+
+    </section>
+
+    <!-- Right Panel: Autonomous AI Assistant -->
+    <section id="chatPanel" class="flex-1 flex flex-col h-full bg-[#0a0b0a] overflow-hidden min-w-0">
+      
+      <!-- Panel Header Bar & Model Controls -->
+      <div class="px-4 py-2.5 border-b border-white/[0.1] bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0">
+        <div class="flex items-center space-x-2">
+          <span class="text-[10px] font-mono text-[#ff5a35] font-semibold tracking-wider">02 //</span>
+          <h2 class="font-heading text-xs tracking-wider uppercase text-white font-normal flex items-center gap-2">
+            <span>Autonomous AI Synthesis</span>
+            <span id="runtimeBadge" class="text-[9px] font-mono uppercase bg-white/[0.04] text-white/60 px-1.5 py-0.5 border border-white/[0.1]">
+              Detecting Runtime...
+            </span>
+          </h2>
+        </div>
+        
+        <!-- Model Selection & Load LLM Button -->
+        <div id="modelControl" class="flex items-center space-x-2 shrink-0">
+          <select 
+            id="modelSelect" 
+            class="bg-[#0c0e0c] text-white text-[11px] font-mono px-2 py-1 border border-white/[0.15] focus:outline-none focus:border-[#ff5a35] max-w-[190px] sm:max-w-[220px]"
+            title="Choose LLM size"
+          >
+            <option value="onnx-community/Qwen2.5-Coder-0.5B-Instruct">Qwen2.5-Coder-0.5B (~350MB)</option>
+            <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2-360M (~230MB)</option>
+            <option value="onnx-community/Qwen2.5-Coder-1.5B-Instruct">Qwen2.5-Coder-1.5B (~950MB)</option>
+          </select>
+          <button 
+            id="loadModelBtn" 
+            onclick="initLLM()" 
+            class="kestrel-btn kestrel-btn-orange text-[10px] py-1 px-3"
+          >
+            Load LLM
+          </button>
+        </div>
+      </div>
+
+      <!-- Integrated Download Progress Bar -->
+      <div id="progressContainer" class="hidden bg-[#070807] px-4 py-1.5 text-xs border-b border-white/[0.1] shrink-0">
+        <div class="flex justify-between text-white/70 font-mono text-[10px] mb-1">
+          <span id="progressText">Downloading model weights to browser cache...</span>
+          <span id="progressPercent" class="text-[#ff5a35]">0%</span>
+        </div>
+        <div class="w-full bg-white/[0.08] h-1 overflow-hidden">
+          <div id="progressBar" class="bg-[#ff5a35] h-1 transition-all duration-300" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Chat History Console -->
+      <div id="chatHistory" class="flex-1 overflow-y-auto p-4 space-y-4">
+        
+        <!-- Welcome Terminal Entry -->
+        <div class="border border-white/[0.1] bg-white/[0.02] p-4 text-xs text-white/80 max-w-3xl">
+          <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-white/[0.08]">
+            <div class="flex items-center space-x-2">
+              <span class="w-4 h-4 bg-[#ff5a35]/20 text-[#ff5a35] border border-[#ff5a35]/40 flex items-center justify-center font-heading font-bold text-[10px]">Δ</span>
+              <span class="font-heading text-xs text-white tracking-wide uppercase">DeltaGraphModel Terminal</span>
+            </div>
+            <span class="text-[9px] font-mono text-[#c4f94a] uppercase tracking-wider">[ READY ]</span>
+          </div>
+          <p class="text-white/70 text-xs leading-relaxed font-sans">
+            Client-side <strong class="text-white">Hybrid RAG engine</strong> with BM25 lexical indexing and <span class="font-mono text-white/90">384-d float16 vector embeddings</span> stored directly in-repo. Neural synthesis runs 100% privately in-browser via <strong class="text-white">Transformers.js</strong>.
+          </p>
+          <div class="mt-3 pt-2.5 border-t border-white/[0.08] flex flex-wrap gap-2 text-[10px] font-mono">
+            <span class="text-white/40 uppercase">Suggested Inquiries:</span>
+            <button onclick="askPreset('How does DGM apply Murray\'s Law for channel width splitting?')" class="text-[#ff5a35] hover:underline">Murray's Law width splitting?</button>
+            <span class="text-white/20">•</span>
+            <button onclick="askPreset('Explain the physical difference between potential field loops and nER* optimality loops.')" class="text-[#ff5a35] hover:underline">Dual loop engines?</button>
+            <span class="text-white/20">•</span>
+            <button onclick="askPreset('What are the empirical metrics and R_rt of the Lena and Mississippi deltas?')" class="text-[#ff5a35] hover:underline">Lena vs Mississippi?</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Docked Bottom Input Console -->
+      <div class="p-3 border-t border-white/[0.1] bg-[#0c0e0c] shrink-0">
+        <form id="chatForm" onsubmit="handleChatSubmit(event)" class="relative flex items-center">
+          <textarea 
+            id="chatInput" 
+            rows="1" 
+            placeholder="Query DGM equations, parameters, empirical deltas, or source code..." 
+            class="w-full bg-[#070807] text-white placeholder-white/35 text-xs font-sans pl-3 pr-24 py-2.5 border border-white/[0.15] focus:outline-none focus:border-[#ff5a35] resize-none transition"
+            onkeydown="if(event.key === 'Enter' && !event.shiftKey){ event.preventDefault(); handleChatSubmit(event); }"
+          ></textarea>
+          <button 
+            type="submit" 
+            id="sendBtn" 
+            class="absolute right-1.5 top-1.5 bottom-1.5 my-auto kestrel-btn kestrel-btn-orange text-[10px] px-3.5"
+          >
+            Ask AI
+          </button>
+        </form>
+        <div class="flex items-center justify-between mt-2 text-[9px] font-mono text-white/40 tracking-wider">
+          <span>HYBRID RRF GROUNDING (BM25 + VECTORS)</span>
+          <span id="modelStatusIndicator" class="text-white/50">Summary Mode (Click 'Load LLM' for neural synthesis)</span>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Code & Documentation Inspector Modal (Squared Technical HUD Window) -->
+  <div id="chunkModal" class="fixed inset-0 bg-[#0a0b0a]/85 backdrop-blur-sm z-50 hidden items-center justify-center p-3 sm:p-6">
+    <div class="bg-[#0c0e0c] border border-white/[0.2] max-w-3xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="modal-accent-line"></div>
+      <div class="p-3.5 border-b border-white/[0.1] bg-[#080908] flex items-center justify-between">
+        <div>
+          <span id="modalBadge" class="text-[9px] font-mono uppercase px-1.5 py-0.5 border"></span>
+          <h3 id="modalTitle" class="font-heading text-sm text-white mt-1"></h3>
+          <p id="modalPath" class="text-[10px] text-white/50 font-mono"></p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <a id="modalDocLink" href="#" class="kestrel-btn text-[9px] py-1 px-2.5 hidden text-[#ff5a35] border-[#ff5a35]/40 hover:bg-[#ff5a35]/15">
+            Read Full Guide &rarr;
+          </a>
+          <button id="modalAskBtn" class="kestrel-btn kestrel-btn-orange text-[9px] py-1 px-2.5">
+            Ask AI About This
+          </button>
+          <a id="modalGithubLink" href="#" target="_blank" class="kestrel-btn text-[9px] py-1 px-2.5">
+            GitHub
+          </a>
+          <button onclick="closeModal()" class="text-white/50 hover:text-white p-1 transition" title="Close (Esc)">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="modalBody" class="p-4 overflow-y-auto text-xs text-white/80 prose-chat space-y-2 bg-[#090b09]"></div>
+    </div>
+  </div>
+
+  <!-- Application Logic using Transformers.js -->
+  <script type="module">
+    import { pipeline, env, TextStreamer } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1";
+
+    // Configure Transformers.js for browser execution
+    env.allowLocalModels = false;
+
+    // Application State
+    let searchIndex = [];
+    let miniSearch = null;
+    let embeddingsMatrix = null;
+    let embeddingDim = 384;
+    let embedderPipeline = null;
+    let generatorPipeline = null;
+    let hasWebGPU = false;
+    let isGenerating = false;
+    let currentLayout = "dual"; // "dual" | "chat" | "retrieval"
+
+    const EMBED_MODEL_ID = "Xenova/all-MiniLM-L6-v2";
+    const STOPWORDS = new Set([
+      "how", "does", "what", "is", "the", "a", "an", "in", "of", "for", "to", "and", "or",
+      "with", "on", "by", "explain", "show", "me", "can", "you", "work", "works", "used",
+      "between", "dgm", "deltagraphmodel", "difference", "tell", "about", "are", "why"
+    ]);
+
+    // DOM Elements
+    const searchInput = document.getElementById("searchInput");
+    const resultsList = document.getElementById("resultsList");
+    const resultCount = document.getElementById("resultCount");
+    const searchModeLabel = document.getElementById("searchModeLabel");
+    const embedStatusBadge = document.getElementById("embedStatusBadge");
+    const chatHistory = document.getElementById("chatHistory");
+    const chatInput = document.getElementById("chatInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const loadModelBtn = document.getElementById("loadModelBtn");
+    const modelSelect = document.getElementById("modelSelect");
+    const runtimeBadge = document.getElementById("runtimeBadge");
+    const progressContainer = document.getElementById("progressContainer");
+    const progressText = document.getElementById("progressText");
+    const progressPercent = document.getElementById("progressPercent");
+    const progressBar = document.getElementById("progressBar");
+    const modelStatusIndicator = document.getElementById("modelStatusIndicator");
+    const spineResultBadge = document.getElementById("spineResultBadge");
+
+    // Layout Management: Tactical Tri-Mode HUD
+    window.setLayout = function(mode) {
+      currentLayout = mode;
+      try { localStorage.setItem("dgm_layout", mode); } catch(e) {}
+
+      const retrievalPanel = document.getElementById("retrievalPanel");
+      const retrievalSpine = document.getElementById("retrievalSpine");
+      const chatPanel = document.getElementById("chatPanel");
+
+      const btnDual = document.getElementById("layoutBtnDual");
+      const btnChat = document.getElementById("layoutBtnChat");
+      const btnRetrieval = document.getElementById("layoutBtnRetrieval");
+
+      if (btnDual) btnDual.classList.toggle("active", mode === "dual");
+      if (btnChat) btnChat.classList.toggle("active", mode === "chat");
+      if (btnRetrieval) btnRetrieval.classList.toggle("active", mode === "retrieval");
+
+      if (mode === "chat") {
+        retrievalPanel.classList.add("hidden");
+        retrievalSpine.classList.remove("hidden");
+        chatPanel.classList.remove("hidden");
+        chatPanel.className = "flex-1 flex flex-col h-full bg-[#0a0b0a] overflow-hidden min-w-0";
+      } else if (mode === "retrieval") {
+        retrievalSpine.classList.add("hidden");
+        retrievalPanel.classList.remove("hidden");
+        retrievalPanel.className = "w-full flex-1 flex flex-col h-full bg-[#0c0e0c] overflow-hidden";
+        chatPanel.classList.add("hidden");
+      } else { // "dual"
+        retrievalSpine.classList.add("hidden");
+        retrievalPanel.classList.remove("hidden");
+        chatPanel.classList.remove("hidden");
+        retrievalPanel.className = "w-full md:w-[420px] lg:w-[38%] shrink-0 flex flex-col h-full border-r border-white/[0.1] bg-[#0c0e0c] overflow-hidden";
+        chatPanel.className = "flex-1 flex flex-col h-full bg-[#0a0b0a] overflow-hidden min-w-0";
+      }
+    };
+
+    // Helper: Decode IEEE 754 float16 Uint16Array into Float32Array
+    function decodeFloat16(uint16Array) {
+      const float32 = new Float32Array(uint16Array.length);
+      for (let i = 0; i < uint16Array.length; i++) {
+        const h = uint16Array[i];
+        const s = (h & 0x8000) >> 15;
+        const e = (h & 0x7C00) >> 10;
+        const f = h & 0x03FF;
+        if (e === 0) {
+          float32[i] = (s ? -1 : 1) * Math.pow(2, -14) * (f / Math.pow(2, 10));
+        } else if (e === 0x1F) {
+          float32[i] = f ? NaN : ((s ? -1 : 1) * Infinity);
+        } else {
+          float32[i] = (s ? -1 : 1) * Math.pow(2, e - 15) * (1 + (f / Math.pow(2, 10)));
+        }
+      }
+      return float32;
+    }
+
+    // 1. Check WebGPU vs WASM Runtime Support
+    async function detectRuntime() {
+      if (navigator.gpu) {
+        try {
+          const adapter = await navigator.gpu.requestAdapter();
+          if (adapter) {
+            hasWebGPU = true;
+            runtimeBadge.innerText = "WebGPU Accelerated";
+            runtimeBadge.className = "text-[9px] font-mono uppercase bg-[#c4f94a]/10 text-[#c4f94a] px-1.5 py-0.5 border border-[#c4f94a]/30";
+            return;
+          }
+        } catch (e) {
+          console.warn("WebGPU probe failed, using WASM fallback:", e);
+        }
+      }
+      hasWebGPU = false;
+      runtimeBadge.innerText = "WASM CPU Mode";
+      runtimeBadge.className = "text-[9px] font-mono uppercase bg-white/[0.04] text-white/60 px-1.5 py-0.5 border border-white/[0.12]";
+      modelSelect.value = "HuggingFaceTB/SmolLM2-360M-Instruct";
+    }
+
+    // 2. Load Search Index & Precomputed Embeddings
+    async function loadIndexAndVectors() {
+      try {
+        const [indexResp, embResp, metaResp] = await Promise.all([
+          fetch("data/search_index.json"),
+          fetch("data/embeddings.bin").catch(() => null),
+          fetch("data/embeddings_meta.json").catch(() => null)
+        ]);
+
+        searchIndex = await indexResp.json();
+
+        miniSearch = new MiniSearch({
+          fields: ["title", "category", "summary", "content", "path"],
+          storeFields: ["id", "title", "category", "type", "path", "lines", "summary", "content", "github_url"],
+          tokenize: (text) => text.toLowerCase().split(/[\s\-\.,:;()\[\]{}'"`<>\/\\]+/).filter(Boolean),
+          processTerm: (term) => STOPWORDS.has(term) ? null : term,
+          searchOptions: {
+            boost: { title: 4, summary: 2.5, category: 1.5, path: 1.5 },
+            fuzzy: 0.2,
+            prefix: true
+          }
+        });
+
+        miniSearch.addAll(searchIndex);
+        resultCount.innerText = `${searchIndex.length} CHUNKS INDEXED`;
+        if (spineResultBadge) spineResultBadge.innerText = searchIndex.length;
+        renderResults(searchIndex.slice(0, 15));
+
+        if (embResp && embResp.ok && metaResp && metaResp.ok) {
+          const meta = await metaResp.json();
+          embeddingDim = meta.dim || 384;
+          const buf = await embResp.arrayBuffer();
+          embeddingsMatrix = decodeFloat16(new Uint16Array(buf));
+          embedStatusBadge.innerHTML = `<span class="w-1.5 h-1.5 bg-[#c4f94a]"></span> Vectors: ${meta.count}×${embeddingDim} Float16`;
+          embedStatusBadge.className = "hidden lg:inline-flex items-center gap-1.5 text-[9px] font-mono uppercase bg-white/[0.03] text-white/80 px-2 py-1 border border-white/[0.15] tracking-wider";
+
+          initQueryEmbedder();
+        }
+      } catch (err) {
+        console.error("Failed to load search index:", err);
+        resultCount.innerText = "FAILED TO LOAD INDEX";
+      }
+    }
+
+    // 3. Initialize In-Browser Query Embedder (22MB ONNX via WASM)
+    async function initQueryEmbedder() {
+      try {
+        embedStatusBadge.innerHTML = `<span class="w-1.5 h-1.5 bg-[#ff5a35] animate-ping"></span> MiniLM (~22MB)...`;
+        embedderPipeline = await pipeline("feature-extraction", EMBED_MODEL_ID, {
+          dtype: "q8",
+          device: "wasm"
+        });
+        embedStatusBadge.innerHTML = `<span class="w-1.5 h-1.5 bg-[#c4f94a]"></span> BM25 + Vectors Active`;
+        searchModeLabel.innerText = "Hybrid RRF (BM25 + Vectors)";
+        searchModeLabel.className = "text-[9px] font-mono text-[#c4f94a] uppercase tracking-widest hidden sm:inline";
+        if (searchInput.value.trim()) {
+          handleSearch(searchInput.value);
+        }
+      } catch (err) {
+        console.warn("Could not load query embedder, using BM25 lexical search:", err);
+        embedStatusBadge.innerText = "Search: BM25 Lexical Active";
+      }
+    }
+
+    // 4. Hybrid Retrieval (BM25 + Cosine Similarity via RRF)
+    async function retrieveHybrid(query, topK = 18) {
+      if (!query || !query.trim()) {
+        return searchIndex.slice(0, topK);
+      }
+
+      const expandedQuery = query + " " + query.replace(/_/g, " ");
+      const bm25Results = miniSearch.search(expandedQuery);
+
+      if (!embedderPipeline || !embeddingsMatrix) {
+        return bm25Results.slice(0, topK);
+      }
+
+      const output = await embedderPipeline(query, { pooling: "mean", normalize: true });
+      const queryVec = output.data;
+
+      const numChunks = searchIndex.length;
+      const semScores = new Array(numChunks);
+      for (let i = 0; i < numChunks; i++) {
+        const offset = i * embeddingDim;
+        let dot = 0.0;
+        for (let d = 0; d < embeddingDim; d++) {
+          dot += queryVec[d] * embeddingsMatrix[offset + d];
+        }
+        semScores[i] = { index: i, score: dot };
+      }
+      semScores.sort((a, b) => b.score - a.score);
+
+      const rrfScores = new Map();
+      const idToItem = new Map(searchIndex.map((item, idx) => [item.id, { item, idx }]));
+      const K = 50;
+
+      bm25Results.slice(0, 40).forEach((res, rank) => {
+        const prev = rrfScores.get(res.id) || { score: 0, bm25Rank: null, semScore: null };
+        prev.score += 1.25 / (K + rank + 1);
+        prev.bm25Rank = rank + 1;
+        rrfScores.set(res.id, prev);
+      });
+
+      semScores.slice(0, 40).forEach((entry, rank) => {
+        const item = searchIndex[entry.index];
+        const prev = rrfScores.get(item.id) || { score: 0, bm25Rank: null, semScore: null };
+        prev.score += 1.0 / (K + rank + 1);
+        prev.semScore = entry.score;
+        rrfScores.set(item.id, prev);
+      });
+
+      const fused = Array.from(rrfScores.entries())
+        .map(([id, meta]) => {
+          const base = idToItem.get(id).item;
+          return { ...base, _rrf: meta.score, _sem: meta.semScore, _bm25: meta.bm25Rank };
+        })
+        .sort((a, b) => b._rrf - a._rrf);
+
+      return fused.slice(0, topK);
+    }
+
+    // 5. Search UI Handler
+    let searchDebounce = null;
+    function handleSearch(query) {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(async () => {
+        if (!query || !query.trim()) {
+          renderResults(searchIndex.slice(0, 15));
+          resultCount.innerText = `${searchIndex.length} CHUNKS INDEXED`;
+          if (spineResultBadge) spineResultBadge.innerText = searchIndex.length;
+          return;
+        }
+        const results = await retrieveHybrid(query, 20);
+        resultCount.innerText = `${results.length} HYBRID MATCHES`;
+        if (spineResultBadge) spineResultBadge.innerText = results.length;
+        renderResults(results);
+      }, 60);
+    }
+
+    function getBadgeStyle(type) {
+      return type === "function" ? "text-sky-400 bg-sky-500/10 border-sky-500/30"
+        : type === "method" ? "text-teal-400 bg-teal-500/10 border-teal-500/30"
+        : type === "class" ? "text-purple-400 bg-purple-500/10 border-purple-500/30"
+        : type === "config" ? "text-[#ff5a35] bg-[#ff5a35]/10 border-[#ff5a35]/30"
+        : type === "dataset" ? "text-rose-400 bg-rose-500/10 border-rose-500/30"
+        : "text-[#c4f94a] bg-[#c4f94a]/10 border-[#c4f94a]/30";
+    }
+
+    function renderResults(items) {
+      resultsList.innerHTML = "";
+      if (items.length === 0) {
+        resultsList.innerHTML = `<div class="p-6 text-center text-xs text-white/40 font-mono">No matching code or documentation found.</div>`;
+        return;
+      }
+
+      items.forEach(item => {
+        const row = document.createElement("div");
+        row.id = `result-${item.id}`;
+        row.className = "result-row px-4 py-3 group";
+        const badgeColor = getBadgeStyle(item.type);
+
+        let matchTag = "";
+        if (item._sem != null) {
+          const simPct = Math.round(Math.max(0, item._sem) * 100);
+          matchTag = `<span class="text-[9px] font-mono text-[#c4f94a] uppercase tracking-wider">[ ${simPct}% SEM ]</span>`;
+        }
+
+        row.innerHTML = `
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center space-x-2">
+              <span class="text-[8px] font-mono uppercase px-1 py-0.5 border ${badgeColor}">
+                ${item.type}
+              </span>
+              ${matchTag}
+            </div>
+            <span class="text-[10px] font-mono text-white/40 group-hover:text-white/70 transition">
+              ${item.path.split('/').pop()}:${item.lines || ''}
+            </span>
+          </div>
+          <h3 class="font-heading text-xs text-white group-hover:text-[#ff5a35] transition leading-snug">
+            ${item.title}
+          </h3>
+          <p class="text-[11px] text-white/60 mt-0.5 line-clamp-2 leading-relaxed font-sans">
+            ${item.summary || item.content.slice(0, 120)}
+          </p>
+        `;
+
+        row.onclick = () => openModal(item);
+        resultsList.appendChild(row);
+      });
+    }
+
+    // In-situ Grounding Inspection: Focus result row without breaking conversational flow
+    window.inspectGroundedSource = function(item) {
+      if (currentLayout === "chat") {
+        setLayout("dual");
+      }
+      const targetRow = document.getElementById(`result-${item.id}`);
+      if (targetRow) {
+        targetRow.scrollIntoView({ behavior: "smooth", block: "center" });
+        targetRow.classList.add("bg-[#c4f94a]/15", "border-l-[#c4f94a]", "border-l-4");
+        setTimeout(() => {
+          targetRow.classList.remove("bg-[#c4f94a]/15", "border-l-[#c4f94a]", "border-l-4");
+        }, 2200);
+      } else {
+        openModal(item);
+      }
+    };
+
+    // 6. Code & Doc Inspector Modal
+    window.openModal = function(item) {
+      const modal = document.getElementById("chunkModal");
+      const badge = document.getElementById("modalBadge");
+      badge.className = `text-[9px] font-mono uppercase px-1.5 py-0.5 border ${getBadgeStyle(item.type)}`;
+      badge.innerText = `${item.type} • ${item.category}`;
+      document.getElementById("modalTitle").innerText = item.title;
+      document.getElementById("modalPath").innerText = `${item.path} (lines ${item.lines})`;
+      document.getElementById("modalGithubLink").href = item.github_url;
+
+      const docLink = document.getElementById("modalDocLink");
+      if (item.doc_url) {
+        docLink.href = item.doc_url;
+        docLink.classList.remove("hidden");
+      } else {
+        docLink.classList.add("hidden");
+      }
+
+      document.getElementById("modalBody").innerHTML = marked.parse(item.content);
+      document.getElementById("modalAskBtn").onclick = async () => {
+        closeModal();
+        chatInput.value = `Explain ${item.title} in ${item.path} and how it works in DGM.`;
+        if (currentLayout === "retrieval") setLayout("dual");
+        if (!generatorPipeline && !loadModelBtn.disabled) {
+          await window.initLLM();
+        }
+        await window.handleChatSubmit(null, item);
+      };
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    };
+
+    window.closeModal = function() {
+      const modal = document.getElementById("chunkModal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    };
+
+    // 7. Initialize Generative LLM via Transformers.js
+    window.initLLM = async function() {
+      const selectedModel = modelSelect.value;
+      loadModelBtn.disabled = true;
+      modelSelect.disabled = true;
+      progressContainer.classList.remove("hidden");
+      progressBar.style.width = "5%";
+      progressPercent.innerText = "0%";
+
+      const device = hasWebGPU ? "webgpu" : "wasm";
+      const dtype = "q4";
+
+      try {
+        progressText.innerText = `Loading ${selectedModel.split("/").pop()} (${device.toUpperCase()})...`;
+
+        const fileProgress = new Map();
+        generatorPipeline = await pipeline("text-generation", selectedModel, {
+          device,
+          dtype,
+          progress_callback: (info) => {
+            if (info.status === "progress" && info.file) {
+              fileProgress.set(info.file, { loaded: info.loaded || 0, total: info.total || 1 });
+              let totalLoaded = 0;
+              let totalBytes = 0;
+              for (const v of fileProgress.values()) {
+                totalLoaded += v.loaded;
+                totalBytes += v.total;
+              }
+              const pct = totalBytes > 0 ? Math.min(99, Math.round((totalLoaded / totalBytes) * 100)) : 0;
+              progressBar.style.width = `${pct}%`;
+              progressPercent.innerText = `${pct}%`;
+              progressText.innerText = `Downloading ${info.file.split("/").pop()} (${pct}%)...`;
+            } else if (info.status === "ready") {
+              progressBar.style.width = "100%";
+              progressPercent.innerText = "100%";
+            }
+          }
+        });
+
+        progressContainer.classList.add("hidden");
+        loadModelBtn.innerText = "LLM Online";
+        loadModelBtn.className = "kestrel-btn text-[10px] py-1 px-3 bg-[#c4f94a]/10 text-[#c4f94a] border-[#c4f94a]/40 cursor-default";
+        modelSelect.disabled = false;
+        modelStatusIndicator.innerText = `Engine: ${selectedModel.split("/").pop()} (${device.toUpperCase()})`;
+      } catch (err) {
+        console.error("Transformers.js LLM initialization failed:", err);
+        if (device === "webgpu") {
+          try {
+            progressText.innerText = "Falling back to WASM CPU (q4)...";
+            generatorPipeline = await pipeline("text-generation", selectedModel, {
+              device: "wasm",
+              dtype: "q4"
+            });
+            progressContainer.classList.add("hidden");
+            loadModelBtn.innerText = "LLM Online (WASM)";
+            loadModelBtn.className = "kestrel-btn text-[10px] py-1 px-3 bg-[#c4f94a]/10 text-[#c4f94a] border-[#c4f94a]/40 cursor-default";
+            modelSelect.disabled = false;
+            modelStatusIndicator.innerText = `Engine: ${selectedModel.split("/").pop()} (WASM CPU)`;
+            return;
+          } catch (fallbackErr) {
+            console.error("WASM fallback also failed:", fallbackErr);
+          }
+        }
+        progressText.innerText = "Error loading model: " + err.message;
+        loadModelBtn.disabled = false;
+        modelSelect.disabled = false;
+      }
+    };
+
+    modelSelect.addEventListener("change", () => {
+      if (generatorPipeline) {
+        generatorPipeline = null;
+        loadModelBtn.disabled = false;
+        loadModelBtn.innerText = "Load LLM";
+        loadModelBtn.className = "kestrel-btn kestrel-btn-orange text-[10px] py-1 px-3";
+      }
+    });
+
+    // 8. Handle Chat Submission with Hybrid RAG
+    window.handleChatSubmit = async function(e, pinnedItem = null) {
+      if (e) e.preventDefault();
+      const query = chatInput.value.trim();
+      if (!query || isGenerating) return;
+
+      chatInput.value = "";
+      isGenerating = true;
+      sendBtn.disabled = true;
+
+      appendChatMessage("user", query);
+
+      let retrievedItems = await retrieveHybrid(query, 4);
+      if (pinnedItem) {
+        retrievedItems = [pinnedItem, ...retrievedItems.filter(it => it.id !== pinnedItem.id)].slice(0, 4);
+      }
+      renderResults(retrievedItems);
+      resultCount.innerText = `${retrievedItems.length} RAG CONTEXT CHUNKS`;
+      if (spineResultBadge) spineResultBadge.innerText = retrievedItems.length;
+
+      const contextText = retrievedItems.map(item =>
+        `[${item.title} | ${item.path}:${item.lines}]\n${item.content.slice(0, 1100)}`
+      ).join("\n\n---\n\n");
+
+      if (!generatorPipeline) {
+        const instantResponse =
+          `Here are the top **Hybrid RAG** matches from the DGM codebase and documentation (click **Load LLM** above for in-browser neural synthesis):\n\n` +
+          retrievedItems.map(it =>
+            `### \`${it.title}\` ([${it.path}:${it.lines}](${it.github_url}))\n${it.summary}\n`
+          ).join("\n");
+        appendChatMessage("assistant", instantResponse, retrievedItems, true);
+        isGenerating = false;
+        sendBtn.disabled = false;
+        return;
+      }
+
+      const systemPrompt =
+        `You are the DeltaGraphModel (DGM) AI Code Assistant, an expert in river delta channel networks, geomorphology, and the DGM Python library.\n` +
+        `Answer the user's question accurately and concisely using ONLY the provided DGM codebase & documentation context. ` +
+        `Cite specific function names, parameter names (e.g., R_rt, murray_p, nER_star), and equations from the context.\n\n` +
+        `Context:\n${contextText}`;
+
+      const assistantMsgElem = appendChatMessage("assistant", "Synthesizing...", retrievedItems, false);
+      const textContainer = assistantMsgElem.querySelector(".chat-text");
+
+      try {
+        let accumulated = "";
+        const streamer = new TextStreamer(generatorPipeline.tokenizer, {
+          skip_prompt: true,
+          skip_special_tokens: true,
+          callback_function: (tokenText) => {
+            accumulated += tokenText;
+            textContainer.innerHTML = marked.parse(accumulated);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+          }
+        });
+
+        await generatorPipeline(
+          [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: query }
+          ],
+          {
+            max_new_tokens: 380,
+            repetition_penalty: 1.15,
+            do_sample: false,
+            streamer
+          }
+        );
+      } catch (err) {
+        console.error("Inference error:", err);
+        textContainer.innerText = "Error generating answer: " + err.message;
+      } finally {
+        isGenerating = false;
+        sendBtn.disabled = false;
+      }
+    };
+
+    function appendChatMessage(role, text, sources = [], renderMarkdown = false) {
+      const msgDiv = document.createElement("div");
+      msgDiv.className = "flex space-x-2.5";
+
+      const isUser = role === "user";
+      const avatarBg = isUser ? "bg-white/[0.08] text-white/90 border border-white/[0.2]" : "bg-[#ff5a35]/15 text-[#ff5a35] border border-[#ff5a35]/40";
+      const avatarText = isUser ? "U" : "Δ";
+      const bubbleBg = isUser ? "bg-white/[0.06] border border-white/[0.18] text-white ml-auto" : "bg-white/[0.025] border border-white/[0.1] text-white/90";
+
+      let sourcesHtml = "";
+      if (sources && sources.length > 0) {
+        sourcesHtml = `
+          <div class="mt-2.5 pt-2 border-t border-white/[0.08] text-[9px] font-mono text-white/50">
+            <span class="font-medium text-white/70 uppercase">Grounding Sources (Click to audit):</span>
+            <div class="flex flex-wrap gap-1 mt-1.5">
+              ${sources.map((s, idx) => `<button data-source-idx="${idx}" class="source-chip bg-white/[0.03] hover:bg-white/[0.08] hover:border-[#ff5a35] text-[#ff5a35] px-2 py-0.5 border border-white/[0.1] font-mono transition text-[9px]">[ ${s.title} ]</button>`).join("")}
+            </div>
+          </div>
+        `;
+      }
+
+      const renderedContent = renderMarkdown ? marked.parse(text) : text;
+
+      msgDiv.innerHTML = `
+        <div class="w-6 h-6 ${avatarBg} flex items-center justify-center text-[10px] font-mono font-bold shrink-0">
+          ${avatarText}
+        </div>
+        <div class="${bubbleBg} p-3 text-xs max-w-3xl leading-relaxed overflow-x-auto">
+          <div class="chat-text prose-chat ${renderMarkdown ? '' : 'whitespace-pre-wrap font-sans'}">${renderedContent}</div>
+          ${sourcesHtml}
+        </div>
+      `;
+
+      if (sources && sources.length > 0) {
+        msgDiv.querySelectorAll(".source-chip").forEach(btn => {
+          btn.onclick = () => {
+            const idx = parseInt(btn.getAttribute("data-source-idx"), 10);
+            window.inspectGroundedSource(sources[idx]);
+          };
+        });
+      }
+
+      chatHistory.appendChild(msgDiv);
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+      return msgDiv;
+    }
+
+    window.setQuery = function(q) {
+      if (currentLayout === "chat") setLayout("dual");
+      searchInput.value = q;
+      handleSearch(q);
+      searchInput.focus();
+    };
+
+    window.askPreset = function(q) {
+      chatInput.value = q;
+      handleChatSubmit();
+    };
+
+    // Keyboard Shortcuts (Defense-Tech HUD Standard)
+    document.addEventListener("keydown", (e) => {
+      // Cmd+B / Ctrl+B: Toggle retrieval sidebar
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        setLayout(currentLayout === "chat" ? "dual" : "chat");
+      }
+      // Cmd+K / Ctrl+K: Global search trigger
+      else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        if (currentLayout === "chat") setLayout("dual");
+        searchInput.focus();
+        searchInput.select();
+      }
+      // Cmd+1 / Cmd+2 / Cmd+3: Direct layout switching
+      else if ((e.metaKey || e.ctrlKey) && e.key === "1") {
+        e.preventDefault();
+        setLayout("dual");
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "2") {
+        e.preventDefault();
+        setLayout("chat");
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "3") {
+        e.preventDefault();
+        setLayout("retrieval");
+      } else if (e.key === "Escape") {
+        closeModal();
+      }
+    });
+
+    searchInput.addEventListener("input", (e) => handleSearch(e.target.value));
+
+    // Initialize layout from localStorage or responsive default
+    const savedLayout = localStorage.getItem("dgm_layout");
+    if (savedLayout && ["dual", "chat", "retrieval"].includes(savedLayout)) {
+      setLayout(savedLayout);
+    } else {
+      setLayout(window.innerWidth >= 1200 ? "dual" : "chat");
+    }
+
+    // Initialize runtime & data
+    detectRuntime();
+    loadIndexAndVectors();
+
+    // Check for ?q= URL query parameter (e.g. from documentation portal pages)
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryParam = urlParams.get("q");
+    if (queryParam) {
+      chatInput.value = queryParam;
+      setTimeout(() => {
+        handleSearch(queryParam);
+        handleChatSubmit();
+      }, 400);
+    }
+  </script>
+</body>
+</html>
