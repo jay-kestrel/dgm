@@ -2,15 +2,16 @@
 Emergent Hydraulics, Channel Width Scaling, Conductance, and Markov Flux Solver for DGM.
 """
 
-from typing import Dict, Any, Tuple, Optional, List
 import math
 import warnings
+from typing import Any
+
+import networkx as nx
 import numpy as np
 import scipy.linalg
-import networkx as nx
 
 
-def _get_dag_topological_sort(G: nx.DiGraph) -> List[Any]:
+def _get_dag_topological_sort(G: nx.DiGraph) -> list[Any]:
     """
     Returns a topological sorting of nodes in G.
     If G contains directed cycles, extracts a DAG backbone (separating tree backbone
@@ -34,7 +35,7 @@ def _get_dag_topological_sort(G: nx.DiGraph) -> List[Any]:
         except nx.NetworkXUnfeasible:
             # Iterative DFS to break cycles without recursion depth limits
             apex_nodes = [n for n in G.nodes() if G.nodes[n].get('node_type') == 'apex']
-            root = apex_nodes[0] if apex_nodes else (0 if 0 in G.nodes() else list(G.nodes())[0])
+            root = apex_nodes[0] if apex_nodes else (0 if 0 in G.nodes() else next(iter(G.nodes())))
 
             visited = set()
             rec_stack = set()
@@ -72,8 +73,8 @@ def _get_dag_topological_sort(G: nx.DiGraph) -> List[Any]:
 
 
 def apply_emergent_hydraulics(
-    G: Optional[nx.DiGraph] = None,
-    params: Optional[Dict[str, Any]] = None,
+    G: nx.DiGraph | None = None,
+    params: dict[str, Any] | None = None,
     seed: int = 42,
     **kwargs
 ) -> nx.DiGraph:
@@ -83,7 +84,7 @@ def apply_emergent_hydraulics(
     Uses an iterative relaxation solver to guarantee Murray's Law width conservation.
     """
     if G is None:
-        G = kwargs.get('G', None)
+        G = kwargs.get('G')
     if G is None:
         raise ValueError("A NetworkX DiGraph G must be provided to apply_emergent_hydraulics.")
 
@@ -116,20 +117,17 @@ def apply_emergent_hydraulics(
 
     # Identify exact apex node
     apex_nodes = [n for n in G.nodes() if G.nodes[n].get('node_type') == 'apex']
-    apex_node = apex_nodes[0] if apex_nodes else (0 if 0 in G.nodes() else list(G.nodes())[0])
+    apex_node = apex_nodes[0] if apex_nodes else (0 if 0 in G.nodes() else next(iter(G.nodes())))
 
     # Pre-generate fractional weights for Murray's law conservation at bifurcations
-    branch_fractions: Dict[Tuple[Any, Any], float] = {}
+    branch_fractions: dict[tuple[Any, Any], float] = {}
     for u in G.nodes():
         out_edges = list(G.out_edges(u, data=True))
         n_out = len(out_edges)
         if n_out == 1:
             branch_fractions[(out_edges[0][0], out_edges[0][1])] = 1.0
         elif n_out >= 2:
-            if isinstance(u, (int, np.integer)):
-                node_seed = (seed + int(u) * 7919) % (2**31)
-            else:
-                node_seed = (seed + abs(hash(str(u)))) % (2**31)
+            node_seed = (seed + int(u) * 7919) % 2 ** 31 if isinstance(u, (int, np.integer)) else (seed + abs(hash(str(u)))) % 2 ** 31
             node_rng = np.random.default_rng(node_seed)
 
             primary_frac = node_rng.beta(beta * 4.0, max(0.1, (1.0 - beta) * 4.0))
@@ -240,8 +238,8 @@ def apply_emergent_hydraulics(
 
 def solve_markov_flux(
     G: nx.DiGraph,
-    params: Optional[Dict[str, Any]] = None
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    params: dict[str, Any] | None = None
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Solves the linear Markov flux throughput system using the transient submatrix formulation
     (Tejedor et al., 2017).

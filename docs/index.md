@@ -37,5 +37,3 @@
 ## Developer & Benchmark Ecosystem
 
 - [Developer & Agent Guide (AGENTS.md)](../AGENTS.md)
-- [Global Empirical Validation Report (28 Real Deltas)](../outputs/VALIDATION_REPORT.md)
-- [Planetary Mega-Delta Benchmark Report (Lena, GBMD, Amazon, Niger)](../outputs/MEGA_DELTA_BENCHMARK_REPORT.md)

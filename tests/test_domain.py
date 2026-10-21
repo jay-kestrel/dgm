@@ -3,6 +3,7 @@ Tests for PolarDomain coordinate transformations and geometric metrics.
 """
 
 import math
+
 import pytest
 
 from dgm.core.domain import PolarDomain

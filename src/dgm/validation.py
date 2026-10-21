@@ -4,7 +4,8 @@ Compares DGM synthetic delta ensembles against 28 real-world deltas from the DID
 across a complete battery of topological, entropic, dynamic, hydraulic, and geomorphic metrics.
 """
 
-from typing import List, Dict, Any, Tuple, Optional, Union
+from typing import Any
+
 import numpy as np
 
 from .generator import EnsembleGenerator
@@ -13,9 +14,8 @@ from .io.datasets import (
     get_empirical_deltas,
 )
 
-
 # Complete Multi-Dimensional 20-Metric Battery Feature Keys & Labels
-FULL_20D_METRIC_KEYS: List[str] = [
+FULL_20D_METRIC_KEYS: list[str] = [
     'alpha',
     'betti_1_norm',
     'vc_vb_ratio',
@@ -38,7 +38,7 @@ FULL_20D_METRIC_KEYS: List[str] = [
     'log_num_outlets',
 ]
 
-FULL_20D_METRIC_LABELS: List[str] = [
+FULL_20D_METRIC_LABELS: list[str] = [
     'Alpha Index (α)',
     'Normalized Loops (β₁/N)',
     'Confluence/Bifurcation (Vc/Vb)',
@@ -62,13 +62,13 @@ FULL_20D_METRIC_LABELS: List[str] = [
 ]
 
 # Backward compatibility aliases
-EXPANDED_METRIC_KEYS: List[str] = FULL_20D_METRIC_KEYS
-EXPANDED_METRIC_LABELS: List[str] = FULL_20D_METRIC_LABELS
+EXPANDED_METRIC_KEYS: list[str] = FULL_20D_METRIC_KEYS
+EXPANDED_METRIC_LABELS: list[str] = FULL_20D_METRIC_LABELS
 EMPIRICAL_METRIC_KEYS = FULL_20D_METRIC_KEYS
 EMPIRICAL_METRIC_LABELS = FULL_20D_METRIC_LABELS
 
 # Feature key mapping from EmpiricalDelta attribute names to MetricsBattery output dictionary keys
-METRIC_KEY_MAP: Dict[str, str] = {
+METRIC_KEY_MAP: dict[str, str] = {
     'alpha': 'alpha_index',
     'betti_1_norm': 'betti_1_norm',
     'vc_vb_ratio': 'ratio_vc_vb',
@@ -95,7 +95,7 @@ METRIC_KEY_MAP: Dict[str, str] = {
 }
 
 # Canonical 5 direct empirical measured metric keys & labels for 5D PCA/t-SNE sub-views
-EMPIRICAL_5D_KEYS: List[str] = [
+EMPIRICAL_5D_KEYS: list[str] = [
     'alpha',
     'betti_1_norm',
     'vc_vb_ratio',
@@ -103,7 +103,7 @@ EMPIRICAL_5D_KEYS: List[str] = [
     'nER_star'
 ]
 
-EMPIRICAL_5D_LABELS: List[str] = [
+EMPIRICAL_5D_LABELS: list[str] = [
     'Alpha Index (α)',
     'Normalized Loops (β₁/N)',
     'Confluence/Bifurcation (Vc/Vb)',
@@ -112,7 +112,7 @@ EMPIRICAL_5D_LABELS: List[str] = [
 ]
 
 
-def get_empirical_vector(d: EmpiricalDelta, keys: Optional[List[str]] = None) -> List[float]:
+def get_empirical_vector(d: EmpiricalDelta, keys: list[str] | None = None) -> list[float]:
     """
     Returns feature vector of empirical metrics for a delta across specified feature keys.
     Defaults to FULL_20D_METRIC_KEYS (20 metrics).
@@ -122,7 +122,7 @@ def get_empirical_vector(d: EmpiricalDelta, keys: Optional[List[str]] = None) ->
     return [float(getattr(d, k)) for k in keys]
 
 
-def get_empirical_5d_vector(d: EmpiricalDelta) -> List[float]:
+def get_empirical_5d_vector(d: EmpiricalDelta) -> list[float]:
     """
     Returns the 5-element vector of direct empirical measured metrics for a delta.
     """
@@ -135,7 +135,7 @@ def get_empirical_5d_vector(d: EmpiricalDelta) -> List[float]:
     ]
 
 
-def compute_goodness_of_fit(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+def compute_goodness_of_fit(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
     """
     Computes quantitative goodness-of-fit metrics:
     - MAE: Mean Absolute Error
@@ -172,10 +172,7 @@ def compute_goodness_of_fit(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str,
     ss_res = float(np.sum(diff ** 2))
     ss_tot = float(np.sum((y_t - np.mean(y_t)) ** 2))
 
-    if ss_tot < 1e-12:
-        r2 = 1.0 if ss_res < 1e-12 else 0.0
-    else:
-        r2 = float(1.0 - (ss_res / ss_tot))
+    r2 = (1.0 if ss_res < 1e-12 else 0.0) if ss_tot < 1e-12 else float(1.0 - ss_res / ss_tot)
 
     return {
         'mae': float(mae) if np.isfinite(mae) else 0.0,
@@ -185,12 +182,12 @@ def compute_goodness_of_fit(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str,
     }
 
 
-def compute_ks_test(synthetic_samples: np.ndarray, empirical_targets: np.ndarray) -> Dict[str, float]:
+def compute_ks_test(synthetic_samples: np.ndarray, empirical_targets: np.ndarray) -> dict[str, float]:
     """
     Performs 2-sample Kolmogorov-Smirnov (KS) test comparing synthetic metric distribution
     against empirical target distribution.
     """
-    import scipy.stats as stats
+    from scipy import stats
     synth = np.asarray(synthetic_samples, dtype=float).ravel()
     emp = np.asarray(empirical_targets, dtype=float).ravel()
 
@@ -212,13 +209,13 @@ def compute_ks_test(synthetic_samples: np.ndarray, empirical_targets: np.ndarray
 def compute_mahalanobis_validation(
     synthetic_cloud: np.ndarray,
     empirical_points: np.ndarray,
-    df: Optional[Union[Tuple[int, ...], int]] = None
-) -> Dict[str, Any]:
+    df: tuple[int, ...] | int | None = None
+) -> dict[str, Any]:
     """
     Computes Mahalanobis distance from each empirical delta point to the synthetic cloud centroid
     in feature space, and determines whether each empirical delta falls within the 95% confidence hyper-ellipsoid.
     """
-    import scipy.stats as stats
+    from scipy import stats
     X_synth = np.asarray(synthetic_cloud, dtype=float)
     X_emp = np.asarray(empirical_points, dtype=float)
 
@@ -250,10 +247,7 @@ def compute_mahalanobis_validation(
     mu = np.nanmean(X_synth, axis=0)
     mu = np.nan_to_num(mu, nan=0.0)
 
-    if X_synth.shape[0] < 2:
-        cov = np.eye(p)
-    else:
-        cov = np.cov(X_synth, rowvar=False)
+    cov = np.eye(p) if X_synth.shape[0] < 2 else np.cov(X_synth, rowvar=False)
 
     if cov.ndim == 0:
         cov = np.array([[float(cov)]])
@@ -311,7 +305,7 @@ def compute_mahalanobis_validation(
     }
 
 
-def compute_mmd(X: np.ndarray, Y: np.ndarray, gamma: Optional[float] = None) -> float:
+def compute_mmd(X: np.ndarray, Y: np.ndarray, gamma: float | None = None) -> float:
     """
     Computes Maximum Mean Discrepancy (MMD) with RBF kernel between synthetic cloud X and empirical samples Y.
     """
@@ -351,7 +345,7 @@ def compute_permanova(
     X: np.ndarray,
     Y: np.ndarray,
     num_permutations: int = 499
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
     PERMANOVA test helper testing multivariate distribution overlap between synthetic cloud X and empirical samples Y.
     """
@@ -426,7 +420,7 @@ class EmpiricalBenchmark:
     across the full 20-metric battery.
     """
 
-    def __init__(self, realizations_per_delta: int = 10, keys: Optional[List[str]] = None):
+    def __init__(self, realizations_per_delta: int = 10, keys: list[str] | None = None):
         self.realizations_per_delta = realizations_per_delta
         self.empirical_data = get_empirical_deltas()
         self.keys = keys if keys is not None else EXPANDED_METRIC_KEYS
@@ -435,7 +429,7 @@ class EmpiricalBenchmark:
         self,
         loop_mechanism: str = "potential_field",
         sample_parameters: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Runs synthetic cloud generation for all 28 real-world deltas using their (N, R_rt) values
         and computes quantitative error metrics and formal statistical validation suite.
@@ -470,7 +464,7 @@ class EmpiricalBenchmark:
                 summary = ens_gen.evaluate_ensemble()
             except Exception as exc:
                 import warnings
-                warnings.warn(f"Ensemble generation failed for empirical delta '{emp.name}': {exc}. Using fallback zeroes.")
+                warnings.warn(f"Ensemble generation failed for empirical delta '{emp.name}': {exc}. Using fallback zeroes.", stacklevel=2)
                 summary = {'metrics': {}, 'raw_realizations': []}
             m = summary.get('metrics', {})
 
@@ -480,10 +474,7 @@ class EmpiricalBenchmark:
                 if battery_key in m and 'mean' in m[battery_key]:
                     val = m[battery_key]['mean']
                 else:
-                    if k == 'betti_1_norm':
-                        val = m.get('betti_1', {}).get('mean', 0.0) / max(1, emp.nodes)
-                    else:
-                        val = 0.0
+                    val = m.get('betti_1', {}).get('mean', 0.0) / max(1, emp.nodes) if k == 'betti_1_norm' else 0.0
                 synth_vec.append(val)
                 y_pred_dict[k].append(val)
 

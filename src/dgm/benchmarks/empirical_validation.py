@@ -1,35 +1,36 @@
 """
 Empirical Validation Benchmark Suite for DeltaGraphModel (DGM).
 Benchmarks synthetic realization ensembles against all 28 real-world empirical deltas
-from the DIDNT dataset (Hariharan et al., 2021) across the full 20-metric geomorphic battery.
+from the DIDNT dataset (Hariharan et al., 2022) across the full 20-metric geomorphic battery.
 """
 
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
 import json
 import time
 import uuid
-
-import numpy as np
-import pandas as pd
-import scipy.stats as stats
-from sklearn.decomposition import PCA
+from pathlib import Path
+from typing import Any
 
 import matplotlib
+import numpy as np
+import pandas as pd
+from scipy import stats
+from sklearn.decomposition import PCA
+
 matplotlib.use('Agg')
+import itertools
+
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 
 from ..config import DGMConfig
-from ..generator import EnsembleGenerator, DeltaGenerator
+from ..generator import DeltaGenerator, EnsembleGenerator
 from ..io.datasets import (
     DIDNTLoader,
     EmpiricalDelta,
     get_empirical_deltas,
 )
 
-
-PRIMARY_METRICS: List[str] = [
+PRIMARY_METRICS: list[str] = [
     'alpha',
     'betti_1_norm',
     'nER_star',
@@ -38,7 +39,7 @@ PRIMARY_METRICS: List[str] = [
     'topological_slope',
 ]
 
-METRIC_LABELS: Dict[str, str] = {
+METRIC_LABELS: dict[str, str] = {
     'alpha': r'Alpha Index ($\alpha$)',
     'betti_1_norm': r'Normalized Loops ($\beta_1 / N$)',
     'nER_star': r'Normalized Flow Entropy Rate ($\text{nER}^*$)',
@@ -59,7 +60,7 @@ METRIC_LABELS: Dict[str, str] = {
     'num_outlets': r'Number of Outlets ($N_{\text{out}}$)',
 }
 
-METRIC_KEY_MAP: Dict[str, str] = {
+METRIC_KEY_MAP: dict[str, str] = {
     'alpha': 'alpha_index',
     'betti_1_norm': 'betti_1_norm',
     'nER_star': 'nER_star',
@@ -85,7 +86,7 @@ METRIC_KEY_MAP: Dict[str, str] = {
     'log_num_outlets': 'log_num_outlets',
 }
 
-REGIME_COLORS: Dict[str, str] = {
+REGIME_COLORS: dict[str, str] = {
     'river_dominated': '#3b82f6',  # Blue
     'tide_influenced': '#10b981',  # Emerald
     'arctic': '#06b6d4',          # Cyan
@@ -93,7 +94,7 @@ REGIME_COLORS: Dict[str, str] = {
 }
 
 
-def compute_goodness_of_fit(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+def compute_goodness_of_fit(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
     """Computes MAE, RMSE, NRMSE, and R2 alignment."""
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
@@ -124,10 +125,7 @@ def compute_goodness_of_fit(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str,
     ss_res = float(np.sum(diff ** 2))
     ss_tot = float(np.sum((y_t - np.mean(y_t)) ** 2))
 
-    if ss_tot < 1e-12:
-        r2 = 1.0 if ss_res < 1e-12 else 0.0
-    else:
-        r2 = float(1.0 - (ss_res / ss_tot))
+    r2 = (1.0 if ss_res < 1e-12 else 0.0) if ss_tot < 1e-12 else float(1.0 - ss_res / ss_tot)
 
     return {
         'mae': float(mae) if np.isfinite(mae) else 0.0,
@@ -146,7 +144,7 @@ class EmpiricalValidationBenchmark:
 
     def __init__(
         self,
-        dataset_dir: Optional[Union[str, Path]] = None,
+        dataset_dir: str | Path | None = None,
         realizations_per_delta: int = 30,
         max_nodes: int = 85,
         loop_mechanism: str = "potential_field",
@@ -156,7 +154,7 @@ class EmpiricalValidationBenchmark:
         node_jitter: float = 0.15,
         sample_pruning: bool = True,
         base_seed: int = 42,
-        config: Optional[Union[str, DGMConfig]] = None,
+        config: str | DGMConfig | None = None,
         **config_overrides,
     ):
         self.dataset_dir = dataset_dir
@@ -183,9 +181,9 @@ class EmpiricalValidationBenchmark:
             self.config = DGMConfig.load_default(**config_overrides)
 
         self.deltas = self._load_deltas()
-        self.results: Optional[Dict[str, Any]] = None
+        self.results: dict[str, Any] | None = None
 
-    def _load_deltas(self) -> List[EmpiricalDelta]:
+    def _load_deltas(self) -> list[EmpiricalDelta]:
         """Loads all empirical deltas with fallback guarantees."""
         deltas = get_empirical_deltas(dataset_dir=self.dataset_dir, force_reload=True)
         if not deltas:
@@ -194,7 +192,7 @@ class EmpiricalValidationBenchmark:
                 deltas = get_empirical_deltas(dataset_dir=self.dataset_dir, force_reload=True)
         return deltas
 
-    def run(self, verbose: bool = True) -> Dict[str, Any]:
+    def run(self, verbose: bool = True) -> dict[str, Any]:
         """Runs the benchmark across all empirical deltas."""
         t_start = time.time()
         if verbose:
@@ -206,14 +204,14 @@ class EmpiricalValidationBenchmark:
             print(f"Pruning Exploration: {self.sample_pruning} | Base Pruning Enabled: {self.config.enable_pruning}")
             print("=" * 78)
 
-        detailed_results: List[Dict[str, Any]] = []
-        all_synth_realizations: List[List[float]] = []
-        all_synth_r_rts: List[float] = []
-        all_emp_vectors: List[List[float]] = []
+        detailed_results: list[dict[str, Any]] = []
+        all_synth_realizations: list[list[float]] = []
+        all_synth_r_rts: list[float] = []
+        all_emp_vectors: list[list[float]] = []
 
-        y_true_dict: Dict[str, List[float]] = {k: [] for k in PRIMARY_METRICS}
-        y_pred_dict: Dict[str, List[float]] = {k: [] for k in PRIMARY_METRICS}
-        metric_errors: Dict[str, List[float]] = {k: [] for k in PRIMARY_METRICS}
+        y_true_dict: dict[str, list[float]] = {k: [] for k in PRIMARY_METRICS}
+        y_pred_dict: dict[str, list[float]] = {k: [] for k in PRIMARY_METRICS}
+        metric_errors: dict[str, list[float]] = {k: [] for k in PRIMARY_METRICS}
 
         import copy
         for idx, emp in enumerate(self.deltas, 1):
@@ -310,7 +308,7 @@ class EmpiricalValidationBenchmark:
                         raw_runs.append(m_real)
                     except Exception as exc:
                         import warnings
-                        warnings.warn(f"Realization {r_i} failed for delta '{emp.name}': {exc}")
+                        warnings.warn(f"Realization {r_i} failed for delta '{emp.name}': {exc}", stacklevel=2)
             else:
                 # Legacy standard mode
                 try:
@@ -327,12 +325,12 @@ class EmpiricalValidationBenchmark:
                     raw_runs = summary.get('raw_realizations', [])
                 except Exception as exc:
                     import warnings
-                    warnings.warn(f"Ensemble generation failed for delta '{emp.name}': {exc}")
+                    warnings.warn(f"Ensemble generation failed for delta '{emp.name}': {exc}", stacklevel=2)
                     raw_runs = []
                 for r in raw_runs:
                     r['_sampled_r_rt'] = r_rt_base
 
-            row: Dict[str, Any] = {
+            row: dict[str, Any] = {
                 'delta_name': emp.name,
                 'forcing_type': emp.forcing_type,
                 'estimated_R_rt': r_rt_base,
@@ -394,14 +392,14 @@ class EmpiricalValidationBenchmark:
                       f"eBI: emp={row['empirical_eBI']:.2f}, synth={row['synthetic_eBI_mean']:.2f}")
 
         # Compute Statistical Metrics across Battery
-        gof_by_metric: Dict[str, Dict[str, float]] = {}
+        gof_by_metric: dict[str, dict[str, float]] = {}
         for k in PRIMARY_METRICS:
             yt = np.array(y_true_dict[k])
             yp = np.array(y_pred_dict[k])
             gof_by_metric[k] = compute_goodness_of_fit(yt, yp)
 
         # Realization Envelope Coverage Ratios
-        envelope_coverage: Dict[str, Dict[str, float]] = {}
+        envelope_coverage: dict[str, dict[str, float]] = {}
         for k in PRIMARY_METRICS:
             p10_p90_count = sum(1 for r in detailed_results if r[f'{k}_in_p10_p90'])
             env_count = sum(1 for r in detailed_results if r[f'{k}_in_envelope'])
@@ -461,7 +459,7 @@ class EmpiricalValidationBenchmark:
             r['inside_95_canonical_hyperellipsoid'] = inside_95_6d[idx]
 
         # 2-Sample Kolmogorov-Smirnov Tests
-        ks_tests: Dict[str, Dict[str, float]] = {}
+        ks_tests: dict[str, dict[str, float]] = {}
         for idx_k, k in enumerate(PRIMARY_METRICS):
             res_ks = stats.ks_2samp(synth_arr[:, idx_k], emp_arr[:, idx_k])
             ks_tests[k] = {
@@ -535,7 +533,7 @@ class EmpiricalValidationBenchmark:
 
         return self.results
 
-    def save_csv(self, filepath: Union[str, Path]) -> Path:
+    def save_csv(self, filepath: str | Path) -> Path:
         """Saves detailed per-delta benchmark table to CSV."""
         if self.results is None:
             raise RuntimeError("Benchmark has not been run yet. Call run() first.")
@@ -552,7 +550,7 @@ class EmpiricalValidationBenchmark:
             raise
         return path
 
-    def save_json(self, filepath: Union[str, Path]) -> Path:
+    def save_json(self, filepath: str | Path) -> Path:
         """Saves quantitative benchmark summary to JSON."""
         if self.results is None:
             raise RuntimeError("Benchmark has not been run yet. Call run() first.")
@@ -598,7 +596,7 @@ class EmpiricalValidationBenchmark:
             raise
         return path
 
-    def plot_benchmark(self, filepath: Union[str, Path]) -> Path:
+    def plot_benchmark(self, filepath: str | Path) -> Path:
         """Generates comprehensive, publication-ready comparison figure."""
         if self.results is None:
             raise RuntimeError("Benchmark has not been run yet. Call run() first.")
@@ -630,7 +628,7 @@ class EmpiricalValidationBenchmark:
 
         ax_a.fill_between(x_idx, alpha_p10, alpha_p90, color='#93c5fd', alpha=0.35, label=r'Synthetic Cloud [p10, p90]')
         ax_a.errorbar(x_idx, alpha_syn, yerr=alpha_std, fmt='s-', color='#2563eb', capsize=3, label=r'Synthetic Mean $\pm 1\sigma$', linewidth=1.5, markersize=5)
-        for i, (xe, ye, ftype) in enumerate(zip(x_idx, alpha_emp, forcing_types)):
+        for i, (xe, ye, ftype) in enumerate(zip(x_idx, alpha_emp, forcing_types, strict=False)):
             ax_a.scatter(xe, ye, color=REGIME_COLORS.get(ftype, '#ef4444'), s=55, zorder=5, edgecolors='black', linewidth=0.8,
                          label='Empirical Delta (DIDNT)' if i == 0 else "")
 
@@ -655,7 +653,7 @@ class EmpiricalValidationBenchmark:
 
         ax_b.fill_between(x_idx, loop_p10, loop_p90, color='#a7f3d0', alpha=0.35, label=r'Synthetic Cloud [p10, p90]')
         ax_b.errorbar(x_idx, loop_syn, yerr=loop_std, fmt='o-', color='#059669', capsize=3, label=r'Synthetic Mean $\pm 1\sigma$', linewidth=1.5, markersize=5)
-        for i, (xe, ye, ftype) in enumerate(zip(x_idx, loop_emp, forcing_types)):
+        for i, (xe, ye, ftype) in enumerate(zip(x_idx, loop_emp, forcing_types, strict=False)):
             ax_b.scatter(xe, ye, color=REGIME_COLORS.get(ftype, '#ef4444'), s=55, zorder=5, edgecolors='black', linewidth=0.8,
                          label='Empirical Delta (DIDNT)' if i == 0 else "")
 
@@ -680,7 +678,7 @@ class EmpiricalValidationBenchmark:
 
         ax_c.fill_between(x_idx, ner_p10, ner_p90, color='#fed7aa', alpha=0.35, label=r'Synthetic Cloud [p10, p90]')
         ax_c.errorbar(x_idx, ner_syn, yerr=ner_std, fmt='^-', color='#ea580c', capsize=3, label=r'Synthetic Mean $\pm 1\sigma$', linewidth=1.5, markersize=5)
-        for i, (xe, ye, ftype) in enumerate(zip(x_idx, ner_emp, forcing_types)):
+        for i, (xe, ye, ftype) in enumerate(zip(x_idx, ner_emp, forcing_types, strict=False)):
             ax_c.scatter(xe, ye, color=REGIME_COLORS.get(ftype, '#ef4444'), s=55, zorder=5, edgecolors='black', linewidth=0.8,
                          label='Empirical Delta (DIDNT)' if i == 0 else "")
 
@@ -705,7 +703,7 @@ class EmpiricalValidationBenchmark:
 
         ax_d.fill_between(x_idx, ebi_p10, ebi_p90, color='#e9d5ff', alpha=0.35, label=r'Synthetic Cloud [p10, p90]')
         ax_d.errorbar(x_idx, ebi_syn, yerr=ebi_std, fmt='D-', color='#9333ea', capsize=3, label=r'Synthetic Mean $\pm 1\sigma$', linewidth=1.5, markersize=5)
-        for i, (xe, ye, ftype) in enumerate(zip(x_idx, ebi_emp, forcing_types)):
+        for i, (xe, ye, ftype) in enumerate(zip(x_idx, ebi_emp, forcing_types, strict=False)):
             ax_d.scatter(xe, ye, color=REGIME_COLORS.get(ftype, '#ef4444'), s=55, zorder=5, edgecolors='black', linewidth=0.8,
                          label='Empirical Delta (DIDNT)' if i == 0 else "")
 
@@ -738,7 +736,7 @@ class EmpiricalValidationBenchmark:
         r_mids = 0.5 * (r_bins[:-1] + r_bins[1:])
         synth_r_rt_arr = np.array(synth_r_rt)
         b_means, b_stds = [], []
-        for r_lo, r_hi in zip(r_bins[:-1], r_bins[1:]):
+        for r_lo, r_hi in itertools.pairwise(r_bins):
             mask = (synth_r_rt_arr >= r_lo) & (synth_r_rt_arr < r_hi)
             if np.any(mask):
                 b_means.append(np.mean(synth_arr_alpha[mask]))
@@ -810,7 +808,7 @@ class EmpiricalValidationBenchmark:
         ax_g.add_patch(ell)
 
         inside_pca = [d['inside_95_pca_ellipse'] for d in details]
-        for idx_e, (ze, ins, ftype, name) in enumerate(zip(Z_e, inside_pca, forcing_types, names)):
+        for idx_e, (ze, ins, ftype, name) in enumerate(zip(Z_e, inside_pca, forcing_types, names, strict=False)):
             mk = 'o' if ins else 'X'
             ax_g.scatter(ze[0], ze[1], color=REGIME_COLORS.get(ftype, '#ef4444'), marker=mk, s=75, edgecolors='black',
                          linewidth=0.9, zorder=6, label='Real DIDNT Deltas (95% Inside)' if idx_e == 0 else "")
@@ -880,7 +878,7 @@ class EmpiricalValidationBenchmark:
             plt.close(fig)
         return path
 
-    def generate_report(self, filepath: Union[str, Path]) -> Path:
+    def generate_report(self, filepath: str | Path) -> Path:
         """Generates comprehensive scientific validation report markdown."""
         if self.results is None:
             raise RuntimeError("Benchmark has not been run yet. Call run() first.")
@@ -895,7 +893,7 @@ class EmpiricalValidationBenchmark:
         mahal = self.results['mahalanobis_analysis']
         details = self.results['detailed_results']
 
-        regime_counts: Dict[str, int] = {}
+        regime_counts: dict[str, int] = {}
         for d in details:
             regime_counts[d['forcing_type']] = regime_counts.get(d['forcing_type'], 0) + 1
 
@@ -904,7 +902,7 @@ class EmpiricalValidationBenchmark:
             "",
             "**Framework**: Process-Emergent Generative Model for Distributary Channel Networks (`dgm`)  ",
             f"**Validation Date**: {meta['timestamp']}  ",
-            f"**Benchmark Scope**: Complete DIDNT Global Real-World Delta Dataset (28 Empirical River Deltas)  ",
+            "**Benchmark Scope**: Complete DIDNT Global Real-World Delta Dataset (28 Empirical River Deltas)  ",
             f"**Exploration Mode**: `{meta.get('exploration_mode', 'broad')}` (Forcing Uncertainty: $\\pm {meta.get('r_rt_uncertainty', 0.15):.2f}$, Node Jitter: $\\pm {meta.get('node_jitter', 0.15)*100:.0f}\\%$, Pruning Exploration: `{meta.get('sample_pruning', True)}`)  ",
             f"**Execution Runtime**: {meta['elapsed_seconds']:.2f} seconds | **Realizations per Delta**: {meta['realizations_per_delta']} (Total Realizations: {meta['total_realizations']})  ",
             "",
@@ -912,7 +910,7 @@ class EmpiricalValidationBenchmark:
             "",
             "## 1. Executive Summary & Verification of Scientific Hypotheses",
             "",
-            "This empirical benchmark rigorously exercises the refactored **DeltaGraphModel (`dgm`)** against the full canonical dataset of **28 real-world delta channel networks** compiled from the **Discharge In Distributary NeTworks (DIDNT)** dataset ([Hariharan et al., 2021](https://doi.org/10.1029/2021WR030026)).",
+            "This empirical benchmark rigorously exercises the refactored **DeltaGraphModel (`dgm`)** against the full canonical dataset of **28 real-world delta channel networks** compiled from the **Discharge In Distributary NeTworks (DIDNT)** dataset ([Hariharan et al., 2022](https://doi.org/10.1029/2022GL097897)).",
             "",
             "By broadening the parameter space exploration—accounting for physical marine forcing ratio uncertainty ($R_{\\text{rt}} \\pm \\Delta R$), extraction resolution granularity ($N \\pm \\delta_N$), stochastic anastomosis ($P_0 \\in [0, 0.35]$), reconnection probability ($c_0 \\in [0.35, 0.85]$), and network extraction pruning—the synthetic ensemble clouds robustly encapsulate the empirical deltas across the global spectrum:",
             "",
@@ -1016,8 +1014,8 @@ class EmpiricalValidationBenchmark:
 
 
 def run_empirical_benchmark(
-    dataset_dir: Optional[Union[str, Path]] = None,
-    output_dir: Optional[Union[str, Path]] = None,
+    dataset_dir: str | Path | None = None,
+    output_dir: str | Path | None = None,
     realizations_per_delta: int = 10,
     max_nodes: int = 75,
     loop_mechanism: str = "potential_field",
@@ -1027,20 +1025,17 @@ def run_empirical_benchmark(
     node_jitter: float = 0.15,
     sample_pruning: bool = True,
     base_seed: int = 42,
-    config: Optional[Union[str, DGMConfig]] = None,
+    config: str | DGMConfig | None = None,
     verbose: bool = True,
     **config_overrides,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Convenience function executing the complete empirical benchmark pipeline
     and saving all required presentation-ready deliverables.
     """
     if output_dir is None:
         cwd = Path.cwd()
-        if (cwd / "dgm" / "outputs").exists():
-            out_path = cwd / "dgm" / "outputs"
-        else:
-            out_path = cwd / "outputs"
+        out_path = cwd / "dgm" / "outputs" if (cwd / "dgm" / "outputs").exists() else cwd / "outputs"
     else:
         out_path = Path(output_dir)
 
@@ -1069,7 +1064,7 @@ def run_empirical_benchmark(
     rpt_path = suite.generate_report(out_path / "VALIDATION_REPORT.md")
 
     if verbose:
-        print(f"\n[Artifacts Generated Successfully]:")
+        print("\n[Artifacts Generated Successfully]:")
         print(f"  - CSV Results:     {csv_path}")
         print(f"  - JSON Summary:    {json_path}")
         print(f"  - Benchmark Figure: {fig_path}")

@@ -29,7 +29,7 @@
     "link_sharing_index": 0.05914076782449725,
     "forcing_type": "river_dominated",
     "estimated_R_rt": 0.25,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Colville",
@@ -61,7 +61,7 @@
     "link_sharing_index": 0.11019490254872565,
     "forcing_type": "arctic",
     "estimated_R_rt": 0.4,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Danube",
@@ -93,7 +93,7 @@
     "link_sharing_index": 0.22680412371134018,
     "forcing_type": "river_dominated",
     "estimated_R_rt": 0.1,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Dnieper",
@@ -125,7 +125,7 @@
     "link_sharing_index": 0.27604166666666663,
     "forcing_type": "river_dominated",
     "estimated_R_rt": 0.1,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Fly",
@@ -157,7 +157,7 @@
     "link_sharing_index": 0.14962121212121213,
     "forcing_type": "tide_influenced",
     "estimated_R_rt": 0.85,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "GBMD",
@@ -189,7 +189,7 @@
     "link_sharing_index": 0.034344855305466236,
     "forcing_type": "tide_influenced",
     "estimated_R_rt": 0.8,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Hay",
@@ -221,7 +221,7 @@
     "link_sharing_index": 0.3846153846153846,
     "forcing_type": "lacustrine",
     "estimated_R_rt": 0.05,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Irrawaddy",
@@ -253,7 +253,7 @@
     "link_sharing_index": 0.06956168831168832,
     "forcing_type": "tide_influenced",
     "estimated_R_rt": 0.5,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Krishna",
@@ -285,7 +285,7 @@
     "link_sharing_index": 0.3037037037037037,
     "forcing_type": "tide_influenced",
     "estimated_R_rt": 0.5,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Lena",
@@ -317,7 +317,7 @@
     "link_sharing_index": 0.017381606039807825,
     "forcing_type": "arctic",
     "estimated_R_rt": 0.45,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Mackenzie",
@@ -349,7 +349,7 @@
     "link_sharing_index": 0.04069598136284217,
     "forcing_type": "arctic",
     "estimated_R_rt": 0.4,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Mahakam",
@@ -381,7 +381,7 @@
     "link_sharing_index": 0.06913580246913581,
     "forcing_type": "tide_influenced",
     "estimated_R_rt": 0.6,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Mahanadi",
@@ -413,7 +413,7 @@
     "link_sharing_index": 0.07193320488118175,
     "forcing_type": "tide_influenced",
     "estimated_R_rt": 0.55,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Mekong",
@@ -445,7 +445,7 @@
     "link_sharing_index": 0.11216056670602126,
     "forcing_type": "tide_influenced",
     "estimated_R_rt": 0.65,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Mississippi",
@@ -477,7 +477,7 @@
     "link_sharing_index": 0.08043573943661972,
     "forcing_type": "river_dominated",
     "estimated_R_rt": 0.05,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Mossy",
@@ -509,7 +509,7 @@
     "link_sharing_index": 0.12348484848484846,
     "forcing_type": "lacustrine",
     "estimated_R_rt": 0.05,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Niger",
@@ -541,7 +541,7 @@
     "link_sharing_index": 0.04349583636510631,
     "forcing_type": "tide_influenced",
     "estimated_R_rt": 0.9,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Orinoco",
@@ -573,7 +573,7 @@
     "link_sharing_index": 0.06282119440014176,
     "forcing_type": "river_dominated",
     "estimated_R_rt": 0.15,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Parana",
@@ -605,7 +605,7 @@
     "link_sharing_index": 0.12094907407407403,
     "forcing_type": "river_dominated",
     "estimated_R_rt": 0.15,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Pearl",
@@ -637,7 +637,7 @@
     "link_sharing_index": 0.05545112781954886,
     "forcing_type": "tide_influenced",
     "estimated_R_rt": 0.7,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Po",
@@ -669,7 +669,7 @@
     "link_sharing_index": 0.21777777777777776,
     "forcing_type": "river_dominated",
     "estimated_R_rt": 0.15,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Red",
@@ -701,7 +701,7 @@
     "link_sharing_index": 0.16499999999999998,
     "forcing_type": "river_dominated",
     "estimated_R_rt": 0.2,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Rioni",
@@ -733,7 +733,7 @@
     "link_sharing_index": 0.5641025641025642,
     "forcing_type": "river_dominated",
     "estimated_R_rt": 0.1,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Selenga",
@@ -765,7 +765,7 @@
     "link_sharing_index": 0.1007547169811321,
     "forcing_type": "lacustrine",
     "estimated_R_rt": 0.05,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Wairau",
@@ -797,7 +797,7 @@
     "link_sharing_index": 0.75,
     "forcing_type": "river_dominated",
     "estimated_R_rt": 0.1,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Wax Lake",
@@ -829,7 +829,7 @@
     "link_sharing_index": 0.0970814132104455,
     "forcing_type": "river_dominated",
     "estimated_R_rt": 0.1,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Yangtze",
@@ -861,7 +861,7 @@
     "link_sharing_index": 0.40476190476190477,
     "forcing_type": "river_dominated",
     "estimated_R_rt": 0.25,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   },
   {
     "name": "Yukon",
@@ -893,6 +893,6 @@
     "link_sharing_index": 0.06577358490566038,
     "forcing_type": "arctic",
     "estimated_R_rt": 0.35,
-    "source": "DIDNT Dataset (Hariharan et al., 2021)"
+    "source": "DIDNT Dataset (Hariharan et al., 2022)"
   }
 ]

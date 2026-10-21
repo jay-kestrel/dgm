@@ -3,8 +3,9 @@ Tests for DGM configuration loading, validation, and distribution sampling.
 """
 
 from pathlib import Path
-import pytest
+
 import numpy as np
+import pytest
 
 from dgm.config import DGMConfig, sample_from_spec
 
@@ -124,7 +125,11 @@ def test_load_default_with_tuple_and_scalar_overrides():
 def test_config_files_identical():
     """Verify config/default_config.yaml and src/dgm/default_config.yaml remain synchronized."""
     repo_root = Path(__file__).resolve().parent.parent
-    cfg1 = (repo_root / "config" / "default_config.yaml").read_text(encoding="utf-8")
-    cfg2 = (repo_root / "src" / "dgm" / "default_config.yaml").read_text(encoding="utf-8")
+    repo_cfg_path = repo_root / "config" / "default_config.yaml"
+    pkg_cfg_path = repo_root / "src" / "dgm" / "default_config.yaml"
+    if not repo_cfg_path.exists():
+        pytest.skip("Root config/default_config.yaml not present in distribution environment")
+    cfg1 = repo_cfg_path.read_text(encoding="utf-8")
+    cfg2 = pkg_cfg_path.read_text(encoding="utf-8")
     assert cfg1 == cfg2, "config/default_config.yaml and src/dgm/default_config.yaml have drifted!"
 

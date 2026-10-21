@@ -3,9 +3,9 @@ Tests for Shoreward Spatial Scaling: node spacing decay and sinuosity reduction 
 """
 
 import math
-from pathlib import Path
-import numpy as np
+
 import networkx as nx
+import numpy as np
 import pytest
 
 import dgm

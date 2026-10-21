@@ -7,8 +7,9 @@ Evaluates the physical and geomorphic realism of:
   4. Pre-Hydraulic Network Pruning (inland dead-end elimination)
 """
 
-from typing import Dict, Any
 import math
+from typing import Any
+
 import numpy as np
 
 import dgm
@@ -16,12 +17,12 @@ from dgm.core.channel_geometry import compute_edge_clearance
 from dgm.core.hydraulics import solve_markov_flux
 
 
-def run_reality_diagnostics() -> Dict[str, Any]:
+def run_reality_diagnostics() -> dict[str, Any]:
     """
     Executes quantitative physical and morphological checks on all 4 new modules.
     Returns structured results dictionary.
     """
-    results: Dict[str, Any] = {}
+    results: dict[str, Any] = {}
 
     print("=" * 78)
     print("DGM Physical Modules Reality & Geomorphic Consistency Check")
@@ -42,9 +43,9 @@ def run_reality_diagnostics() -> Dict[str, Any]:
             ys = [G.nodes[n]['y'] for n in G.nodes()]
             xs = [G.nodes[n]['x'] for n in G.nodes()]
             w = max(ys) - min(ys) if ys else 0.0
-            l = max(xs) - min(xs) if xs else 0.0
+            length = max(xs) - min(xs) if xs else 0.0
             widths.append(w)
-            aspect_ratios.append(w / max(1.0, l))
+            aspect_ratios.append(w / max(1.0, length))
 
         mean_w = float(np.mean(widths)) if widths else 0.0
         mean_ar = float(np.mean(aspect_ratios)) if aspect_ratios else 0.0
@@ -186,7 +187,7 @@ def run_reality_diagnostics() -> Dict[str, Any]:
         pruned_shore_ratios.append((len(clean_leaves) - len(clean_dead)) / max(1, len(clean_leaves)))
 
         # Check mass conservation in hydraulics
-        C, W, phi = solve_markov_flux(G_clean, G_clean.graph.get('params'))
+        _C, _W, phi = solve_markov_flux(G_clean, G_clean.graph.get('params'))
         flux_conservations.append(len(phi) > 0 and math.isclose(phi[0], 1.0, rel_tol=1e-3))
 
     mean_raw_dead = float(np.mean(unpruned_dead_ends))
@@ -197,7 +198,7 @@ def run_reality_diagnostics() -> Dict[str, Any]:
 
     print(f"  Unpruned Networks: Inland Dead-Ends = {mean_raw_dead:.1f} / net | Shoreline Outlets = {mean_raw_ratio * 100:.1f}%")
     print(f"  Pruned Networks:   Inland Dead-Ends = {mean_clean_dead:.1f} / net | Shoreline Outlets = {mean_clean_ratio * 100:.1f}%")
-    print(f"  Empirical DIDNT Delta Target:         0.0 inland dead-ends | Shoreline Outlets = 100.0%")
+    print("  Empirical DIDNT Delta Target:         0.0 inland dead-ends | Shoreline Outlets = 100.0%")
     print(f"  Markov Flux Mass Conservation:       {'PASSED' if all_flux_conserved else 'FAILED'}")
 
     passed_pruning = bool(mean_clean_dead == 0.0 and mean_clean_ratio == 1.0 and all_flux_conserved)

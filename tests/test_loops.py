@@ -2,15 +2,15 @@
 Tests for loop engines (Mechanism A: potential field and Mechanism B: nER optimality).
 """
 
-import numpy as np
 import networkx as nx
+import numpy as np
 import pytest
 
-from dgm.core.domain import PolarDomain
-from dgm.core.backbone import generate_polar_tree_backbone
-from dgm.core.loops import apply_loop_mechanism
-from dgm.core.geometry_utils import segments_intersect
 from dgm.config import DGMConfig
+from dgm.core.backbone import generate_polar_tree_backbone
+from dgm.core.domain import PolarDomain
+from dgm.core.geometry_utils import segments_intersect
+from dgm.core.loops import apply_loop_mechanism
 
 
 @pytest.mark.parametrize("mechanism", ["potential_field", "ner_optimality"])

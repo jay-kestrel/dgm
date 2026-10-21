@@ -3,20 +3,22 @@ Curved channel centerline generation and proximity-constrained meander dynamics 
 Provides spatial clearance calculation, meander amplitude bounding, and 2D polyline generation.
 """
 
-from typing import Dict, Any, List, Tuple, Optional
 import math
 import zlib
-import numpy as np
+from typing import Any
+
 import networkx as nx
-from .geometry_utils import segments_intersect, point_to_segment_distance
+import numpy as np
+
+from .geometry_utils import point_to_segment_distance, segments_intersect
 
 
 def compute_edge_clearance(
     G: nx.DiGraph,
     u: Any,
     v: Any,
-    edge_records: Optional[List[Any]] = None,
-    node_coords: Optional[Dict[Any, Tuple[float, float]]] = None
+    edge_records: list[Any] | None = None,
+    node_coords: dict[Any, tuple[float, float]] | None = None
 ) -> float:
     """
     Computes the minimum spatial clearance distance in meters from edge (u, v) (sampled along
@@ -42,10 +44,10 @@ def compute_edge_clearance(
         (0.25 * p_u[0] + 0.75 * p_v[0], 0.25 * p_u[1] + 0.75 * p_v[1]),
     )
 
-    min_pu_pv_x = p_u[0] if p_u[0] < p_v[0] else p_v[0]
-    max_pu_pv_x = p_v[0] if p_u[0] < p_v[0] else p_u[0]
-    min_pu_pv_y = p_u[1] if p_u[1] < p_v[1] else p_v[1]
-    max_pu_pv_y = p_v[1] if p_u[1] < p_v[1] else p_u[1]
+    min_pu_pv_x = min(p_v[0], p_u[0])
+    max_pu_pv_x = max(p_u[0], p_v[0])
+    min_pu_pv_y = min(p_v[1], p_u[1])
+    max_pu_pv_y = max(p_u[1], p_v[1])
 
     if edge_records is None:
         if node_coords is None:
@@ -64,14 +66,13 @@ def compute_edge_clearance(
             continue
 
         # Exclude all incident edges sharing an endpoint with (u, v)
-        if edge_u == u or edge_v == v or edge_v == u or edge_u == v:
+        if edge_u in (u, v) or edge_v in (v, u):
             continue
 
         # Bounding box clearance rejection: if bbox distance exceeds min_dist, cannot be closer
-        if min_dist < float('inf'):
-            if (min_ab_x - max_pu_pv_x > min_dist) or (min_pu_pv_x - max_ab_x > min_dist) or \
-               (min_ab_y - max_pu_pv_y > min_dist) or (min_pu_pv_y - max_ab_y > min_dist):
-                continue
+        if min_dist < float('inf') and ((min_ab_x - max_pu_pv_x > min_dist) or (min_pu_pv_x - max_ab_x > min_dist) or \
+               (min_ab_y - max_pu_pv_y > min_dist) or (min_pu_pv_y - max_ab_y > min_dist)):
+            continue
 
         # If non-incident edges cross, clearance is immediately zero
         if segments_intersect(p_u, p_v, a, b):
@@ -79,16 +80,13 @@ def compute_edge_clearance(
 
         for pt in sample_points:
             dist = point_to_segment_distance(pt, a, b)
-            if dist < min_dist:
-                min_dist = dist
+            min_dist = min(min_dist, dist)
 
         # Also check distance from endpoints of (a, b) to segment (p_u, p_v)
         dist_a = point_to_segment_distance(a, p_u, p_v)
-        if dist_a < min_dist:
-            min_dist = dist_a
+        min_dist = min(min_dist, dist_a)
         dist_b = point_to_segment_distance(b, p_u, p_v)
-        if dist_b < min_dist:
-            min_dist = dist_b
+        min_dist = min(min_dist, dist_b)
 
     return float(min_dist)
 
@@ -171,7 +169,7 @@ def generate_channel_centerlines(
     clearance_fraction: float = 0.40,
     num_points: int = 21,
     num_bends: int = 1,
-    seed: Optional[int] = 42
+    seed: int | None = 42
 ) -> nx.DiGraph:
     """
     Generates smooth 2D polyline centerlines for all edges in G.
@@ -262,7 +260,6 @@ def generate_channel_centerlines(
 
         # Test both candidate signs (+1/-1) across all wave crests to pick the direction
         # that maximizes clearance to neighboring channels (deflects into open floodplain)
-        incident_nodes = {u, v}
         clearance_pos = float('inf')
         clearance_neg = float('inf')
 
@@ -284,10 +281,8 @@ def generate_channel_centerlines(
 
                 d_pos = point_to_segment_distance(p_pos, seg_a, seg_b)
                 d_neg = point_to_segment_distance(p_neg, seg_a, seg_b)
-                if d_pos < clearance_pos:
-                    clearance_pos = d_pos
-                if d_neg < clearance_neg:
-                    clearance_neg = d_neg
+                clearance_pos = min(clearance_pos, d_pos)
+                clearance_neg = min(clearance_neg, d_neg)
 
         # Direct meander towards open space (larger clearance); if equal/symmetric, use pseudo-random hash
         if clearance_pos > clearance_neg + 1e-3:
@@ -317,7 +312,7 @@ def generate_channel_centerlines(
 
         # Construct polyline vertices
         polyline = []
-        for s, h in zip(s_values, profile):
+        for s, h in zip(s_values, profile, strict=False):
             x_s = x_u + s * (x_v - x_u) + sign * effective_amp * h * nx_val
             y_s = y_u + s * (y_v - y_u) + sign * effective_amp * h * ny_val
             polyline.append([float(x_s), float(y_s)])

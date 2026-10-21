@@ -4,11 +4,13 @@ Evaluates complete literature suite across Topological, Dynamic & Transport,
 Entropic Complexity, Vulnerability, and Geomorphic physical categories.
 """
 
-from typing import Dict, Any, Optional, Tuple
-import warnings
+import itertools
 import math
-import numpy as np
+import warnings
+from typing import Any
+
 import networkx as nx
+import numpy as np
 
 from .core.hydraulics import solve_markov_flux
 
@@ -23,7 +25,7 @@ def _get_apex_node(G: nx.DiGraph):
     zero_in = [n for n in G.nodes() if G.in_degree(n) == 0]
     if zero_in:
         return zero_in[0]
-    return 0 if 0 in G.nodes() else list(G.nodes())[0]
+    return 0 if 0 in G.nodes() else next(iter(G.nodes()))
 
 
 def _clean_val(v: Any, default: float = 0.0) -> float:
@@ -53,7 +55,7 @@ class MetricsBattery:
         self.eta = manning_eta
         self.gamma = length_gamma
 
-    def evaluate_all(self, G: nx.DiGraph, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def evaluate_all(self, G: nx.DiGraph, params: dict[str, Any] | None = None) -> dict[str, Any]:
         """Evaluates complete multi-tier metric suite on graph G."""
         if params is None:
             params = {'manning_eta': self.eta, 'length_gamma': self.gamma}
@@ -73,7 +75,7 @@ class MetricsBattery:
             'eBI', 'traditional_BI', 'radial_sinuosity',
             'loop_length_anisotropy', 'resistance_distance'
         }
-        clean_res: Dict[str, Any] = {}
+        clean_res: dict[str, Any] = {}
         for k, v in combined.items():
             if isinstance(v, (int, np.integer)) and not isinstance(v, bool):
                 clean_res[k] = int(v)
@@ -82,7 +84,7 @@ class MetricsBattery:
                 clean_res[k] = _clean_val(v, default=default_val)
         return clean_res
 
-    def evaluate_topology(self, G: nx.DiGraph) -> Dict[str, Any]:
+    def evaluate_topology(self, G: nx.DiGraph) -> dict[str, Any]:
         """Tier 1: Topological graph metrics."""
         N = G.number_of_nodes()
         E = G.number_of_edges()
@@ -164,9 +166,9 @@ class MetricsBattery:
     def evaluate_dynamics(
         self,
         G: nx.DiGraph,
-        params: Dict[str, Any],
-        markov_solution: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]] = None,
-    ) -> Dict[str, Any]:
+        params: dict[str, Any],
+        markov_solution: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
+    ) -> dict[str, Any]:
         """Tier 2: Entropic, Energetic & Markovian dynamic metrics (nER*, eBI, D_net)."""
         nodes = list(G.nodes())
         N = len(nodes)
@@ -275,9 +277,9 @@ class MetricsBattery:
     def evaluate_vulnerability(
         self,
         G: nx.DiGraph,
-        params: Dict[str, Any],
-        markov_solution: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]] = None,
-    ) -> Dict[str, Any]:
+        params: dict[str, Any],
+        markov_solution: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
+    ) -> dict[str, Any]:
         """Tier 3: Vulnerability & Resilience metrics (Global Vulnerability V_net, Outlet Flux Entropy H_out)."""
         N = G.number_of_nodes()
         if N <= 2:
@@ -319,7 +321,7 @@ class MetricsBattery:
             'outlet_flux_entropy': outlet_flux_entropy
         }
 
-    def evaluate_geomorphology(self, G: nx.DiGraph) -> Dict[str, Any]:
+    def evaluate_geomorphology(self, G: nx.DiGraph) -> dict[str, Any]:
         """Tier 4: Geomorphic form, sinuosity, dispersion & width scaling metrics."""
         widths = [d.get('width', 10.0) for u, v, d in G.edges(data=True)]
         if not widths:
@@ -350,7 +352,7 @@ class MetricsBattery:
                                 G.nodes[v].get('y', 0.0) - G.nodes[u].get('y', 0.0)
                             )
                         ))
-                        for u, v in zip(path[:-1], path[1:])
+                        for u, v in itertools.pairwise(path)
                     )
                     if path_len > 0:
                         sinuosities.append(path_len / r_o)

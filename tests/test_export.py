@@ -3,15 +3,16 @@ Unit tests for DGM IO and export utilities (GraphML, GeoJSON, CSV).
 """
 
 import json
+
 import networkx as nx
 import numpy as np
 
 from dgm.generator import DeltaGenerator
 from dgm.io.export import (
-    to_graphml,
-    to_geojson,
-    metrics_to_dataframe,
     metrics_to_csv,
+    metrics_to_dataframe,
+    to_geojson,
+    to_graphml,
 )
 
 
@@ -47,7 +48,7 @@ def test_to_geojson(tmp_path):
     assert len(fc["features"]) == G.number_of_nodes() + G.number_of_edges()
 
     # Re-read JSON to verify valid format
-    with open(out_file, "r", encoding="utf-8") as f:
+    with open(out_file, encoding="utf-8") as f:
         data = json.load(f)
     assert data["type"] == "FeatureCollection"
     assert len(data["features"]) == len(fc["features"])
@@ -82,7 +83,7 @@ def test_metrics_to_dataframe_and_csv(tmp_path):
 
 def test_summary_to_dataframe_and_csv(tmp_path):
     from dgm.generator import EnsembleGenerator
-    from dgm.io.export import summary_to_dataframe, summary_to_csv
+    from dgm.io.export import summary_to_csv, summary_to_dataframe
 
     ens = EnsembleGenerator(N=15, num_realizations=3, seed=42)
     summary = ens.evaluate_ensemble()
@@ -97,5 +98,53 @@ def test_summary_to_dataframe_and_csv(tmp_path):
     summary_to_csv(summary, csv_file)
     assert csv_file.exists()
     assert csv_file.stat().st_size > 0
+
+
+def test_export_fallback_without_pandas(tmp_path, monkeypatch):
+    """Verify metrics_to_csv and summary_to_csv succeed with standard csv when pandas is absent."""
+    import builtins
+
+    from dgm.generator import DeltaGenerator, EnsembleGenerator
+    from dgm.io.export import metrics_to_csv, metrics_to_dataframe, summary_to_csv, summary_to_dataframe
+
+    # Simulate missing pandas
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "pandas":
+            raise ImportError("No module named 'pandas'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    gen = DeltaGenerator(N=15, seed=42)
+    G = gen.generate()
+    m = gen.evaluate_metrics(G)
+
+    # DataFrame conversion should raise informative ImportError
+    import pytest
+    with pytest.raises(ImportError, match="pandas is required"):
+        metrics_to_dataframe(m)
+
+    # CSV export should gracefully fall back to csv module and write valid CSV
+    csv_file = tmp_path / "metrics_no_pandas.csv"
+    metrics_to_csv(m, csv_file)
+    assert csv_file.exists()
+    content = csv_file.read_text(encoding="utf-8")
+    assert "alpha_index" in content
+
+    # Summary DataFrame should also raise ImportError
+    ens = EnsembleGenerator(N=15, num_realizations=2, seed=42)
+    summary = ens.evaluate_ensemble()
+    with pytest.raises(ImportError, match="pandas is required"):
+        summary_to_dataframe(summary)
+
+    # Summary CSV should fall back to csv module
+    sum_csv = tmp_path / "summary_no_pandas.csv"
+    summary_to_csv(summary, sum_csv)
+    assert sum_csv.exists()
+    sum_content = sum_csv.read_text(encoding="utf-8")
+    assert "metric,mean,std" in sum_content
+
 
 

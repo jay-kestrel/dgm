@@ -3,19 +3,19 @@ Benchmarks module forwarding to dgm.benchmarks.
 """
 
 from dgm.benchmarks.empirical_validation import (
-    EmpiricalValidationBenchmark,
-    run_empirical_benchmark,
-    PRIMARY_METRICS,
-    METRIC_LABELS,
     METRIC_KEY_MAP,
+    METRIC_LABELS,
+    PRIMARY_METRICS,
+    EmpiricalValidationBenchmark,
     compute_goodness_of_fit,
+    run_empirical_benchmark,
 )
 
 __all__ = [
-    "EmpiricalValidationBenchmark",
-    "run_empirical_benchmark",
-    "PRIMARY_METRICS",
-    "METRIC_LABELS",
     "METRIC_KEY_MAP",
+    "METRIC_LABELS",
+    "PRIMARY_METRICS",
+    "EmpiricalValidationBenchmark",
     "compute_goodness_of_fit",
+    "run_empirical_benchmark",
 ]

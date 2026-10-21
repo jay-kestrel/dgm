@@ -2,14 +2,13 @@
 Tests for emergent hydraulics, Murray's Law width conservation, and Markov flux solver.
 """
 
-import math
-import pytest
 import numpy as np
+import pytest
 
-from dgm.core.domain import PolarDomain
-from dgm.core.backbone import generate_polar_tree_backbone
-from dgm.core.hydraulics import apply_emergent_hydraulics, solve_markov_flux
 from dgm.config import DGMConfig
+from dgm.core.backbone import generate_polar_tree_backbone
+from dgm.core.domain import PolarDomain
+from dgm.core.hydraulics import apply_emergent_hydraulics, solve_markov_flux
 
 
 def test_emergent_hydraulics_widths_and_conductance():

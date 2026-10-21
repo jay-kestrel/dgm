@@ -6,22 +6,23 @@ and multi-stage comparisons.
 """
 
 import math
+
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pytest
 
-
 import dgm
 from dgm.visualization import (
-    plot_network,
-    plot_tree_vs_network,
-    plot_stages,
+    _infer_node_type,
     _transform_point,
     _transform_polyline,
-    _infer_node_type,
+    plot_network,
+    plot_stages,
+    plot_tree_vs_network,
 )
 
 
@@ -218,7 +219,7 @@ def test_legend_all_types_contains_confluence_orange_diamond():
 
     # Check marker style and color for confluence handle
     conf_handle = None
-    for handle, text in zip(leg1.legend_handles, leg1.get_texts()):
+    for handle, text in zip(leg1.legend_handles, leg1.get_texts(), strict=False):
         if "Confluence" in text.get_text():
             conf_handle = handle
             break
@@ -241,3 +242,22 @@ def test_legend_all_types_contains_confluence_orange_diamond():
     assert len(stage_legends) > 0
     assert any("Confluence" in t.get_text() for t in stage_legends[0].get_texts())
     plt.close(fig3)
+
+
+def test_visualization_missing_matplotlib(monkeypatch):
+    """Verify plotting functions raise an informative ImportError when matplotlib is missing."""
+    import dgm.visualization as viz
+
+    monkeypatch.setattr(viz, "_HAS_MATPLOTLIB", False)
+    G = nx.DiGraph()
+    G.add_edge(0, 1)
+
+    with pytest.raises(ImportError, match="matplotlib is required"):
+        viz.plot_network(G)
+
+    with pytest.raises(ImportError, match="matplotlib is required"):
+        viz.plot_tree_vs_network(G, G)
+
+    with pytest.raises(ImportError, match="matplotlib is required"):
+        viz.plot_stages({"tree": G})
+

@@ -2,9 +2,8 @@
 Tests for top-level generator facades, reproducibility, metrics, and ensembles.
 """
 
-from pathlib import Path
-import numpy as np
 import networkx as nx
+import numpy as np
 
 import dgm
 

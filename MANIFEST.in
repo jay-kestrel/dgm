@@ -1,0 +1,22 @@
+include LICENSE
+include README.md
+include pyproject.toml
+include CITATION.cff
+include CHANGELOG.md
+include CODE_OF_CONDUCT.md
+include CONTRIBUTING.md
+include SECURITY.md
+include AGENTS.md
+include config/default_config.yaml
+
+recursive-include src/dgm *.yaml *.json
+recursive-include tests *.py
+recursive-include examples *.py
+recursive-include docs *.md
+
+# Exclude scratch, temporary files and build artifacts
+prune experiments
+prune outputs
+prune writeup
+prune scripts
+global-exclude *.py[cod] __pycache__ *.so .DS_Store

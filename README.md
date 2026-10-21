@@ -8,6 +8,9 @@
 
 Parameterized by minimal physical boundary conditions—node budget ($N$) and relative river-to-tidal forcing weight ($R_{\text{rt}} \in [0, 1]$)—DGM generates realistic, topologically complex, and hydraulically consistent distributary networks in milliseconds.
 
+> [!NOTE]
+> **Pre-Release / Alpha Status**: DeltaGraphModel (DGM) is currently in active pre-release (v0.2.0-alpha). Core graph synthesis and hydraulic routing are stable, but public APIs, configuration schemas, and benchmark interfaces may undergo refinements prior to the stable 1.0 release. Feedback and contributions are warmly welcomed!
+
 ---
 
 ## Key Features
@@ -27,16 +30,34 @@ Parameterized by minimal physical boundary conditions—node budget ($N$) and re
 
 We recommend using [**`uv`**](https://github.com/astral-sh/uv) for fast, reproducible dependency resolution and local virtual environments.
 
-### 1. Clone the repository
+### 1. Development Installation (from Source)
 ```bash
-git clone <repo-url> dgm
+git clone https://github.com/jay-kestrel/dgm.git dgm
 cd dgm
+
+# Create virtual environment and sync all dependencies (including dev and optional extras)
+uv sync --extra dev
 ```
 
-### 2. Install dependencies with `uv`
+### 2. Package Installation & Optional Extras
+DGM features a modular dependency footprint:
+- **Core Package**: Only requires `networkx`, `numpy`, `scipy`, and `pyyaml`.
+- **Visualization (`[viz]`)**: Adds `matplotlib` for 2D cartographic network rendering.
+- **Benchmarks (`[benchmarks]`)**: Adds `pandas` and `scikit-learn` for empirical DIDNT validation and PCA analysis.
+- **Full Suite (`[all]`)**: Installs all visualization and benchmark dependencies.
+
 ```bash
-# Create virtual environment and sync dependencies
-uv sync --extra dev
+# Core only
+pip install delta-graph-model
+
+# With visualization
+pip install "delta-graph-model[viz]"
+
+# With benchmarks and validation
+pip install "delta-graph-model[benchmarks]"
+
+# Everything
+pip install "delta-graph-model[all]"
 ```
 
 ---
@@ -131,17 +152,17 @@ See [docs/configuration.md](docs/configuration.md) for the complete schema and p
 
 DGM includes rigorous benchmarking suites validating synthetic networks against real-world observations:
 
-- **28-Delta Global Empirical Validation**: Exercises DGM across the complete DIDNT dataset ([Hariharan et al., 2021](https://doi.org/10.1029/2021WR030026)), verifying that 89.3% of empirical deltas fall within the 95% PCA confidence ellipse.
+- **28-Delta Global Empirical Validation**: Exercises DGM across the complete DIDNT dataset ([Hariharan et al., 2022](https://doi.org/10.1029/2022GL097897)), verifying that 89.3% of empirical deltas fall within the 95% PCA confidence ellipse.
   ```bash
   uv run python examples/04_empirical_validation_benchmark.py --enable-pruning --simplify-chains
   ```
-  Full Report: [outputs/VALIDATION_REPORT.md](outputs/VALIDATION_REPORT.md)
+  Running the script writes `VALIDATION_REPORT.md` to `outputs/`.
 
 - **Planetary Mega-Delta Scale Benchmark**: Exercises DGM at full empirical scale ($N \ge 600 - 3,000$ nodes) across Earth's four largest distributary systems: Lena ($N=2,914$), GBMD ($N=2,488$), Amazon ($N=1,094$), and Niger ($N=651$).
   ```bash
   uv run python examples/05_mega_delta_scale_benchmark.py --realizations 2
   ```
-  Full Report: [outputs/MEGA_DELTA_BENCHMARK_REPORT.md](outputs/MEGA_DELTA_BENCHMARK_REPORT.md)
+  Running the script writes `MEGA_DELTA_BENCHMARK_REPORT.md` to `outputs/`.
 
 ---
 
@@ -192,16 +213,40 @@ The documentation portal deploys automatically to GitHub Pages via `.github/work
 ## Documentation
 
 Comprehensive documentation is available in the [`docs/`](docs/) directory and the web portal:
+- [End-to-End Walkthrough (Installation to Plotting)](docs/walkthrough.md)
 - [Architecture & Mathematical Model](docs/architecture.md)
 - [Configuration & YAML Schema](docs/configuration.md)
 - [Python API Reference](docs/api_reference.md)
 - [Tutorial 1: Quickstart](docs/tutorials/01_quickstart.md)
 - [Tutorial 2: Ensemble Sampling](docs/tutorials/02_ensemble_clouds.md)
-- [End-to-End Walkthrough](docs/walkthrough.md)
 - [Developer & Agent Guide](AGENTS.md)
-- [Global Empirical Validation Report](outputs/VALIDATION_REPORT.md)
-- [Planetary Mega-Delta Benchmark Report](outputs/MEGA_DELTA_BENCHMARK_REPORT.md)
 
+---
+
+## Contributing
+
+We welcome community contributions, bug reports, and enhancements!
+- Please read our [Contributing Guide](CONTRIBUTING.md) for environment setup and invariant requirements.
+- Review the [Code of Conduct](CODE_OF_CONDUCT.md).
+- Track version history and release notes in [CHANGELOG.md](CHANGELOG.md).
+- Security policy is detailed in [SECURITY.md](SECURITY.md).
+
+---
+
+## Citation
+
+If you use DeltaGraphModel (DGM) in academic research or scientific publications, please cite it using the metadata in [CITATION.cff](CITATION.cff):
+
+```bibtex
+@software{hariharan2026dgm,
+  author       = {Hariharan, Jayaram},
+  title        = {{DeltaGraphModel (DGM): A Process-Emergent Generative Graph Framework for Synthetic River Delta Channel Networks}},
+  year         = {2026},
+  publisher    = {GitHub},
+  version      = {0.2.0},
+  url          = {https://github.com/jay-kestrel/dgm}
+}
+```
 
 ---
 

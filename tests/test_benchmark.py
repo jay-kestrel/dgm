@@ -2,11 +2,12 @@
 Tests for DGM Empirical Validation Benchmark Suite.
 """
 
+import numpy as np
+
 from dgm.benchmarks.empirical_validation import (
     EmpiricalValidationBenchmark,
     compute_goodness_of_fit,
 )
-import numpy as np
 
 
 def test_compute_goodness_of_fit():
@@ -69,7 +70,7 @@ def test_benchmark_suite_subset_run(tmp_path):
 
     # Verify JSON content is valid
     import json
-    with open(json_file, "r", encoding="utf-8") as f:
+    with open(json_file, encoding="utf-8") as f:
         data = json.load(f)
     assert "goodness_of_fit" in data or "benchmark_metadata" in data
 

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .config import DGMConfig
 from .generator import DeltaGenerator, EnsembleGenerator
-from .io.export import to_graphml, to_geojson, metrics_to_csv
+from .io.export import metrics_to_csv, to_geojson, to_graphml
 
 
 def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
@@ -76,7 +76,7 @@ def main(args=None):
     gen_parser.add_argument("-m", "--mechanism", choices=["potential_field", "ner_optimality"], default="potential_field", help="Loop reconnection engine")
     gen_parser.add_argument("-c", "--config", type=str, default=None, help="Path to custom YAML configuration file")
     gen_parser.add_argument("-s", "--seed", type=int, default=42, help="Random seed (default: 42)")
-    gen_parser.add_argument("-o", "--output", type=str, default=None, help="Output file path (.graphml, .geojson, or .json)")
+    gen_parser.add_argument("-o", "--output", type=str, default=None, help="Output file path (.graphml, .geojson, .json, .png, .pdf, .svg)")
 
     # Command: ensemble
     ens_parser = subparsers.add_parser("ensemble", help="Sample an ensemble cloud of delta realizations")
@@ -84,7 +84,12 @@ def main(args=None):
     ens_parser.add_argument("-n", "--num-realizations", type=int, default=30, help="Number of realizations to sample (default: 30)")
     ens_parser.add_argument("-m", "--mechanism", choices=["potential_field", "ner_optimality"], default="potential_field", help="Loop reconnection engine")
     ens_parser.add_argument("-c", "--config", type=str, default=None, help="Path to custom YAML configuration file")
-    ens_parser.add_argument("--sample-parameters", action="store_true", default=True, help="Sample parameters from YAML distributions")
+    ens_parser.add_argument(
+        "--sample-parameters",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Sample parameters from YAML distributions (use --no-sample-parameters to disable)"
+    )
     ens_parser.add_argument("-s", "--seed", type=int, default=42, help="Base random seed (default: 42)")
     ens_parser.add_argument("-o", "--output", type=str, default=None, help="Output CSV path for ensemble summary metrics")
 
@@ -108,7 +113,7 @@ def main(args=None):
             G = gen.generate()
             metrics = gen.evaluate_metrics(G)
 
-            print(f"=== Generated DGM Realization ===")
+            print("=== Generated DGM Realization ===")
             print(f"Nodes: {G.number_of_nodes()} | Edges: {G.number_of_edges()} | Loops (Betti-1): {metrics.get('betti_1', 0)}")
             print(f"Alpha Index (α): {metrics.get('alpha_index', 0.0):.4f}")
             print(f"Normalized Entropy Rate (nER*): {metrics.get('nER_star', 0.0):.4f}")
@@ -125,6 +130,7 @@ def main(args=None):
                     import matplotlib
                     matplotlib.use('Agg')
                     import matplotlib.pyplot as plt
+
                     from .visualization import plot_network
                     fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
                     try:

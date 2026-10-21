@@ -8,35 +8,35 @@ against the largest empirical distributary networks in the world:
   - Niger River Delta (N = 651, Macro-tidal anastomosing delta)
 """
 
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
 import json
 import time
 import uuid
+from pathlib import Path
+from typing import Any
 
+import matplotlib
 import numpy as np
 import pandas as pd
 
-import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from ..generator import DeltaGenerator
-from ..metrics import MetricsBattery
 from ..io.datasets import (
     DIDNTLoader,
     EmpiricalDelta,
     get_empirical_deltas,
 )
+from ..metrics import MetricsBattery
 from .empirical_validation import (
-    PRIMARY_METRICS,
-    METRIC_LABELS,
     METRIC_KEY_MAP,
+    METRIC_LABELS,
+    PRIMARY_METRICS,
     REGIME_COLORS,
     compute_goodness_of_fit,
 )
 
-DEFAULT_MEGA_DELTAS: List[str] = [
+DEFAULT_MEGA_DELTAS: list[str] = [
     "Lena",
     "GBMD",
     "Amazon",
@@ -53,13 +53,13 @@ class MegaDeltaScaleBenchmark:
 
     def __init__(
         self,
-        delta_names: Optional[List[str]] = None,
+        delta_names: list[str] | None = None,
         realizations_per_delta: int = 3,
         enable_pruning: bool = True,
         simplify_pass_through_nodes: bool = True,
-        confinement: Optional[float] = None,
+        confinement: float | None = None,
         base_seed: int = 42,
-        dataset_dir: Optional[Union[str, Path]] = None,
+        dataset_dir: str | Path | None = None,
     ):
         self.delta_names = delta_names or DEFAULT_MEGA_DELTAS
         self.realizations_per_delta = realizations_per_delta
@@ -72,7 +72,7 @@ class MegaDeltaScaleBenchmark:
         all_emp = get_empirical_deltas(dataset_dir)
         emp_map = {d.name: d for d in all_emp}
 
-        self.target_deltas: List[EmpiricalDelta] = []
+        self.target_deltas: list[EmpiricalDelta] = []
         for name in self.delta_names:
             if name in emp_map:
                 self.target_deltas.append(emp_map[name])
@@ -86,12 +86,12 @@ class MegaDeltaScaleBenchmark:
             raise ValueError(f"No valid mega-deltas found matching names: {self.delta_names}")
 
         self.battery = MetricsBattery()
-        self.results: Dict[str, Any] = {}
+        self.results: dict[str, Any] = {}
 
-    def run(self, verbose: bool = True) -> Dict[str, Any]:
+    def run(self, verbose: bool = True) -> dict[str, Any]:
         """Runs the mega-delta scale benchmark across target systems."""
         t_start = time.time()
-        detailed_rows: List[Dict[str, Any]] = []
+        detailed_rows: list[dict[str, Any]] = []
 
         if verbose:
             print("=" * 80)
@@ -108,8 +108,8 @@ class MegaDeltaScaleBenchmark:
             if verbose:
                 print(f"\n[{idx + 1}/{len(self.target_deltas)}] Benchmarking {emp.name} at Full Scale: N={target_n}, R_rt={r_rt:.2f}, Regime={emp.forcing_type}...")
 
-            synth_metrics_list: List[Dict[str, Any]] = []
-            realization_timings: List[float] = []
+            synth_metrics_list: list[dict[str, Any]] = []
+            realization_timings: list[float] = []
 
             for r_i in range(self.realizations_per_delta):
                 sub_seed = self.base_seed + idx * 1000 + r_i * 17
@@ -142,10 +142,10 @@ class MegaDeltaScaleBenchmark:
                               f"(α={m['alpha_index']:.3f}, nER*={m['nER_star']:.3f}, eBI={m['eBI']:.2f})")
                 except Exception as exc:
                     import warnings
-                    warnings.warn(f"Mega-delta realization {r_i + 1} failed for '{emp.name}': {exc}")
+                    warnings.warn(f"Mega-delta realization {r_i + 1} failed for '{emp.name}': {exc}", stacklevel=2)
 
             # Aggregate statistics
-            row: Dict[str, Any] = {
+            row: dict[str, Any] = {
                 'delta_name': emp.name,
                 'forcing_type': emp.forcing_type,
                 'R_rt': r_rt,
@@ -177,7 +177,7 @@ class MegaDeltaScaleBenchmark:
         elapsed = time.time() - t_start
 
         # Composite goodness-of-fit for the mega-deltas
-        summary_gof: Dict[str, Dict[str, float]] = {}
+        summary_gof: dict[str, dict[str, float]] = {}
         for k in PRIMARY_METRICS:
             y_t = np.array([r[f'empirical_{k}'] for r in detailed_rows])
             y_p = np.array([r[f'synthetic_{k}_mean'] for r in detailed_rows])
@@ -214,7 +214,7 @@ class MegaDeltaScaleBenchmark:
         if not self.results or 'per_delta_summary' not in self.results:
             raise RuntimeError("Benchmark has not been run yet. Call run() first.")
 
-    def export_csv(self, output_path: Union[str, Path]) -> Path:
+    def export_csv(self, output_path: str | Path) -> Path:
         """Exports tabular benchmark results to CSV."""
         self._check_results()
         path = Path(output_path)
@@ -230,7 +230,7 @@ class MegaDeltaScaleBenchmark:
             raise
         return path
 
-    def export_json(self, output_path: Union[str, Path]) -> Path:
+    def export_json(self, output_path: str | Path) -> Path:
         """Exports benchmark statistical results to JSON."""
         self._check_results()
         path = Path(output_path)
@@ -246,7 +246,7 @@ class MegaDeltaScaleBenchmark:
             raise
         return path
 
-    def export_plot(self, output_path: Union[str, Path]) -> Path:
+    def export_plot(self, output_path: str | Path) -> Path:
         """Generates a publication-quality comparative figure for mega-deltas."""
         self._check_results()
         path = Path(output_path)
@@ -274,7 +274,7 @@ class MegaDeltaScaleBenchmark:
         ax1.bar(x_indices + w/2, synth_alpha, yerr=synth_alpha_err, width=w, label='DGM Synthetic (Full Scale)',
                 color='#3b82f6', alpha=0.85, capsize=4)
         ax1.set_xticks(x_indices)
-        ax1.set_xticklabels([f"{n}\n(N={nd})" for n, nd in zip(names, nodes)], fontsize=10)
+        ax1.set_xticklabels([f"{n}\n(N={nd})" for n, nd in zip(names, nodes, strict=False)], fontsize=10)
         ax1.set_ylabel(r'Alpha Index ($\alpha$)', fontsize=11, fontweight='bold')
         ax1.set_title(r'(a) Reticulation Network Topology ($\alpha$)', fontsize=12, fontweight='bold', pad=8)
         ax1.legend(frameon=True, facecolor='white', framealpha=0.9)
@@ -290,7 +290,7 @@ class MegaDeltaScaleBenchmark:
         ax2.bar(x_indices + w/2, synth_ner, yerr=synth_ner_err, width=w, label='DGM Synthetic (Full Scale)',
                 color='#10b981', alpha=0.85, capsize=4)
         ax2.set_xticks(x_indices)
-        ax2.set_xticklabels([f"{n}\n(N={nd})" for n, nd in zip(names, nodes)], fontsize=10)
+        ax2.set_xticklabels([f"{n}\n(N={nd})" for n, nd in zip(names, nodes, strict=False)], fontsize=10)
         ax2.set_ylabel(r'Normalized Flow Entropy ($\text{nER}^*$)', fontsize=11, fontweight='bold')
         ax2.set_title(r'(b) Thermodynamic Flow Partitioning ($\text{nER}^*$)', fontsize=12, fontweight='bold', pad=8)
         ax2.legend(frameon=True, facecolor='white', framealpha=0.9)
@@ -307,7 +307,7 @@ class MegaDeltaScaleBenchmark:
         ax3.bar(x_indices + w/2, synth_ebi, yerr=synth_ebi_err, width=w, label='DGM Synthetic (Full Scale)',
                 color='#8b5cf6', alpha=0.85, capsize=4)
         ax3.set_xticks(x_indices)
-        ax3.set_xticklabels([f"{n}\n(N={nd})" for n, nd in zip(names, nodes)], fontsize=10)
+        ax3.set_xticklabels([f"{n}\n(N={nd})" for n, nd in zip(names, nodes, strict=False)], fontsize=10)
         ax3.set_ylabel(r'Entropic Braiding Index ($eBI$)', fontsize=11, fontweight='bold')
         ax3.set_title(r'(c) Multi-Channel Cross-Sectional Braiding ($eBI$)', fontsize=12, fontweight='bold', pad=8)
         ax3.legend(frameon=True, facecolor='white', framealpha=0.9)
@@ -368,7 +368,7 @@ class MegaDeltaScaleBenchmark:
             plt.close(fig)
         return path
 
-    def export_report(self, output_path: Union[str, Path]) -> Path:
+    def export_report(self, output_path: str | Path) -> Path:
         """Generates a detailed Markdown benchmark report."""
         self._check_results()
         path = Path(output_path)
@@ -378,7 +378,7 @@ class MegaDeltaScaleBenchmark:
         rows = self.results['per_delta_summary']
         gof = self.results['goodness_of_fit']
 
-        lines: List[str] = [
+        lines: list[str] = [
             "# DGM Mega-Scale Delta Benchmark Report: Planetary-Scale Network Validation",
             "",
             f"**Validation Date**: {meta['timestamp']}  ",

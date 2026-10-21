@@ -14,8 +14,8 @@ import numpy as np
 import pytest
 
 from dgm.config import DGMConfig, sample_from_spec
-from dgm.generator import generate, sample_ensemble
 from dgm.core.hydraulics import apply_emergent_hydraulics, solve_markov_flux
+from dgm.generator import generate, sample_ensemble
 from dgm.metrics import MetricsBattery
 
 

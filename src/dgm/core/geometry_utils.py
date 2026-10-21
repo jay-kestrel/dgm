@@ -2,23 +2,24 @@
 Jordan Curve Theorem planarity filtering and geometric graph utilities for DGM.
 """
 
-from typing import Tuple, List, Optional, Any
 import math
+from typing import Any
+
 import networkx as nx
 
 from .domain import PolarDomain
 
 
-def is_close_point(p1: Tuple[float, float], p2: Tuple[float, float], tol: float = 1e-6) -> bool:
+def is_close_point(p1: tuple[float, float], p2: tuple[float, float], tol: float = 1e-6) -> bool:
     """Robust floating point equality check for 2D points in meters."""
     return math.isclose(float(p1[0]), float(p2[0]), abs_tol=tol) and math.isclose(float(p1[1]), float(p2[1]), abs_tol=tol)
 
 
 def segments_intersect(
-    p1: Tuple[float, float],
-    p2: Tuple[float, float],
-    q1: Tuple[float, float],
-    q2: Tuple[float, float]
+    p1: tuple[float, float],
+    p2: tuple[float, float],
+    q1: tuple[float, float],
+    q2: tuple[float, float]
 ) -> bool:
     """
     Jordan Curve Theorem line segment intersection test.
@@ -82,7 +83,7 @@ def segments_intersect(
                 return True
         return False
 
-    def orientation(p: Tuple[float, float], q: Tuple[float, float], r: Tuple[float, float]) -> int:
+    def orientation(p: tuple[float, float], q: tuple[float, float], r: tuple[float, float]) -> int:
         val = (q[1] - p[1]) * (r[0] - q[0]) - (q[0] - p[0]) * (r[1] - q[1])
         coord_scale = max(1.0, abs(p[0]), abs(p[1]), abs(q[0]), abs(q[1]), abs(r[0]), abs(r[1]))
         tol = 1e-9 * (coord_scale * coord_scale)
@@ -90,7 +91,7 @@ def segments_intersect(
             return 0  # Collinear
         return 1 if val > 0 else 2  # 1 = Clockwise, 2 = Counter-clockwise
 
-    def on_segment(p: Tuple[float, float], q: Tuple[float, float], r: Tuple[float, float]) -> bool:
+    def on_segment(p: tuple[float, float], q: tuple[float, float], r: tuple[float, float]) -> bool:
         coord_scale = max(1.0, abs(p[0]), abs(p[1]), abs(q[0]), abs(q[1]), abs(r[0]), abs(r[1]))
         tol = 1e-9 * coord_scale
         return (
@@ -114,16 +115,13 @@ def segments_intersect(
         return True
     if o3 == 0 and on_segment(q1, p1, q2):
         return True
-    if o4 == 0 and on_segment(q1, p2, q2):
-        return True
-
-    return False
+    return bool(o4 == 0 and on_segment(q1, p2, q2))
 
 
 def edge_intersects_graph(
-    p1: Tuple[float, float],
-    p2: Tuple[float, float],
-    existing_edges: List[Any]
+    p1: tuple[float, float],
+    p2: tuple[float, float],
+    existing_edges: list[Any]
 ) -> bool:
     """
     Checks if a candidate line segment (p1, p2) intersects any existing edge in the graph.
@@ -131,19 +129,19 @@ def edge_intersects_graph(
     """
     p1x, p1y = float(p1[0]), float(p1[1])
     p2x, p2y = float(p2[0]), float(p2[1])
-    min_px = p1x if p1x < p2x else p2x
-    max_px = p2x if p1x < p2x else p1x
-    min_py = p1y if p1y < p2y else p2y
-    max_py = p2y if p1y < p2y else p1y
+    min_px = min(p2x, p1x)
+    max_px = max(p1x, p2x)
+    min_py = min(p2y, p1y)
+    max_py = max(p1y, p2y)
 
     for edge in existing_edges:
         e_q1, e_q2 = edge[0], edge[1]
         q1x, q1y = float(e_q1[0]), float(e_q1[1])
         q2x, q2y = float(e_q2[0]), float(e_q2[1])
-        min_qx = q1x if q1x < q2x else q2x
-        max_qx = q2x if q1x < q2x else q1x
-        min_qy = q1y if q1y < q2y else q2y
-        max_qy = q2y if q1y < q2y else q1y
+        min_qx = min(q2x, q1x)
+        max_qx = max(q1x, q2x)
+        min_qy = min(q2y, q1y)
+        max_qy = max(q1y, q2y)
 
         # Fast inlined AABB rejection: disjoint bounding boxes cannot intersect
         if max_px < min_qx or min_px > max_qx or max_py < min_qy or min_py > max_qy:
@@ -155,9 +153,9 @@ def edge_intersects_graph(
 
 
 def point_to_segment_distance(
-    p: Tuple[float, float],
-    a: Tuple[float, float],
-    b: Tuple[float, float]
+    p: tuple[float, float],
+    a: tuple[float, float],
+    b: tuple[float, float]
 ) -> float:
     """
     Computes the shortest Euclidean distance in meters from point p to line segment (a, b).
@@ -182,9 +180,9 @@ def point_to_segment_distance(
 
 
 def incident_angle_between_segments(
-    p_common: Tuple[float, float],
-    p_a: Tuple[float, float],
-    p_b: Tuple[float, float]
+    p_common: tuple[float, float],
+    p_a: tuple[float, float],
+    p_b: tuple[float, float]
 ) -> float:
     """
     Computes the interior angle in radians between vector (p_a - p_common) and (p_b - p_common).
@@ -203,9 +201,9 @@ def incident_angle_between_segments(
 
 
 def edge_too_close_to_graph(
-    p1: Tuple[float, float],
-    p2: Tuple[float, float],
-    existing_edges: List[Any],
+    p1: tuple[float, float],
+    p2: tuple[float, float],
+    existing_edges: list[Any],
     min_clearance: float
 ) -> bool:
     """
@@ -218,10 +216,10 @@ def edge_too_close_to_graph(
     p1x, p1y = float(p1[0]), float(p1[1])
     p2x, p2y = float(p2[0]), float(p2[1])
 
-    min_px = p1x if p1x < p2x else p2x
-    max_px = p2x if p1x < p2x else p1x
-    min_py = p1y if p1y < p2y else p2y
-    max_py = p2y if p1y < p2y else p1y
+    min_px = min(p2x, p1x)
+    max_px = max(p1x, p2x)
+    min_py = min(p2y, p1y)
+    max_py = max(p1y, p2y)
 
     for edge in existing_edges:
         e_q1, e_q2 = edge[0], edge[1]
@@ -235,10 +233,10 @@ def edge_too_close_to_graph(
            (abs(p2x - q2x) < 1e-4 and abs(p2y - q2y) < 1e-4):
             continue
 
-        min_qx = q1x if q1x < q2x else q2x
-        max_qx = q2x if q1x < q2x else q1x
-        min_qy = q1y if q1y < q2y else q2y
-        max_qy = q2y if q1y < q2y else q1y
+        min_qx = min(q2x, q1x)
+        max_qx = max(q1x, q2x)
+        min_qy = min(q2y, q1y)
+        max_qy = max(q1y, q2y)
 
         # Bounding box rejection with clearance buffer
         if (min_qx - max_px > min_clearance) or (min_px - max_qx > min_clearance) or \
@@ -258,8 +256,8 @@ def edge_too_close_to_graph(
 
 def extend_leaf_to_shoreline(
     G: nx.DiGraph,
-    domain: Optional[PolarDomain],
-    existing_edges: Optional[List[Tuple[Tuple[float, float], Tuple[float, float]]]] = None
+    domain: PolarDomain | None,
+    existing_edges: list[tuple[tuple[float, float], tuple[float, float]]] | None = None
 ) -> None:
     """
     Extends all terminal leaf nodes (outlets) directly to shoreline r_shore,
@@ -301,7 +299,6 @@ def extend_leaf_to_shoreline(
                     if t_offset not in candidate_offsets:
                         candidate_offsets.append(t_offset)
 
-                extended = False
                 for t_offset in candidate_offsets:
                     cand_theta = domain.clamp_theta(orig_theta + t_offset, domain.r_shore)
                     cx, cy = domain.polar_to_cartesian(domain.r_shore, cand_theta)
@@ -333,7 +330,6 @@ def extend_leaf_to_shoreline(
                             if (par_pos, (px, py)) in existing_edges:
                                 idx = existing_edges.index((par_pos, (px, py)))
                                 existing_edges[idx] = (par_pos, (cx, cy))
-                        extended = True
                         break
 
             # Set node role: if at or near shoreline (r >= r_shore * 0.95), designate outlet

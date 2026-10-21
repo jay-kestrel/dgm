@@ -2,21 +2,22 @@
 Empirical datasets and DIDNT benchmark network loader for DGM.
 """
 
-from dataclasses import dataclass, asdict
-import os
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
 import json
 import math
-import numpy as np
+import os
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any
+
 import networkx as nx
+import numpy as np
 
 from ..metrics import MetricsBattery
 
 CANONICAL_DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "canonical_empirical_deltas.json"
 
 
-def _resolve_didnt_dir(dataset_dir: Optional[Union[str, Path]] = None) -> Path:
+def _resolve_didnt_dir(dataset_dir: str | Path | None = None) -> Path:
     """Resolves path to DIDNT dataset directory containing NetworkNodesAndLinks."""
     if dataset_dir is not None:
         base_path = Path(dataset_dir)
@@ -54,11 +55,11 @@ def _resolve_didnt_dir(dataset_dir: Optional[Union[str, Path]] = None) -> Path:
 
 class DIDNTLoader:
     """
-    Loader for the empirical DIDNT dataset (Hariharan et al., 2021).
+    Loader for the empirical DIDNT dataset (Hariharan et al., 2022).
     Parses GeoJSON node/link networks into NetworkX DiGraph objects.
     """
 
-    def __init__(self, dataset_dir: Optional[Union[str, Path]] = None):
+    def __init__(self, dataset_dir: str | Path | None = None):
         self.root_dir = _resolve_didnt_dir(dataset_dir)
         self.nnl_dir = self.root_dir / "NetworkNodesAndLinks"
         self.raw_dir = self.root_dir / "RawData"
@@ -67,12 +68,12 @@ class DIDNTLoader:
         """Returns True if the DIDNT dataset files are present on disk."""
         return self.nnl_dir.exists()
 
-    def list_available_deltas(self) -> List[str]:
+    def list_available_deltas(self) -> list[str]:
         """Returns a sorted list of all delta network names available in the dataset."""
         if not self.nnl_dir.exists():
             return []
         nodes_files = list(self.nnl_dir.glob("*_nodes.json")) + list(self.nnl_dir.glob("*_nodes.geojson"))
-        return sorted(list(set(f.stem.replace("_nodes", "") for f in nodes_files)))
+        return sorted({f.stem.replace("_nodes", "") for f in nodes_files})
 
     def load_graph(self, delta_name: str) -> nx.DiGraph:
         """
@@ -108,10 +109,10 @@ class DIDNTLoader:
             else:
                 raise FileNotFoundError(f"Links file not found for delta '{delta_name}' in {self.nnl_dir}")
 
-        with open(nodes_file, 'r', encoding='utf-8') as f:
+        with open(nodes_file, encoding='utf-8') as f:
             nodes_geojson = json.load(f)
 
-        with open(links_file, 'r', encoding='utf-8') as f:
+        with open(links_file, encoding='utf-8') as f:
             links_geojson = json.load(f)
 
         G = nx.DiGraph()
@@ -229,7 +230,7 @@ class DIDNTLoader:
                 else 999999.0
             )
         elif len(G) > 0:
-            apex_node = list(G.nodes())[0]
+            apex_node = next(iter(G.nodes()))
 
         if apex_node is not None and apex_node in G.nodes():
             for n in G.nodes():
@@ -291,13 +292,13 @@ class EmpiricalDelta:
     link_sharing_index: float
     forcing_type: str
     estimated_R_rt: float
-    source: str = "DIDNT Dataset (Hariharan et al., 2021)"
+    source: str = "DIDNT Dataset (Hariharan et al., 2022)"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
-DELTA_FORCING_REGIMES: Dict[str, Dict[str, Any]] = {
+DELTA_FORCING_REGIMES: dict[str, dict[str, Any]] = {
     'Amazon': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.25},
     'Colville': {'forcing_type': 'arctic', 'estimated_R_rt': 0.40, 'physical_R_rt': 0.08, 'anastomosis_P0': 0.12},
     'Danube': {'forcing_type': 'river_dominated', 'estimated_R_rt': 0.10},
@@ -329,7 +330,7 @@ DELTA_FORCING_REGIMES: Dict[str, Dict[str, Any]] = {
 }
 
 
-def load_bundled_canonical_deltas() -> List[EmpiricalDelta]:
+def load_bundled_canonical_deltas() -> list[EmpiricalDelta]:
     """Loads bundled canonical empirical deltas from package JSON data with fallback search paths."""
     candidates = [
         CANONICAL_DATA_PATH,
@@ -348,17 +349,17 @@ def load_bundled_canonical_deltas() -> List[EmpiricalDelta]:
         return []
 
     try:
-        with open(target_path, "r", encoding="utf-8") as f:
+        with open(target_path, encoding="utf-8") as f:
             raw_list = json.load(f)
         return [EmpiricalDelta(**item) for item in raw_list]
     except Exception:
         return []
 
 
-_CACHED_EMPIRICAL_DELTAS: Optional[List[EmpiricalDelta]] = None
+_CACHED_EMPIRICAL_DELTAS: list[EmpiricalDelta] | None = None
 
 
-def get_empirical_deltas(dataset_dir: Optional[Union[str, Path]] = None, force_reload: bool = False) -> List[EmpiricalDelta]:
+def get_empirical_deltas(dataset_dir: str | Path | None = None, force_reload: bool = False) -> list[EmpiricalDelta]:
     """
     Loads empirical deltas from DIDNT dataset and evaluates their metrics.
     If raw DIDNT GeoJSON files are not present on disk, falls back gracefully to the
@@ -421,7 +422,7 @@ def get_empirical_deltas(dataset_dir: Optional[Union[str, Path]] = None, force_r
                 link_sharing_index=float(m['link_sharing_index']),
                 forcing_type=info['forcing_type'],
                 estimated_R_rt=float(info['estimated_R_rt']),
-                source="DIDNT Dataset (Hariharan et al., 2021)"
+                source="DIDNT Dataset (Hariharan et al., 2022)"
             )
             deltas.append(emp)
         except Exception:
@@ -432,7 +433,7 @@ def get_empirical_deltas(dataset_dir: Optional[Union[str, Path]] = None, force_r
     return deltas
 
 
-def get_empirical_deltas_dict(dataset_dir: Optional[Union[str, Path]] = None) -> Dict[str, Dict[str, Any]]:
+def get_empirical_deltas_dict(dataset_dir: str | Path | None = None) -> dict[str, dict[str, Any]]:
     """Export helper providing direct dictionary access to empirical data for deltas."""
     return {d.name: d.to_dict() for d in get_empirical_deltas(dataset_dir=dataset_dir)}
 
@@ -452,11 +453,11 @@ class _LazyEmpiricalDeltasDict(dict):
             super().update(get_empirical_deltas_dict())
             self._loaded = True
 
-    def __getitem__(self, key: str) -> Dict[str, Any]:
+    def __getitem__(self, key: str) -> dict[str, Any]:
         self._ensure_loaded()
         return super().__getitem__(key)
 
-    def __setitem__(self, key: str, value: Dict[str, Any]) -> None:
+    def __setitem__(self, key: str, value: dict[str, Any]) -> None:
         self._ensure_loaded()
         super().__setitem__(key, value)
 
@@ -508,7 +509,7 @@ class _LazyEmpiricalDeltasDict(dict):
         self._ensure_loaded()
         return super().items()
 
-    def copy(self) -> Dict[str, Dict[str, Any]]:
+    def copy(self) -> dict[str, dict[str, Any]]:
         self._ensure_loaded()
         return super().copy()
 
@@ -536,4 +537,4 @@ class _LazyEmpiricalDeltasDict(dict):
 # Backwards compatibility aliases
 EmpiricalDeltaV2 = EmpiricalDelta
 get_empirical_deltas_v2 = get_empirical_deltas
-CANONICAL_EMPIRICAL_DELTAS: Dict[str, Dict[str, Any]] = _LazyEmpiricalDeltasDict()
+CANONICAL_EMPIRICAL_DELTAS: dict[str, dict[str, Any]] = _LazyEmpiricalDeltasDict()

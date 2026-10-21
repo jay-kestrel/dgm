@@ -7,40 +7,44 @@ Provides:
   - sample_ensemble(): convenient top-level function for ensembles
 """
 
-from pathlib import Path
-from typing import Optional, Dict, Any, List, Union, Tuple
+import contextlib
 import copy
-import numpy as np
+from pathlib import Path
+from typing import Any
+
 import networkx as nx
+import numpy as np
 
 from .config import DGMConfig
-from .core.domain import PolarDomain
 from .core.backbone import generate_polar_tree_backbone
+from .core.channel_geometry import (
+    apply_channel_proximity_constraints,
+    generate_channel_centerlines,
+)
+from .core.domain import PolarDomain
+from .core.hydraulics import apply_emergent_hydraulics
 from .core.loops import apply_loop_mechanism
 from .core.pruning import prune_and_simplify_network
-from .core.hydraulics import apply_emergent_hydraulics
-from .core.channel_geometry import generate_channel_centerlines, apply_channel_proximity_constraints
 from .metrics import MetricsBattery
-
 
 _UNSET = object()
 
 
 def _build_or_update_config(
-    config: Optional[Union[str, Path, DGMConfig]] = None,
-    target_nodes: Optional[int] = None,
-    confinement: Optional[float] = None,
-    lateral_valley_width: Optional[float] = None,
-    coastal_node_decay: Optional[float] = None,
-    coastal_sinuosity_decay: Optional[float] = None,
-    enable_curved_centerlines: Optional[bool] = None,
-    min_channel_clearance: Optional[float] = None,
-    enable_pruning: Optional[bool] = None,
-    prune_inland_dead_ends: Optional[bool] = None,
-    min_spur_length: Optional[float] = None,
-    simplify_pass_through_nodes: Optional[bool] = None,
+    config: str | Path | DGMConfig | None = None,
+    target_nodes: int | None = None,
+    confinement: float | None = None,
+    lateral_valley_width: float | None = None,
+    coastal_node_decay: float | None = None,
+    coastal_sinuosity_decay: float | None = None,
+    enable_curved_centerlines: bool | None = None,
+    min_channel_clearance: float | None = None,
+    enable_pruning: bool | None = None,
+    prune_inland_dead_ends: bool | None = None,
+    min_spur_length: float | None = None,
+    simplify_pass_through_nodes: bool | None = None,
     seed: Any = _UNSET,
-    base_attrs: Optional[Dict[str, Any]] = None,
+    base_attrs: dict[str, Any] | None = None,
     **overrides: Any,
 ) -> DGMConfig:
     """
@@ -116,8 +120,8 @@ class DeltaGenerator:
 
     def __init__(
         self,
-        config: Optional[DGMConfig] = None,
-        target_nodes: Optional[int] = None,
+        config: DGMConfig | None = None,
+        target_nodes: int | None = None,
         **overrides
     ):
         self.config = _build_or_update_config(
@@ -131,7 +135,7 @@ class DeltaGenerator:
         self,
         seed_override: Any = _UNSET,
         return_stages: bool = False
-    ) -> Union[nx.DiGraph, Tuple[nx.DiGraph, Dict[str, nx.DiGraph]]]:
+    ) -> nx.DiGraph | tuple[nx.DiGraph, dict[str, nx.DiGraph]]:
         """
         Generates a single synthetic delta graph realization given N and R_rt.
 
@@ -150,10 +154,8 @@ class DeltaGenerator:
         """
         seed = self.config.seed if seed_override is _UNSET else seed_override
         if seed is not None:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 seed = int(seed)
-            except (ValueError, TypeError):
-                pass
         rng = np.random.default_rng(seed)
         sub_seed = int(rng.integers(0, 2**31 - 1)) if seed is None else int(seed)
 
@@ -252,7 +254,7 @@ class DeltaGenerator:
             )
             if return_stages:
                 # Synthesize centerlines for the tree backbone snapshot when stages are requested
-                try:
+                with contextlib.suppress(Exception):
                     generate_channel_centerlines(
                         G=G_tree_snapshot,
                         clearance_fraction=clr_frac,
@@ -260,8 +262,6 @@ class DeltaGenerator:
                         num_bends=bends_num,
                         seed=sub_seed
                     )
-                except Exception:
-                    pass
         else:
             G_final = apply_channel_proximity_constraints(
                 G=G_final,
@@ -301,7 +301,7 @@ class DeltaGenerator:
             return G_final, stages
         return G_final
 
-    def evaluate_metrics(self, G: nx.DiGraph) -> Dict[str, Any]:
+    def evaluate_metrics(self, G: nx.DiGraph) -> dict[str, Any]:
         """Evaluates full 20-metric battery on graph G."""
         params = G.graph.get('params', None)
         return self.battery.evaluate_all(G, params)
@@ -321,8 +321,8 @@ class EnsembleGenerator:
         loop_mechanism: str = "potential_field",
         sample_parameters: bool = True,
         base_seed: int = 42,
-        config: Optional[DGMConfig] = None,
-        target_nodes: Optional[int] = None,
+        config: DGMConfig | None = None,
+        target_nodes: int | None = None,
         **overrides
     ):
         if num_realizations < 1:
@@ -349,7 +349,7 @@ class EnsembleGenerator:
         )
         self.battery = MetricsBattery()
 
-    def generate_ensemble(self) -> List[nx.DiGraph]:
+    def generate_ensemble(self) -> list[nx.DiGraph]:
         """Generates an array of M graph realizations."""
         if self.base_seed is None:
             raise ValueError('base_seed must be an integer, got None')
@@ -368,7 +368,7 @@ class EnsembleGenerator:
 
         return graphs
 
-    def evaluate_ensemble(self) -> Dict[str, Any]:
+    def evaluate_ensemble(self) -> dict[str, Any]:
         """
         Generates ensemble graphs and computes summary statistics across the cloud realization.
         """
@@ -412,22 +412,22 @@ class EnsembleGenerator:
 def generate(
     N: int = 50,
     R_rt: float = 0.5,
-    confinement: Optional[float] = None,
-    lateral_valley_width: Optional[float] = None,
-    coastal_node_decay: Optional[float] = None,
-    coastal_sinuosity_decay: Optional[float] = None,
-    enable_curved_centerlines: Optional[bool] = None,
-    min_channel_clearance: Optional[float] = None,
-    enable_pruning: Optional[bool] = None,
-    prune_inland_dead_ends: Optional[bool] = None,
-    min_spur_length: Optional[float] = None,
-    simplify_pass_through_nodes: Optional[bool] = None,
+    confinement: float | None = None,
+    lateral_valley_width: float | None = None,
+    coastal_node_decay: float | None = None,
+    coastal_sinuosity_decay: float | None = None,
+    enable_curved_centerlines: bool | None = None,
+    min_channel_clearance: float | None = None,
+    enable_pruning: bool | None = None,
+    prune_inland_dead_ends: bool | None = None,
+    min_spur_length: float | None = None,
+    simplify_pass_through_nodes: bool | None = None,
     return_stages: bool = False,
-    config: Optional[Union[str, Path, DGMConfig]] = None,
+    config: str | Path | DGMConfig | None = None,
     seed: Any = _UNSET,
-    target_nodes: Optional[int] = None,
+    target_nodes: int | None = None,
     **overrides
-) -> Union[nx.DiGraph, Tuple[nx.DiGraph, Dict[str, nx.DiGraph]]]:
+) -> nx.DiGraph | tuple[nx.DiGraph, dict[str, nx.DiGraph]]:
     """
     Convenient top-level function to generate a single synthetic delta graph.
     """
@@ -459,22 +459,22 @@ def generate(
 def sample_ensemble(
     N: int = 50,
     R_rt: float = 0.5,
-    confinement: Optional[float] = None,
-    lateral_valley_width: Optional[float] = None,
-    coastal_node_decay: Optional[float] = None,
-    coastal_sinuosity_decay: Optional[float] = None,
-    enable_curved_centerlines: Optional[bool] = None,
-    min_channel_clearance: Optional[float] = None,
-    enable_pruning: Optional[bool] = None,
-    prune_inland_dead_ends: Optional[bool] = None,
-    min_spur_length: Optional[float] = None,
-    simplify_pass_through_nodes: Optional[bool] = None,
+    confinement: float | None = None,
+    lateral_valley_width: float | None = None,
+    coastal_node_decay: float | None = None,
+    coastal_sinuosity_decay: float | None = None,
+    enable_curved_centerlines: bool | None = None,
+    min_channel_clearance: float | None = None,
+    enable_pruning: bool | None = None,
+    prune_inland_dead_ends: bool | None = None,
+    min_spur_length: float | None = None,
+    simplify_pass_through_nodes: bool | None = None,
     num_realizations: int = 50,
-    config: Optional[Union[str, Path, DGMConfig]] = None,
+    config: str | Path | DGMConfig | None = None,
     base_seed: int = 42,
-    target_nodes: Optional[int] = None,
+    target_nodes: int | None = None,
     **overrides
-) -> List[nx.DiGraph]:
+) -> list[nx.DiGraph]:
     """
     Convenient top-level function to generate an ensemble of synthetic delta graphs.
     """

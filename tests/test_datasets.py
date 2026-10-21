@@ -3,12 +3,12 @@ Tests for empirical delta dataset structures and loaders.
 """
 
 import json
-from pathlib import Path
+
 import pytest
 
 from dgm.io.datasets import (
-    DIDNTLoader,
     DELTA_FORCING_REGIMES,
+    DIDNTLoader,
 )
 
 

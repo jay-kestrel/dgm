@@ -18,15 +18,21 @@ Welcome, AI agent! This document specifies the architectural conventions, testin
 
 ```
 dgm/
+├── .github/
+│   └── workflows/
+│       └── ci.yml             # GitHub Actions CI matrix (Python 3.10, 3.11, 3.12, 3.13)
 ├── config/
-│   └── default_config.yaml    # Master YAML configuration file
+│   └── default_config.yaml    # Master YAML configuration file (root copy)
 ├── src/
 │   └── dgm/
-│       ├── __init__.py        # Clean public exports: generate(), sample_ensemble(), DGMConfig
+│       ├── __init__.py        # Public exports: generate(), sample_ensemble(), DGMConfig, etc.
 │       ├── config.py          # DGMConfig dataclass & parameter distribution engine
+│       ├── default_config.yaml# Packaged default YAML configuration
 │       ├── generator.py       # Facades: DeltaGenerator & EnsembleGenerator
 │       ├── metrics.py         # 20-metric geomorphic battery (MetricsBattery)
 │       ├── cli.py             # Command line interface (dgm generate, dgm ensemble)
+│       ├── validation.py      # Statistical validation (Mahalanobis, KS-test, MMD, PERMANOVA)
+│       ├── visualization.py   # Publication cartography, sinuous channel plots, stages
 │       ├── core/
 │       │   ├── domain.py      # PolarDomain (confinement, lateral valley bounds)
 │       │   ├── geometry_utils.py # Jordan Curve planarity & 2D AABB fast rejection
@@ -39,13 +45,20 @@ dgm/
 │       │   ├── empirical_validation.py      # 28-delta DIDNT global benchmark engine
 │       │   ├── reality_check_diagnostics.py # Physical reality diagnostics
 │       │   └── mega_delta_benchmark.py      # Planetary mega-scale benchmark (Lena, GBMD, Amazon)
+│       ├── data/
+│       │   └── canonical_empirical_deltas.json # 28 DIDNT delta geomorphic features
 │       └── io/
 │           ├── datasets.py    # DIDNT dataset loader & empirical delta table
 │           └── export.py      # GraphML, GeoJSON (LineStrings), and CSV export
-├── tests/                     # 100 unit & integration tests
-├── examples/                  # 01 through 05 runnable example scripts
+├── tests/                     # 212 unit & integration tests across 20 modules
+├── examples/                  # 01 through 06 runnable example scripts
 ├── docs/                      # Markdown documentation, architecture, & parameter justifications
-└── pyproject.toml             # Packaging specification
+├── CITATION.cff               # Academic citation metadata
+├── CONTRIBUTING.md            # Contributor guidelines & invariant specifications
+├── CHANGELOG.md               # Version history and release notes
+├── SECURITY.md                # Vulnerability reporting protocol
+├── CODE_OF_CONDUCT.md         # Contributor Covenant v2.1
+└── pyproject.toml             # Packaging specification & optional extras
 ```
 
 ---
@@ -56,7 +69,10 @@ Always use **`uv`** for dependency resolution, virtual environment execution, an
 
 ### Virtual Environment & Testing
 ```bash
-# Run pytest with dev dependencies
+# Sync all dev, test, and optional dependencies
+uv sync --extra dev
+
+# Run pytest across the complete test suite
 uv run --extra dev pytest tests -v
 
 # Run a specific test module
@@ -64,6 +80,9 @@ uv run --extra dev pytest tests/test_generator.py -v
 
 # Run with coverage
 uv run --extra dev pytest tests --cov=dgm
+
+# Lint with Ruff
+uv run ruff check .
 ```
 
 ### Running Examples & Benchmarks
@@ -83,6 +102,9 @@ uv run python examples/04_empirical_validation_benchmark.py --enable-pruning --s
 # Run planetary mega-delta benchmark (Lena, GBMD, Amazon, Niger)
 uv run python examples/05_mega_delta_scale_benchmark.py --realizations 2
 
+# Run 2D sinuous spatial visualizer
+uv run python examples/06_visualize_sinuous_trees_and_networks.py
+
 # Run physical module reality check diagnostics
 uv run python -m dgm.benchmarks.reality_check_diagnostics
 
@@ -95,7 +117,11 @@ uv run dgm ensemble -N 50 -R 0.5 -n 30 --sample-parameters -o ensemble.csv
 
 ## 4. Configuration & Parameter Conventions
 
-- **YAML-First**: Model configurations are driven by `config/default_config.yaml`.
+- **YAML-First & Standalone Packaging**: Model configurations are driven by YAML. At runtime, `DGMConfig.load_default()` searches `src/dgm/default_config.yaml` (packaged in the wheel), `src/dgm/config/default_config.yaml`, and repo root `config/default_config.yaml`.
+- **Modular Dependency Footprint**:
+  - Core: `networkx`, `numpy`, `scipy`, `pyyaml`.
+  - Extras: `[viz]` (`matplotlib`), `[benchmarks]` (`pandas`, `scikit-learn`, `matplotlib`), `[all]`, `[dev]`.
+  - IO utilities (`metrics_to_csv`, `summary_to_csv`) include a standard library `csv` fallback if `pandas` is not installed.
 - **Parameter Justifications**: Every parameter, default value, bounded sampling range, and formal academic citation is documented in [`docs/parameter_justifications.md`](docs/parameter_justifications.md).
 - **Primary Forcing Boundary Conditions**:
   - `N`: Node budget ($N \ge 4$).

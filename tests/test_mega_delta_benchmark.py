@@ -2,15 +2,15 @@
 Unit tests for DGM Mega-Delta Scale Benchmark Suite.
 """
 
-import pytest
 import networkx as nx
+import pytest
 
 from dgm.benchmarks.mega_delta_benchmark import (
     MegaDeltaScaleBenchmark,
 )
-from dgm.generator import DeltaGenerator, EnsembleGenerator
-from dgm.core.geometry_utils import segments_intersect
 from dgm.core.channel_geometry import compute_edge_clearance
+from dgm.core.geometry_utils import segments_intersect
+from dgm.generator import DeltaGenerator, EnsembleGenerator
 
 
 def test_mega_delta_benchmark_instantiation():

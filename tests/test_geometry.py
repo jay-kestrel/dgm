@@ -3,7 +3,8 @@ Tests for Jordan Curve Theorem planarity filtering and edge intersections.
 """
 
 import pytest
-from dgm.core.geometry_utils import segments_intersect, edge_intersects_graph
+
+from dgm.core.geometry_utils import edge_intersects_graph, segments_intersect
 
 
 @pytest.mark.parametrize(

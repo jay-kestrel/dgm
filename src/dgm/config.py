@@ -4,13 +4,13 @@ Provides YAML-driven configuration, stochastic parameter distributions,
 and extensibility hooks.
 """
 
+import copy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Any, Optional, Union, List, Tuple
-import copy
-import yaml
-import numpy as np
+from typing import Any
 
+import numpy as np
+import yaml
 
 PKG_CONFIG_PATH = Path(__file__).resolve().parent / "default_config.yaml"
 PKG_SUBDIR_CONFIG_PATH = Path(__file__).resolve().parent / "config" / "default_config.yaml"
@@ -28,7 +28,7 @@ def _resolve_default_config_path() -> Path:
 DEFAULT_CONFIG_PATH = _resolve_default_config_path()
 
 
-def sample_from_spec(spec: Dict[str, Any], rng: np.random.Generator) -> float:
+def sample_from_spec(spec: dict[str, Any], rng: np.random.Generator) -> float:
     """Samples a scalar value from a distribution specification dict."""
     if not isinstance(spec, dict):
         raise TypeError(f"Distribution specification must be a dictionary, got {type(spec).__name__}.")
@@ -83,7 +83,7 @@ def sample_from_spec(spec: Dict[str, Any], rng: np.random.Generator) -> float:
         values = spec.get("values", [1.0])
         if not values:
             raise ValueError("Choice distribution values list cannot be empty.")
-        weights = spec.get("weights", None)
+        weights = spec.get("weights")
         if weights is not None:
             weights = np.array(weights, dtype=float)
             if len(weights) != len(values):
@@ -116,27 +116,27 @@ class ParameterBounds:
     Physical and hydraulic parameter bounds for uniform/stochastic sampling.
     Maintained for backwards-compatibility with legacy parameter schema.
     """
-    murray_p_range: Tuple[float, float] = (1.2, 2.2)
-    width_beta_range: Tuple[float, float] = (0.50, 0.99)
-    manning_eta_range: Tuple[float, float] = (1.50, 1.80)
-    length_gamma_range: Tuple[float, float] = (0.40, 0.60)
-    apex_width_range: Tuple[float, float] = (50.0, 500.0)
-    r_shore_range: Tuple[float, float] = (5000.0, 15000.0)
-    theta_base_range: Tuple[float, float] = (50.0, 80.0)
-    theta_delta_range: Tuple[float, float] = (45.0, 90.0)
-    width_noise_range: Tuple[float, float] = (0.15, 0.50)
-    candidate_dist_scale_range: Tuple[float, float] = (0.15, 0.35)
-    tidal_flare_k_range: Tuple[float, float] = (0.8, 2.0)
-    confinement_range: Tuple[float, float] = (0.0, 0.50)
-    coastal_node_decay_range: Tuple[float, float] = (0.0, 0.80)
-    coastal_sinuosity_decay_range: Tuple[float, float] = (0.0, 0.90)
-    min_channel_clearance_range: Tuple[float, float] = (0.05, 0.80)
-    min_spur_length_range: Tuple[float, float] = (0.0, 500.0)
-    tidal_flare_onset_range: Tuple[float, float] = (0.10, 0.50)
-    loop_flow_penalty_range: Tuple[float, float] = (0.20, 0.70)
-    outlet_tolerance_range: Tuple[float, float] = (0.02, 0.10)
+    murray_p_range: tuple[float, float] = (1.2, 2.2)
+    width_beta_range: tuple[float, float] = (0.50, 0.99)
+    manning_eta_range: tuple[float, float] = (1.50, 1.80)
+    length_gamma_range: tuple[float, float] = (0.40, 0.60)
+    apex_width_range: tuple[float, float] = (50.0, 500.0)
+    r_shore_range: tuple[float, float] = (5000.0, 15000.0)
+    theta_base_range: tuple[float, float] = (50.0, 80.0)
+    theta_delta_range: tuple[float, float] = (45.0, 90.0)
+    width_noise_range: tuple[float, float] = (0.15, 0.50)
+    candidate_dist_scale_range: tuple[float, float] = (0.15, 0.35)
+    tidal_flare_k_range: tuple[float, float] = (0.8, 2.0)
+    confinement_range: tuple[float, float] = (0.0, 0.50)
+    coastal_node_decay_range: tuple[float, float] = (0.0, 0.80)
+    coastal_sinuosity_decay_range: tuple[float, float] = (0.0, 0.90)
+    min_channel_clearance_range: tuple[float, float] = (0.05, 0.80)
+    min_spur_length_range: tuple[float, float] = (0.0, 500.0)
+    tidal_flare_onset_range: tuple[float, float] = (0.10, 0.50)
+    loop_flow_penalty_range: tuple[float, float] = (0.20, 0.70)
+    outlet_tolerance_range: tuple[float, float] = (0.02, 0.10)
 
-    def sample(self, rng: np.random.Generator) -> Dict[str, float]:
+    def sample(self, rng: np.random.Generator) -> dict[str, float]:
         """Samples a single parameter set from uniform distributions within bounds."""
         return {
             'murray_p': float(rng.uniform(*self.murray_p_range)),
@@ -160,7 +160,7 @@ class ParameterBounds:
             'min_spur_length': float(rng.uniform(*self.min_spur_length_range)),
         }
 
-    def default_values(self) -> Dict[str, float]:
+    def default_values(self) -> dict[str, float]:
         """Returns deterministic mid-point values for standard baseline runs."""
         return {
             'murray_p': float(np.mean(self.murray_p_range)),
@@ -197,17 +197,17 @@ class DGMConfig:
     R_rt: float = 0.5
     loop_mechanism: str = "potential_field"
     sample_parameters: bool = False
-    seed: Optional[int] = 42
+    seed: int | None = 42
 
     # Domain section
     r_shore: float = 10000.0
     theta_base: float = 65.0
     theta_delta: float = 60.0
     confinement: float = 0.0
-    lateral_valley_width: Optional[float] = None
+    lateral_valley_width: float | None = None
 
     # Backbone section
-    branching_weights: Tuple[float, float, float] = (0.50, 0.45, 0.05)
+    branching_weights: tuple[float, float, float] = (0.50, 0.45, 0.05)
     radial_step_scale_min: float = 0.65
     radial_step_scale_max: float = 1.35
     coastal_node_decay: float = 0.40
@@ -262,8 +262,8 @@ class DGMConfig:
     meander_bends: int = 1
 
     # Distributions & Extensions
-    distributions: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    extensions: Dict[str, Any] = field(default_factory=dict)
+    distributions: dict[str, dict[str, Any]] = field(default_factory=dict)
+    extensions: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         self.validate()
@@ -392,34 +392,28 @@ class DGMConfig:
                 raise ValueError("murray_p distribution low bound must be > 0.")
         if "confinement" in self.distributions:
             d = self.distributions["confinement"]
-            if isinstance(d, dict) and d.get("type") == "uniform":
-                if d.get("low", 0.0) < 0.0 or d.get("high", 0.95) > 0.95:
-                    raise ValueError("confinement distribution must be within [0.0, 0.95].")
+            if isinstance(d, dict) and d.get("type") == "uniform" and (d.get("low", 0.0) < 0.0 or d.get("high", 0.95) > 0.95):
+                raise ValueError("confinement distribution must be within [0.0, 0.95].")
         if "width_beta" in self.distributions:
             d = self.distributions["width_beta"]
-            if isinstance(d, dict) and d.get("type") == "uniform":
-                if d.get("low", 0.5) <= 0.0 or d.get("high", 0.99) >= 1.0:
-                    raise ValueError("width_beta distribution must be within (0.0, 1.0).")
+            if isinstance(d, dict) and d.get("type") == "uniform" and (d.get("low", 0.5) <= 0.0 or d.get("high", 0.99) >= 1.0):
+                raise ValueError("width_beta distribution must be within (0.0, 1.0).")
         if "coastal_node_decay" in self.distributions:
             d = self.distributions["coastal_node_decay"]
-            if isinstance(d, dict) and d.get("type") == "uniform":
-                if d.get("low", 0.0) < 0.0 or d.get("high", 0.80) > 0.80:
-                    raise ValueError("coastal_node_decay distribution must be within [0.0, 0.80].")
+            if isinstance(d, dict) and d.get("type") == "uniform" and (d.get("low", 0.0) < 0.0 or d.get("high", 0.80) > 0.80):
+                raise ValueError("coastal_node_decay distribution must be within [0.0, 0.80].")
         if "coastal_sinuosity_decay" in self.distributions:
             d = self.distributions["coastal_sinuosity_decay"]
-            if isinstance(d, dict) and d.get("type") == "uniform":
-                if d.get("low", 0.0) < 0.0 or d.get("high", 0.90) > 0.90:
-                    raise ValueError("coastal_sinuosity_decay distribution must be within [0.0, 0.90].")
+            if isinstance(d, dict) and d.get("type") == "uniform" and (d.get("low", 0.0) < 0.0 or d.get("high", 0.90) > 0.90):
+                raise ValueError("coastal_sinuosity_decay distribution must be within [0.0, 0.90].")
         if "min_channel_clearance" in self.distributions:
             d = self.distributions["min_channel_clearance"]
-            if isinstance(d, dict) and d.get("type") == "uniform":
-                if d.get("low", 0.05) < 0.05 or d.get("high", 1.0) > 1.0:
-                    raise ValueError("min_channel_clearance distribution must be within [0.05, 1.0].")
+            if isinstance(d, dict) and d.get("type") == "uniform" and (d.get("low", 0.05) < 0.05 or d.get("high", 1.0) > 1.0):
+                raise ValueError("min_channel_clearance distribution must be within [0.05, 1.0].")
         if "min_spur_length" in self.distributions:
             d = self.distributions["min_spur_length"]
-            if isinstance(d, dict) and d.get("type") == "uniform":
-                if d.get("low", 0.0) < 0.0:
-                    raise ValueError("min_spur_length distribution low bound must be >= 0.0.")
+            if isinstance(d, dict) and d.get("type") == "uniform" and d.get("low", 0.0) < 0.0:
+                raise ValueError("min_spur_length distribution low bound must be >= 0.0.")
 
     @classmethod
     def load_default(cls, **overrides) -> "DGMConfig":
@@ -429,7 +423,7 @@ class DGMConfig:
         return cls(**overrides)
 
     @classmethod
-    def from_yaml(cls, path: Union[str, Path], **overrides) -> "DGMConfig":
+    def from_yaml(cls, path: str | Path, **overrides) -> "DGMConfig":
         """
         Loads configuration from a YAML file with optional keyword parameter overrides.
         """
@@ -437,7 +431,7 @@ class DGMConfig:
         if not path.exists():
             raise FileNotFoundError(f"Configuration file not found: {path}")
 
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             try:
                 raw = yaml.safe_load(f) or {}
             except yaml.YAMLError as exc:
@@ -457,7 +451,7 @@ class DGMConfig:
         dists = raw.get("distributions", {})
         exts = raw.get("extensions", {})
 
-        kwargs: Dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
         kwargs.update(model_sec)
         kwargs.update(domain_sec)
         kwargs.update(backbone_sec)
@@ -512,7 +506,7 @@ class DGMConfig:
         kwargs["distributions"] = dists
 
         valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
-        filtered_kwargs: Dict[str, Any] = {}
+        filtered_kwargs: dict[str, Any] = {}
         extensions = dict(kwargs.get("extensions", {}))
         for k, v in kwargs.items():
             if k in valid_fields:
@@ -523,7 +517,7 @@ class DGMConfig:
 
         return cls(**filtered_kwargs)
 
-    def to_yaml(self, path: Union[str, Path]) -> None:
+    def to_yaml(self, path: str | Path) -> None:
         """Serializes current configuration back to a structured YAML file."""
         data = {
             "model": {
@@ -617,7 +611,7 @@ class DGMConfig:
         """Returns a ParameterBounds instance for backwards-compatibility."""
         return ParameterBounds()
 
-    def sample_distribution_parameters(self, rng: Optional[np.random.Generator] = None) -> Dict[str, Any]:
+    def sample_distribution_parameters(self, rng: np.random.Generator | None = None) -> dict[str, Any]:
         """
         Samples active parameters from configured distributions.
         For parameters not present in distributions, falls back to the instance baseline.
@@ -632,7 +626,7 @@ class DGMConfig:
             "meander_bends", "max_prune_iterations", "relaxation_max_iter", "sa_max_steps"
         }
 
-        physical_param_bounds: Dict[str, Tuple[Optional[float], Optional[float]]] = {
+        physical_param_bounds: dict[str, tuple[float | None, float | None]] = {
             "N": (4.0, None),
             "R_rt": (0.0, 1.0),
             "confinement": (0.0, 0.95),
@@ -668,7 +662,7 @@ class DGMConfig:
                         val = min(b_max, val)
 
                 if param_name in int_params:
-                    params[param_name] = int(round(val))
+                    params[param_name] = round(val)
                 else:
                     params[param_name] = val
 
@@ -676,9 +670,9 @@ class DGMConfig:
 
     def get_active_parameters(
         self,
-        rng: Optional[np.random.Generator] = None,
-        sample: Optional[bool] = None
-    ) -> Dict[str, Any]:
+        rng: np.random.Generator | None = None,
+        sample: bool | None = None
+    ) -> dict[str, Any]:
         """
         Returns the dictionary of active parameters for the generative pipeline.
         If sample=True (or sample is None and self.sample_parameters is True),
@@ -750,7 +744,7 @@ class DGMConfig:
     def set_parameter(
         self,
         name: str,
-        value_or_spec: Union[float, int, str, bool, Tuple[float, float], List[float], Dict[str, Any]],
+        value_or_spec: float | str | bool | tuple[float, float] | list[float] | dict[str, Any],
     ) -> None:
         """
         Sets a parameter as either a single fixed value, a uniform distribution (low, high),

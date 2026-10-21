@@ -6,18 +6,19 @@ Provides:
 Enforces Jordan Curve Theorem planarity filtering and degree constraints.
 """
 
-from typing import Dict, Any, Optional
 import math
-import numpy as np
+from typing import Any
+
 import networkx as nx
+import numpy as np
 from scipy.spatial import KDTree
 
 from .domain import PolarDomain
 from .geometry_utils import (
     edge_intersects_graph,
-    extend_leaf_to_shoreline,
     edge_too_close_to_graph,
-    incident_angle_between_segments
+    extend_leaf_to_shoreline,
+    incident_angle_between_segments,
 )
 from .hydraulics import apply_emergent_hydraulics, solve_markov_flux
 from .pruning import refresh_node_types
@@ -45,27 +46,24 @@ def _update_node_type_single(G: nx.DiGraph, node: Any, r_shore: float, outlet_to
 
 
 def apply_loop_mechanism(
-    G: Optional[nx.DiGraph] = None,
-    domain: Optional[PolarDomain] = None,
+    G: nx.DiGraph | None = None,
+    domain: PolarDomain | None = None,
     mechanism: str = "potential_field",
-    params: Optional[Dict[str, Any]] = None,
+    params: dict[str, Any] | None = None,
     seed: int = 42,
-    rng: Optional[np.random.Generator] = None,
+    rng: np.random.Generator | None = None,
     **kwargs
 ) -> nx.DiGraph:
     """Routes loop engine execution to Mechanism A (potential_field) or Mechanism B (ner_optimality)."""
     if G is None:
-        G = kwargs.get('G_tree', kwargs.get('G', None))
+        G = kwargs.get('G_tree', kwargs.get('G'))
     if G is None:
         raise ValueError("A NetworkX DiGraph G must be provided to apply_loop_mechanism.")
 
     if 'mechanism_type' in kwargs:
         mechanism = kwargs['mechanism_type']
 
-    if params is None:
-        params = {}
-    else:
-        params = params.copy()
+    params = {} if params is None else params.copy()
 
     if 'N_target' in kwargs and 'N_target' not in params:
         params['N_target'] = kwargs['N_target']
@@ -83,9 +81,9 @@ def apply_loop_mechanism(
 
 def generate_loops_potential_field(
     G: nx.DiGraph,
-    domain: Optional[PolarDomain],
-    params: Dict[str, Any],
-    rng: Optional[np.random.Generator] = None,
+    domain: PolarDomain | None,
+    params: dict[str, Any],
+    rng: np.random.Generator | None = None,
     seed: int = 42
 ) -> nx.DiGraph:
     """
@@ -209,30 +207,33 @@ def generate_loops_potential_field(
         if violates_conf:
             continue
 
-        if rng.uniform(0.0, 1.0) <= p_loop:
-            if not edge_intersects_graph(p1, p2, existing_edges) and not edge_too_close_to_graph(p1, p2, existing_edges, min_edge_clearance):
-                straight_dist = max(10.0, math.hypot(p2[0] - p1[0], p2[1] - p1[1]))
-                r_src = float(current_G.nodes[src].get('r', math.hypot(p1[0], p1[1])))
-                r_tgt = float(current_G.nodes[tgt].get('r', math.hypot(p2[0], p2[1])))
-                r_mid = 0.5 * (r_src + r_tgt)
-                r_ratio = min(1.0, max(0.0, r_mid / max(1.0, r_shore)))
-                sin_decay_mult = max(0.0, 1.0 - coastal_sin_decay * r_ratio)
-                raw_sin = float(rng.lognormal(base_sin_mu, base_sin_sigma))
-                loop_sin = max(1.0, 1.0 + (raw_sin - 1.0) * sin_decay_mult)
-                loop_len = straight_dist * loop_sin
+        if (
+            rng.uniform(0.0, 1.0) <= p_loop
+            and not edge_intersects_graph(p1, p2, existing_edges)
+            and not edge_too_close_to_graph(p1, p2, existing_edges, min_edge_clearance)
+        ):
+            straight_dist = max(10.0, math.hypot(p2[0] - p1[0], p2[1] - p1[1]))
+            r_src = float(current_G.nodes[src].get('r', math.hypot(p1[0], p1[1])))
+            r_tgt = float(current_G.nodes[tgt].get('r', math.hypot(p2[0], p2[1])))
+            r_mid = 0.5 * (r_src + r_tgt)
+            r_ratio = min(1.0, max(0.0, r_mid / max(1.0, r_shore)))
+            sin_decay_mult = max(0.0, 1.0 - coastal_sin_decay * r_ratio)
+            raw_sin = float(rng.lognormal(base_sin_mu, base_sin_sigma))
+            loop_sin = max(1.0, 1.0 + (raw_sin - 1.0) * sin_decay_mult)
+            loop_len = straight_dist * loop_sin
 
-                current_G.add_edge(
-                    src, tgt,
-                    edge_type='loop',
-                    straight_distance=straight_dist,
-                    sinuosity=loop_sin,
-                    length=loop_len,
-                    width=min_width
-                )
-                existing_edges.append((p1, p2))
+            current_G.add_edge(
+                src, tgt,
+                edge_type='loop',
+                straight_distance=straight_dist,
+                sinuosity=loop_sin,
+                length=loop_len,
+                width=min_width
+            )
+            existing_edges.append((p1, p2))
 
-                _update_node_type_single(current_G, src, r_shore)
-                _update_node_type_single(current_G, tgt, r_shore)
+            _update_node_type_single(current_G, src, r_shore)
+            _update_node_type_single(current_G, tgt, r_shore)
 
     extend_leaf_to_shoreline(current_G, domain, existing_edges)
     refresh_node_types(current_G, r_shore)
@@ -241,9 +242,9 @@ def generate_loops_potential_field(
 
 def generate_loops_ner_optimality(
     G: nx.DiGraph,
-    domain: Optional[PolarDomain],
-    params: Dict[str, Any],
-    rng: Optional[np.random.Generator] = None,
+    domain: PolarDomain | None,
+    params: dict[str, Any],
+    rng: np.random.Generator | None = None,
     seed: int = 42
 ) -> nx.DiGraph:
     """
@@ -390,7 +391,7 @@ def generate_loops_ner_optimality(
 
     max_loops_slope = float(params.get('target_max_loops_slope', 0.22))
     max_loops_intercept = float(params.get('target_max_loops_intercept', 0.05))
-    max_loops_target = max(1, int(round((max_loops_intercept + max_loops_slope * R_rt) * N_target)))
+    max_loops_target = max(1, round((max_loops_intercept + max_loops_slope * R_rt) * N_target))
 
     T = max(1e-4, float(params.get('sa_initial_temp', 1.0)))
     alpha = max(0.5, min(0.999, float(params.get('sa_cooling_rate', 0.975))))

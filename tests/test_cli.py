@@ -2,7 +2,6 @@
 Tests for DGM command line interface (CLI).
 """
 
-from pathlib import Path
 import networkx as nx
 import pandas as pd
 import pytest
@@ -23,6 +22,14 @@ def test_cli_generate_command(tmp_path):
     assert G.number_of_edges() > 0
 
 
+def test_cli_generate_image_output(tmp_path):
+    """Verify CLI generate command produces a valid PNG image file when requested."""
+    out_img = tmp_path / "test_delta.png"
+    main(["generate", "-N", "20", "-R", "0.3", "-s", "42", "-o", str(out_img)])
+    assert out_img.exists()
+    assert out_img.stat().st_size > 1000
+
+
 def test_cli_ensemble_command(tmp_path):
     """Verify CLI ensemble command produces valid, readable CSV file with metric summaries."""
     out_csv = tmp_path / "test_ensemble.csv"
@@ -31,6 +38,15 @@ def test_cli_ensemble_command(tmp_path):
     assert out_csv.stat().st_size > 0
 
     # Verify CSV file is parseable and contains summary rows
+    df = pd.read_csv(out_csv)
+    assert len(df) > 0
+
+
+def test_cli_ensemble_no_sample_parameters(tmp_path):
+    """Verify CLI ensemble supports toggling parameter sampling via --no-sample-parameters."""
+    out_csv = tmp_path / "test_fixed_ensemble.csv"
+    main(["ensemble", "-N", "20", "-R", "0.5", "-n", "2", "-s", "42", "--no-sample-parameters", "-o", str(out_csv)])
+    assert out_csv.exists()
     df = pd.read_csv(out_csv)
     assert len(df) > 0
 

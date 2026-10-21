@@ -2,19 +2,19 @@
 Export and serialization utilities for DeltaGraphModel (DGM).
 """
 
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
 import json
 import math
 import uuid
+from pathlib import Path
+from typing import Any
+
 import networkx as nx
 import numpy as np
-import pandas as pd
 
 
-def _sanitize_graphml_val(v: Any) -> Optional[Union[int, float, str, bool]]:
+def _sanitize_graphml_val(v: Any) -> int | float | str | bool | None:
     """Sanitizes an attribute value to GraphML-compatible primitive types."""
-    if isinstance(v, bool) or isinstance(v, np.bool_):
+    if isinstance(v, (bool, np.bool_)):
         return bool(v)
     if isinstance(v, (int, np.integer)):
         return int(v)
@@ -26,7 +26,7 @@ def _sanitize_graphml_val(v: Any) -> Optional[Union[int, float, str, bool]]:
     return None
 
 
-def to_graphml(G: nx.DiGraph, path: Union[str, Path]) -> None:
+def to_graphml(G: nx.DiGraph, path: str | Path) -> None:
     """Exports a DGM network graph to GraphML format using safe atomic writing."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -71,7 +71,7 @@ def to_graphml(G: nx.DiGraph, path: Union[str, Path]) -> None:
         raise
 
 
-def to_geojson(G: nx.DiGraph, path: Optional[Union[str, Path]] = None) -> Dict[str, Any]:
+def to_geojson(G: nx.DiGraph, path: str | Path | None = None) -> dict[str, Any]:
     """
     Exports a DGM graph as a GeoJSON FeatureCollection of Point (nodes) and LineString (channels).
     """
@@ -178,8 +178,16 @@ def to_geojson(G: nx.DiGraph, path: Optional[Union[str, Path]] = None) -> Dict[s
     return fc
 
 
-def metrics_to_dataframe(metrics_data: Union[Dict[str, Any], List[Dict[str, Any]]]) -> pd.DataFrame:
+def metrics_to_dataframe(metrics_data: dict[str, Any] | list[dict[str, Any]]) -> Any:
     """Converts a metric evaluation dictionary or list of realization metrics into a pandas DataFrame."""
+    try:
+        import pandas as pd
+    except ImportError as e:
+        raise ImportError(
+            "pandas is required for DataFrame conversion. "
+            "Install with: pip install 'delta-graph-model[benchmarks]' or 'delta-graph-model[all]'"
+        ) from e
+
     if isinstance(metrics_data, dict):
         if 'raw_realizations' in metrics_data:
             return pd.DataFrame(metrics_data['raw_realizations'])
@@ -187,14 +195,35 @@ def metrics_to_dataframe(metrics_data: Union[Dict[str, Any], List[Dict[str, Any]
     return pd.DataFrame(metrics_data)
 
 
-def metrics_to_csv(metrics_data: Union[Dict[str, Any], List[Dict[str, Any]]], path: Union[str, Path]) -> None:
+def metrics_to_csv(metrics_data: dict[str, Any] | list[dict[str, Any]], path: str | Path) -> None:
     """Saves metrics to a CSV file using safe atomic writing."""
-    df = metrics_to_dataframe(metrics_data)
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_name(f".{path.name}.tmp_{uuid.uuid4().hex}")
     try:
-        df.to_csv(tmp_path, index=False)
+        try:
+            import pandas as pd  # noqa: F401
+            df = metrics_to_dataframe(metrics_data)
+            df.to_csv(tmp_path, index=False)
+        except ImportError:
+            import csv
+            if isinstance(metrics_data, dict):
+                rows = list(metrics_data['raw_realizations']) if 'raw_realizations' in metrics_data else [metrics_data]
+            elif isinstance(metrics_data, list):
+                rows = list(metrics_data)
+            else:
+                rows = [dict(metrics_data)]
+
+            if rows:
+                fieldnames = list(rows[0].keys())
+                with open(tmp_path, 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    for row in rows:
+                        writer.writerow({k: row.get(k, '') for k in fieldnames})
+            else:
+                with open(tmp_path, 'w', newline='', encoding='utf-8') as f:
+                    f.write("")
         tmp_path.replace(path)
     except Exception:
         if tmp_path.exists():
@@ -202,11 +231,19 @@ def metrics_to_csv(metrics_data: Union[Dict[str, Any], List[Dict[str, Any]]], pa
         raise
 
 
-def summary_to_dataframe(summary: Dict[str, Any]) -> pd.DataFrame:
+def summary_to_dataframe(summary: dict[str, Any]) -> Any:
     """
     Converts an ensemble summary dictionary into a pandas DataFrame of aggregated statistics
     (mean, std, min, max, p25, p75 for each metric).
     """
+    try:
+        import pandas as pd
+    except ImportError as e:
+        raise ImportError(
+            "pandas is required for DataFrame conversion. "
+            "Install with: pip install 'delta-graph-model[benchmarks]' or 'delta-graph-model[all]'"
+        ) from e
+
     if isinstance(summary, dict) and 'metrics' in summary and isinstance(summary['metrics'], dict):
         df = pd.DataFrame.from_dict(summary['metrics'], orient='index')
         df.index.name = 'metric'
@@ -214,15 +251,38 @@ def summary_to_dataframe(summary: Dict[str, Any]) -> pd.DataFrame:
     return metrics_to_dataframe(summary)
 
 
-def summary_to_csv(summary: Dict[str, Any], path: Union[str, Path]) -> None:
+def summary_to_csv(summary: dict[str, Any], path: str | Path) -> None:
     """Saves ensemble summary statistics to a CSV file using safe atomic writing."""
-    df = summary_to_dataframe(summary)
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_name(f".{path.name}.tmp_{uuid.uuid4().hex}")
     try:
-        df.to_csv(tmp_path, index=False)
-        tmp_path.replace(path)
+        try:
+            import pandas as pd  # noqa: F401
+            df = summary_to_dataframe(summary)
+            df.to_csv(tmp_path, index=False)
+            tmp_path.replace(path)
+        except ImportError:
+            import csv
+            if isinstance(summary, dict) and 'metrics' in summary and isinstance(summary['metrics'], dict):
+                fieldnames = ['metric', 'mean', 'std', 'min', 'max', 'p25', 'p75']
+                with open(tmp_path, 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(fieldnames)
+                    for metric_name, stats in summary['metrics'].items():
+                        if isinstance(stats, dict):
+                            writer.writerow([
+                                metric_name,
+                                stats.get('mean', ''),
+                                stats.get('std', ''),
+                                stats.get('min', ''),
+                                stats.get('max', ''),
+                                stats.get('p25', ''),
+                                stats.get('p75', ''),
+                            ])
+                tmp_path.replace(path)
+            else:
+                metrics_to_csv(summary, path)
     except Exception:
         if tmp_path.exists():
             tmp_path.unlink()

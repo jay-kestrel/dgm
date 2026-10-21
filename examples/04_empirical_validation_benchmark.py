@@ -1,7 +1,7 @@
 """
 Example 04: Empirical Validation Benchmark Against Real-World Deltas.
 Demonstrates:
-  1. Loading the 28 empirical real-world deltas from the DIDNT dataset (Hariharan et al., 2021)
+  1. Loading the 28 empirical real-world deltas from the DIDNT dataset (Hariharan et al., 2022)
   2. Conditioning DGM on empirical node count N and marine forcing ratio R_rt
   3. Broadening parameter space exploration across physical distributions, forcing uncertainty (R_rt ± ΔR),
      network extraction resolution jitter (N ± δ_N), and stochastic spur pruning
@@ -13,10 +13,9 @@ Demonstrates:
 """
 
 import argparse
-import os
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
 
 # Ensure dgm and local modules are importable
 current_dir = Path(__file__).resolve().parent
@@ -26,21 +25,14 @@ for p in [str(dgm_root / "src"), str(dgm_root)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-import dgm
 from dgm.benchmarks.empirical_validation import (
     EmpiricalValidationBenchmark,
-    run_empirical_benchmark,
-    PRIMARY_METRICS,
-    METRIC_LABELS,
 )
 
 
-def resolve_output_dir(custom_path: str = None) -> Path:
+def resolve_output_dir(custom_path: str | None = None) -> Path:
     """Intelligently resolves the target outputs directory."""
-    if custom_path:
-        out = Path(custom_path).resolve()
-    else:
-        out = dgm_root / "outputs"
+    out = Path(custom_path).resolve() if custom_path else dgm_root / "outputs"
 
     out.mkdir(parents=True, exist_ok=True)
     return out
@@ -161,7 +153,7 @@ def main():
     )
 
     # 2. Run benchmark across all 28 DIDNT deltas
-    results = suite.run(verbose=True)
+    suite.run(verbose=True)
 
     # 3. Export deliverables
     csv_file = out_dir / "empirical_validation_results.csv"

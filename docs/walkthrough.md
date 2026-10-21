@@ -17,7 +17,7 @@ DGM requires **Python 3.10+**. We recommend using [`uv`](https://github.com/astr
 
 ```bash
 # Clone the repository
-git clone https://github.com/delta-graphs/dgm.git
+git clone https://github.com/jay-kestrel/dgm.git
 cd dgm
 
 # Create a virtual environment and synchronize all dependencies (including dev tools)
@@ -28,7 +28,7 @@ uv sync --extra dev
 
 ```bash
 # Clone the repository
-git clone https://github.com/delta-graphs/dgm.git
+git clone https://github.com/jay-kestrel/dgm.git
 cd dgm
 
 # Create and activate a virtual environment

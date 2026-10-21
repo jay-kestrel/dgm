@@ -4,29 +4,30 @@ and physical/mathematical invariants of DGM.
 """
 
 import math
-import numpy as np
+
 import networkx as nx
+import numpy as np
 import pytest
 
 import dgm
+from dgm.core.geometry_utils import segments_intersect
+from dgm.core.hydraulics import apply_emergent_hydraulics, solve_markov_flux
 from dgm.validation import (
-    FULL_20D_METRIC_KEYS,
-    FULL_20D_METRIC_LABELS,
-    EXPANDED_METRIC_KEYS,
-    EXPANDED_METRIC_LABELS,
     EMPIRICAL_5D_KEYS,
     EMPIRICAL_5D_LABELS,
-    get_empirical_vector,
-    get_empirical_5d_vector,
+    EXPANDED_METRIC_KEYS,
+    EXPANDED_METRIC_LABELS,
+    FULL_20D_METRIC_KEYS,
+    FULL_20D_METRIC_LABELS,
+    EmpiricalBenchmark,
     compute_goodness_of_fit,
     compute_ks_test,
     compute_mahalanobis_validation,
     compute_mmd,
     compute_permanova,
-    EmpiricalBenchmark,
+    get_empirical_5d_vector,
+    get_empirical_vector,
 )
-from dgm.core.geometry_utils import segments_intersect
-from dgm.core.hydraulics import apply_emergent_hydraulics, solve_markov_flux
 
 
 def test_validation_keys_and_labels():

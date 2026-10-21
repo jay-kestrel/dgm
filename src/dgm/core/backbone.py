@@ -3,18 +3,19 @@ Primary polar growth tree backbone generator for DGM.
 Synthesizes a planar bifurcating tree skeleton across the polar domain.
 """
 
-from typing import Dict, Any, List, Tuple, Optional
-from collections import deque
 import math
-import numpy as np
+from collections import deque
+from typing import Any
+
 import networkx as nx
+import numpy as np
 
 from .domain import PolarDomain
 from .geometry_utils import (
     edge_intersects_graph,
-    extend_leaf_to_shoreline,
     edge_too_close_to_graph,
-    incident_angle_between_segments
+    extend_leaf_to_shoreline,
+    incident_angle_between_segments,
 )
 
 
@@ -22,9 +23,9 @@ def generate_polar_tree_backbone(
     N_target: int,
     R_rt: float,
     domain: PolarDomain,
-    params: Dict[str, Any],
+    params: dict[str, Any],
     rng: np.random.Generator,
-    branching_weights: Optional[Tuple[float, float, float]] = None
+    branching_weights: tuple[float, float, float] | None = None
 ) -> nx.DiGraph:
     """
     Generates a polar tree backbone with variable-order branching (1, 2, or 3 children)
@@ -61,10 +62,10 @@ def generate_polar_tree_backbone(
 
     current_node_id = 1
     queue = deque([0])
-    existing_edges: List[Tuple[Tuple[float, float], Tuple[float, float]]] = []
+    existing_edges: list[tuple[tuple[float, float], tuple[float, float]]] = []
 
     # Estimate levels needed
-    max_levels = int(math.ceil(math.log2(N_tree + 1))) + 1
+    max_levels = math.ceil(math.log2(N_tree + 1)) + 1
     r_step_base = domain.r_shore / max(2, max_levels)
 
     step_min = float(params.get('radial_step_scale_min', 0.65))
@@ -124,7 +125,7 @@ def generate_polar_tree_backbone(
         # Angular spreading angle narrows as tree deepens
         spread_base = (domain.theta_open / 2.5) / max(1.0, spread_decay * (p_level + 1))
         effective_min_bif = min(min_bif_angle, 0.40 * domain.theta_open)
-        placed_children_for_parent: List[Tuple[float, float, float]] = [
+        placed_children_for_parent: list[tuple[float, float, float]] = [
             (float(G.nodes[c]['theta']), float(G.nodes[c]['x']), float(G.nodes[c]['y']))
             for c in G.successors(parent)
         ]
@@ -178,7 +179,7 @@ def generate_polar_tree_backbone(
 
                 # Enforce sibling angular divergence at parent junction and spatial separation
                 violates_sibling = False
-                for s_th, s_x, s_y in placed_children_for_parent:
+                for _s_th, s_x, s_y in placed_children_for_parent:
                     if incident_angle_between_segments(parent_pos, cand_pos, (s_x, s_y)) < effective_min_bif or math.hypot(cx - s_x, cy - s_y) < eff_sib_dist:
                         violates_sibling = True
                         break
@@ -203,7 +204,7 @@ def generate_polar_tree_backbone(
                     cand_pos = (cx, cy)
 
                     violates_sibling = False
-                    for s_th, s_x, s_y in placed_children_for_parent:
+                    for _s_th, s_x, s_y in placed_children_for_parent:
                         if incident_angle_between_segments(parent_pos, cand_pos, (s_x, s_y)) < effective_min_bif or math.hypot(cx - s_x, cy - s_y) < eff_sib_dist:
                             violates_sibling = True
                             break
@@ -226,10 +227,7 @@ def generate_polar_tree_backbone(
             children_added += 1
 
             cx, cy = child_pos
-            if child_r >= domain.r_shore * 0.90:
-                node_type = 'outlet'
-            else:
-                node_type = 'internal'
+            node_type = 'outlet' if child_r >= domain.r_shore * 0.9 else 'internal'
 
             G.add_node(
                 current_node_id,

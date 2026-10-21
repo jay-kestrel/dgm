@@ -5,22 +5,21 @@ coordinate merging, and seamless integration with hydraulics and ensemble genera
 """
 
 import math
-from pathlib import Path
-import numpy as np
+
 import networkx as nx
+import numpy as np
 import pytest
 
-
 import dgm
-from dgm.config import DGMConfig
-from dgm.core.pruning import (
-    refresh_node_types,
-    prune_dead_end_spurs,
-    simplify_degree_two_chains,
-    prune_and_simplify_network,
-)
-from dgm.core.hydraulics import solve_markov_flux
 from dgm.cli import main as cli_main
+from dgm.config import DGMConfig
+from dgm.core.hydraulics import solve_markov_flux
+from dgm.core.pruning import (
+    prune_and_simplify_network,
+    prune_dead_end_spurs,
+    refresh_node_types,
+    simplify_degree_two_chains,
+)
 
 
 def test_refresh_node_types():

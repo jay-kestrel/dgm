@@ -5,18 +5,37 @@ channel networks and tree backbones, including proximity-constrained sinuous
 polyline centerlines, channel width hierarchies, node taxonomies, and domain boundaries.
 """
 
-from typing import Dict, Any, List, Tuple, Optional, Union
+from __future__ import annotations
+
+import contextlib
 import math
-import numpy as np
+from typing import Any
+
 import networkx as nx
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
+import numpy as np
 
 from .core.domain import PolarDomain
 
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+    _HAS_MATPLOTLIB = True
+except ImportError:
+    plt = None  # type: ignore
+    Line2D = None  # type: ignore
+    _HAS_MATPLOTLIB = False
+
+
+def _require_matplotlib() -> None:
+    if not _HAS_MATPLOTLIB:
+        raise ImportError(
+            "matplotlib is required for DGM visualization functions. "
+            "Install with: pip install 'delta-graph-model[viz]' or 'delta-graph-model[all]'"
+        )
+
 
 # Standard Geomorphic Palette (Light & Dark Themes)
-THEMES: Dict[str, Dict[str, Any]] = {
+THEMES: dict[str, dict[str, Any]] = {
     "light": {
         "bg": "#ffffff",
         "panel_bg": "#f8fafc",
@@ -92,7 +111,7 @@ THEMES: Dict[str, Dict[str, Any]] = {
 }
 
 
-def _transform_point(x: float, y: float, orientation: str) -> Tuple[float, float]:
+def _transform_point(x: float, y: float, orientation: str) -> tuple[float, float]:
     """
     Transforms 2D Cartesian coordinates (x: downstream, y: cross-stream)
     according to the specified viewing orientation.
@@ -108,7 +127,7 @@ def _transform_point(x: float, y: float, orientation: str) -> Tuple[float, float
     return (x, y)
 
 
-def _transform_polyline(coords: List[List[float]], orientation: str) -> np.ndarray:
+def _transform_polyline(coords: list[list[float]], orientation: str) -> np.ndarray:
     """Transforms an array of 2D polyline vertices according to orientation."""
     arr = np.asarray(coords, dtype=float)
     if arr.ndim != 2 or arr.shape[1] < 2:
@@ -121,7 +140,7 @@ def _transform_polyline(coords: List[List[float]], orientation: str) -> np.ndarr
     return arr[:, :2]
 
 
-def _infer_node_type(G: nx.DiGraph, n: Any, explicit_type: Optional[str] = None) -> str:
+def _infer_node_type(G: nx.DiGraph, n: Any, explicit_type: str | None = None) -> str:
     """Infers geomorphic node taxonomy based on explicit metadata or topological degrees."""
     if explicit_type and explicit_type not in ("unknown", "internal", "junction"):
         return explicit_type
@@ -146,7 +165,7 @@ def _infer_node_type(G: nx.DiGraph, n: Any, explicit_type: Optional[str] = None)
     return "internal"
 
 
-def _extract_domain(G: nx.DiGraph, domain: Optional[PolarDomain] = None) -> Optional[PolarDomain]:
+def _extract_domain(G: nx.DiGraph, domain: PolarDomain | None = None) -> PolarDomain | None:
     """Retrieves or reconstructs a PolarDomain instance from graph metadata or node geometry."""
     if domain is not None:
         return domain
@@ -191,13 +210,13 @@ def _extract_domain(G: nx.DiGraph, domain: Optional[PolarDomain] = None) -> Opti
 
 def plot_network(
     G: nx.DiGraph,
-    ax: Optional[plt.Axes] = None,
+    ax: plt.Axes | None = None,
     curved: bool = True,
-    edge_width: Union[str, float] = "width",
+    edge_width: str | float = "width",
     min_linewidth: float = 0.8,
     max_linewidth: float = 5.5,
     width_scaling: str = "sqrt",
-    edge_color: Union[str, Dict[str, str]] = "type",
+    edge_color: str | dict[str, str] = "type",
     edge_alpha: float = 0.85,
     show_nodes: bool = True,
     node_size: float = 30.0,
@@ -205,15 +224,15 @@ def plot_network(
     show_domain: bool = True,
     orientation: str = "cartesian",
     theme: str = "light",
-    title: Optional[str] = None,
+    title: str | None = None,
     show_legend: bool = True,
-    legend_title: Optional[str] = "Geomorphic Taxonomy",
+    legend_title: str | None = "Geomorphic Taxonomy",
     legend_loc: str = "upper right",
     legend_all_types: bool = True,
     legend_ncols: int = 1,
     show_stats: bool = False,
     stats_loc: str = "lower left",
-    domain: Optional[PolarDomain] = None,
+    domain: PolarDomain | None = None,
 ) -> plt.Axes:
     """
     Renders a spatial 2D map of a DeltaGraphModel (DGM) network or tree backbone.
@@ -285,6 +304,7 @@ def plot_network(
     plt.Axes
         The Matplotlib Axes containing the plot.
     """
+    _require_matplotlib()
     if ax is None:
         _fig, ax = plt.subplots(figsize=(10, 8), dpi=200)
 
@@ -313,20 +333,17 @@ def plot_network(
         G_work = G
 
     has_polylines = any("coordinates" in d and len(d["coordinates"]) >= 3 for _, _, d in G_work.edges(data=True))
-    if curved and not has_polylines and G_work.number_of_edges() > 0:
-        if has_node_xy:
-            from .core.channel_geometry import generate_channel_centerlines
-            if G_work is G:
-                G_work = G.copy()
-            params = G_work.graph.get("params", {})
-            clr = params.get("min_channel_clearance", G_work.graph.get("min_channel_clearance", 0.40))
-            pts = params.get("num_polyline_points", G_work.graph.get("num_polyline_points", 21))
-            bends = params.get("meander_bends", G_work.graph.get("meander_bends", 1))
-            sub_seed = G_work.graph.get("seed", 42)
-            try:
-                generate_channel_centerlines(G_work, clearance_fraction=clr, num_points=pts, num_bends=bends, seed=sub_seed)
-            except Exception:
-                pass
+    if curved and not has_polylines and G_work.number_of_edges() > 0 and has_node_xy:
+        from .core.channel_geometry import generate_channel_centerlines
+        if G_work is G:
+            G_work = G.copy()
+        params = G_work.graph.get("params", {})
+        clr = params.get("min_channel_clearance", G_work.graph.get("min_channel_clearance", 0.40))
+        pts = params.get("num_polyline_points", G_work.graph.get("num_polyline_points", 21))
+        bends = params.get("meander_bends", G_work.graph.get("meander_bends", 1))
+        sub_seed = G_work.graph.get("seed", 42)
+        with contextlib.suppress(Exception):
+            generate_channel_centerlines(G_work, clearance_fraction=clr, num_points=pts, num_bends=bends, seed=sub_seed)
 
     # Retrieve or infer PolarDomain
     resolved_domain = _extract_domain(G_work, domain)
@@ -424,7 +441,7 @@ def plot_network(
     used_node_types = set()
     if show_nodes:
         if node_style == "type":
-            grouped_nodes: Dict[str, List[Tuple[float, float]]] = {}
+            grouped_nodes: dict[str, list[tuple[float, float]]] = {}
             for n, d in G_work.nodes(data=True):
                 nx_val = float(d.get("x", 0.0))
                 ny_val = float(d.get("y", 0.0))
@@ -564,7 +581,7 @@ def plot_network(
             fontsize=8.0,
             family="monospace",
             color=pal["text"],
-            bbox=dict(boxstyle="round,pad=0.5", facecolor=pal["panel_bg"], edgecolor=pal["domain_boundary"], alpha=0.9),
+            bbox={"boxstyle": "round,pad=0.5", "facecolor": pal["panel_bg"], "edgecolor": pal["domain_boundary"], "alpha": 0.9},
             zorder=10
         )
 
@@ -582,7 +599,7 @@ def _draw_domain(
     ax: plt.Axes,
     domain: PolarDomain,
     orientation: str,
-    pal: Dict[str, Any]
+    pal: dict[str, Any]
 ) -> None:
     """Draws polar wedge opening rays, shoreline arc, and valley walls."""
     r_shore = domain.r_shore
@@ -607,7 +624,7 @@ def _draw_domain(
     t_vals = np.linspace(-half_open, half_open, 150)
     arc_x = r_shore * np.cos(t_vals)
     arc_y = r_shore * np.sin(t_vals)
-    arc_pts = np.array([_transform_point(x, y, orientation) for x, y in zip(arc_x, arc_y)])
+    arc_pts = np.array([_transform_point(x, y, orientation) for x, y in zip(arc_x, arc_y, strict=False)])
 
     ax.plot(
         arc_pts[:, 0], arc_pts[:, 1],
@@ -621,10 +638,7 @@ def _draw_domain(
     # 3. Lateral Valley Walls (if corridor confinement is active)
     if domain.lateral_valley_width is not None and domain.lateral_valley_width > 0:
         hw = domain.lateral_valley_width / 2.0
-        if hw < r_shore:
-            x_wall_end = math.sqrt(r_shore**2 - hw**2)
-        else:
-            x_wall_end = r_shore
+        x_wall_end = math.sqrt(r_shore ** 2 - hw ** 2) if hw < r_shore else r_shore
         x_ray_end = r_shore * math.cos(half_open)
         x_end = max(x_ray_end, x_wall_end)
 
@@ -645,15 +659,15 @@ def plot_tree_vs_network(
     curved: bool = True,
     orientation: str = "cartesian",
     theme: str = "light",
-    figsize: Tuple[float, float] = (16, 7),
+    figsize: tuple[float, float] = (16, 7),
     dpi: int = 200,
-    title: Optional[str] = None,
+    title: str | None = None,
     show_stats: bool = True,
     show_legend: bool = True,
     legend_panel: str = "both",
     legend_all_types: bool = True,
     **kwargs
-) -> Tuple[plt.Figure, Tuple[plt.Axes, plt.Axes]]:
+) -> tuple[plt.Figure, tuple[plt.Axes, plt.Axes]]:
     """
     Renders a side-by-side comparative figure of the Stage 1 Polar Tree Backbone
     versus the Stage 6 Final Hydraulic Delta Network.
@@ -692,6 +706,7 @@ def plot_tree_vs_network(
     Tuple[plt.Figure, Tuple[plt.Axes, plt.Axes]]
         Figure and pair of (ax_tree, ax_final) axes.
     """
+    _require_matplotlib()
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize, dpi=dpi)
     pal = THEMES.get(theme.lower(), THEMES["light"])
     if pal["bg"] != "none":
@@ -753,17 +768,17 @@ def plot_tree_vs_network(
 
 
 def plot_stages(
-    stages: Dict[str, nx.DiGraph],
+    stages: dict[str, nx.DiGraph],
     curved: bool = True,
     orientation: str = "cartesian",
     theme: str = "light",
-    figsize: Tuple[float, float] = (22, 6),
+    figsize: tuple[float, float] = (22, 6),
     dpi: int = 200,
-    title: Optional[str] = "DGM Process-Emergent Generative Evolution",
+    title: str | None = "DGM Process-Emergent Generative Evolution",
     legend_stage: str = "first",
     legend_all_types: bool = True,
     **kwargs
-) -> Tuple[plt.Figure, List[plt.Axes]]:
+) -> tuple[plt.Figure, list[plt.Axes]]:
     """
     Renders progressive multi-panel evolution across simulation stages:
     (Tree Backbone -> Looped Network -> Pruned Network -> Final Hydraulic Network).
@@ -797,6 +812,7 @@ def plot_stages(
     Tuple[plt.Figure, List[plt.Axes]]
         Figure and list of Axes objects.
     """
+    _require_matplotlib()
     stage_order = [k for k in ["tree", "looped", "pruned", "final"] if k in stages]
     if not stage_order:
         stage_order = list(stages.keys())

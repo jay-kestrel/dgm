@@ -12,9 +12,9 @@ Demonstrates:
 """
 
 import argparse
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
 
 current_dir = Path(__file__).resolve().parent
 dgm_root = current_dir.parent
@@ -23,15 +23,14 @@ for p in [str(dgm_root / "src"), str(dgm_root)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-import dgm
-from dgm.benchmarks.mega_delta_benchmark import MegaDeltaScaleBenchmark, DEFAULT_MEGA_DELTAS
+from dgm.benchmarks.mega_delta_benchmark import (
+    DEFAULT_MEGA_DELTAS,
+    MegaDeltaScaleBenchmark,
+)
 
 
-def resolve_output_dir(custom_path: str = None) -> Path:
-    if custom_path:
-        out = Path(custom_path).resolve()
-    else:
-        out = dgm_root / "outputs"
+def resolve_output_dir(custom_path: str | None = None) -> Path:
+    out = Path(custom_path).resolve() if custom_path else dgm_root / "outputs"
     out.mkdir(parents=True, exist_ok=True)
     return out
 
@@ -82,7 +81,7 @@ def main():
     )
 
     t0 = time.time()
-    results = benchmark.run(verbose=True)
+    benchmark.run(verbose=True)
     total_time = time.time() - t0
 
     # Export Artifacts

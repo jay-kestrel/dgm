@@ -2,12 +2,12 @@
 Tests for backbone tree skeleton generation and planarity.
 """
 
-import numpy as np
 import networkx as nx
+import numpy as np
 
-from dgm.core.domain import PolarDomain
-from dgm.core.backbone import generate_polar_tree_backbone
 from dgm.config import DGMConfig
+from dgm.core.backbone import generate_polar_tree_backbone
+from dgm.core.domain import PolarDomain
 
 
 def test_polar_tree_backbone_generation():

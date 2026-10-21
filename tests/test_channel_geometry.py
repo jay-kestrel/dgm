@@ -2,18 +2,19 @@
 Tests for curved channel centerline generation and proximity-constrained meander dynamics.
 """
 
-import math
 import json
+import math
+
 import networkx as nx
 import pytest
 
 import dgm
 from dgm.config import DGMConfig
 from dgm.core.channel_geometry import (
-    point_to_segment_distance,
-    compute_edge_clearance,
     apply_channel_proximity_constraints,
+    compute_edge_clearance,
     generate_channel_centerlines,
+    point_to_segment_distance,
 )
 
 
@@ -174,7 +175,7 @@ def test_geojson_export_with_curved_centerlines(tmp_path):
     dgm.to_geojson(G, out_file)
 
     assert out_file.exists()
-    with open(out_file, "r", encoding="utf-8") as f:
+    with open(out_file, encoding="utf-8") as f:
         data = json.load(f)
 
     assert data["type"] == "FeatureCollection"
@@ -204,7 +205,7 @@ def test_cli_curved_flag(tmp_path):
     ])
 
     assert out_file.exists()
-    with open(out_file, "r", encoding="utf-8") as f:
+    with open(out_file, encoding="utf-8") as f:
         data = json.load(f)
 
     channel_features = [feat for feat in data["features"] if feat["properties"].get("feature_type") == "channel"]

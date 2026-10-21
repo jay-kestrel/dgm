@@ -9,9 +9,12 @@ Demonstrates:
 """
 
 from pathlib import Path
+
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
 import dgm
 
 
@@ -71,7 +74,7 @@ def main():
         seed=42
     )
 
-    fig_comp, (ax_tree, ax_net) = dgm.plot_tree_vs_network(
+    fig_comp, (_ax_tree, _ax_net) = dgm.plot_tree_vs_network(
         G_tree=stages["tree"],
         G_final=G_final,
         curved=True,
@@ -101,7 +104,7 @@ def main():
         seed=77
     )
 
-    fig_stages, axes = dgm.plot_stages(
+    fig_stages, _axes = dgm.plot_stages(
         stages=stages_4,
         curved=True,
         orientation="cartesian",

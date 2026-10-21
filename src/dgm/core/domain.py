@@ -2,7 +2,6 @@
 Polar coordinate domain geometry and coordinate transformation utilities for DGM.
 """
 
-from typing import Tuple, Optional
 import math
 
 
@@ -26,7 +25,7 @@ class PolarDomain:
         theta_delta: float = 60.0,
         R_rt: float = 0.5,
         confinement: float = 0.0,
-        lateral_valley_width: Optional[float] = None
+        lateral_valley_width: float | None = None
     ) -> None:
         """
         Initializes the PolarDomain.
@@ -62,7 +61,7 @@ class PolarDomain:
         self.min_theta = -self.half_open
         self.max_theta = self.half_open
 
-    def polar_to_cartesian(self, r: float, theta: float) -> Tuple[float, float]:
+    def polar_to_cartesian(self, r: float, theta: float) -> tuple[float, float]:
         """
         Converts polar coordinates (r in meters, theta in radians) to Cartesian coordinates (x, y in meters).
         """
@@ -71,7 +70,7 @@ class PolarDomain:
         y = r_safe * math.sin(float(theta))
         return (float(x), float(y))
 
-    def cartesian_to_polar(self, x: float, y: float) -> Tuple[float, float]:
+    def cartesian_to_polar(self, x: float, y: float) -> tuple[float, float]:
         """
         Converts Cartesian coordinates (x, y in meters) to polar coordinates (r in meters, theta in radians).
         Apex origin (0, 0) maps to r = 0.0, theta = 0.0.
@@ -98,7 +97,7 @@ class PolarDomain:
                 return False
         return True
 
-    def clamp_theta(self, theta: float, r: Optional[float] = None) -> float:
+    def clamp_theta(self, theta: float, r: float | None = None) -> float:
         """
         Clamps an angle theta (radians) to valid domain bounds, respecting both sectoral opening
         and lateral valley corridor limits.

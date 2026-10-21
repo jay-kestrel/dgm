@@ -83,8 +83,10 @@ graphs = dgm.sample_ensemble(
 
 ## Core Classes
 
+<a id="dgmconfig"></a>
 ### `dgm.DGMConfig`
 Unified configuration dataclass handling baseline parameters, solver thresholds, and bounded distributions.
+
 
 ```python
 cfg = dgm.DGMConfig.load_default()
@@ -242,6 +244,8 @@ Renders a progressive multi-stage assembly figure (Tree Backbone $\to$ + Emergen
 - `dgm.to_geojson(G: nx.DiGraph, path: Optional[Union[str, Path]] = None) -> Dict[str, Any]`: Exports nodes (Points) and channel reaches (LineStrings) as a standard GeoJSON `FeatureCollection` (for QGIS, ArcGIS, Mapbox).
 - `dgm.metrics_to_dataframe(metrics_data) -> pd.DataFrame`: Converts realization dictionary or ensemble summary to a `pandas.DataFrame`.
 - `dgm.metrics_to_csv(metrics_data, path: Union[str, Path]) -> None`: Saves metrics table directly to CSV.
+- `dgm.summary_to_dataframe(summary: Dict[str, Any]) -> pd.DataFrame`: Converts ensemble aggregated statistics dictionary into a clean `pandas.DataFrame`.
+- `dgm.summary_to_csv(summary: Dict[str, Any], path: Union[str, Path]) -> None`: Saves ensemble summary statistics directly to CSV (with standard library `csv` fallback).
 - `dgm.DIDNTLoader(dataset_dir: Optional[Union[str, Path]] = None)`: Loads canonical real deltas from the DIDNT global dataset.
 - `dgm.get_empirical_deltas() -> List[EmpiricalDelta]`: Returns empirical delta descriptors for all 28 real-world systems.
 

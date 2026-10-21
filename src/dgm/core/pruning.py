@@ -4,10 +4,11 @@ Removes blind inland dead-ends, filters sub-threshold spurs, and contracts pass-
 prior to Murray's Law width relaxation and Markov flux routing.
 """
 
-from typing import Dict, Any, List, Tuple, Optional
 import math
-import numpy as np
+from typing import Any
+
 import networkx as nx
+import numpy as np
 
 from .domain import PolarDomain
 from .geometry_utils import edge_intersects_graph
@@ -54,7 +55,7 @@ def prune_dead_end_spurs(
     max_iterations: int = 10,
     min_spur_length: float = 0.0,
     prune_inland_dead_ends: bool = True
-) -> Tuple[nx.DiGraph, int]:
+) -> tuple[nx.DiGraph, int]:
     """
     Prunes blind channel spurs that terminate inland without reaching the shoreline.
     Guarantees that apex and valid shoreline outlets (r >= r_shore * (1 - tol)) are never removed.
@@ -70,7 +71,7 @@ def prune_dead_end_spurs(
     shore_cutoff = max(0.0, float(r_shore) * (1.0 - float(outlet_tolerance)))
 
     for _ in range(max(1, max_iterations)):
-        candidates_to_prune: List[Any] = []
+        candidates_to_prune: list[Any] = []
 
         for n in list(pruned_G.nodes()):
             # Never prune apex
@@ -113,13 +114,13 @@ def simplify_degree_two_chains(
     r_shore: float,
     outlet_tolerance: float = 0.05,
     recalculate_reach_sinuosity: bool = True,
-    params: Optional[Dict[str, Any]] = None,
-    rng: Optional[np.random.Generator] = None
-) -> Tuple[nx.DiGraph, int]:
+    params: dict[str, Any] | None = None,
+    rng: np.random.Generator | None = None
+) -> tuple[nx.DiGraph, int]:
     """
     Contracts all non-branching pass-through nodes (in_degree == 1 and out_degree == 1)
     into direct links between morphological junctions, inlets, and outlets.
-    
+
     When recalculate_reach_sinuosity is True (default), calculates a single unified
     reach-scale sinuosity for the contracted link directly from the process model,
     preventing double-counting of geometric growth knees and aligning with DIDNT
@@ -259,9 +260,9 @@ def simplify_degree_two_chains(
 
 def prune_and_simplify_network(
     G: nx.DiGraph,
-    domain: Optional[PolarDomain] = None,
-    params: Optional[Dict[str, Any]] = None,
-    rng: Optional[np.random.Generator] = None
+    domain: PolarDomain | None = None,
+    params: dict[str, Any] | None = None,
+    rng: np.random.Generator | None = None
 ) -> nx.DiGraph:
     """
     Orchestrator function called before hydraulics:
@@ -284,7 +285,7 @@ def prune_and_simplify_network(
     max_iters = int(params.get('max_prune_iterations', 5))
 
     current_G = G.copy()
-    stats: Dict[str, Any] = {
+    stats: dict[str, Any] = {
         'initial_nodes': current_G.number_of_nodes(),
         'initial_edges': current_G.number_of_edges(),
         'pruned_nodes': 0,
@@ -317,7 +318,7 @@ def prune_and_simplify_network(
     # Enforce weak connectivity invariant: retain connected component of apex if any orphan remained
     if not nx.is_weakly_connected(current_G) and current_G.number_of_nodes() > 1:
         apex_nodes = [n for n in current_G.nodes() if current_G.nodes[n].get('node_type') == 'apex']
-        apex_node = apex_nodes[0] if apex_nodes else (0 if 0 in current_G else list(current_G.nodes())[0])
+        apex_node = apex_nodes[0] if apex_nodes else (0 if 0 in current_G else next(iter(current_G.nodes())))
         apex_comp = nx.node_connected_component(current_G.to_undirected(), apex_node)
         to_remove = [n for n in current_G.nodes() if n not in apex_comp]
         for n in to_remove:

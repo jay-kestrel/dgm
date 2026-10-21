@@ -3,14 +3,15 @@ Unit tests for the confinement parameter and lateral valley width constraint in 
 """
 
 import math
+
+import networkx as nx
 import numpy as np
 import pytest
-import networkx as nx
 
+import dgm
+from dgm.config import DGMConfig
 from dgm.core.domain import PolarDomain
 from dgm.core.geometry_utils import segments_intersect
-from dgm.config import DGMConfig
-import dgm
 
 
 def test_polar_domain_confinement_opening_angle():

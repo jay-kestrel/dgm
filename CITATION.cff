@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use DeltaGraphModel (DGM) in your research, please cite it as below."
+title: "DeltaGraphModel (DGM): A Process-Emergent Generative Graph Framework for Synthetic River Delta Channel Networks"
+abstract: "A modular, process-emergent generative graph framework for synthesizing realistic river delta channel networks (DCNs) and sampling large stochastic ensembles under minimal physical boundary conditions."
+version: 0.2.0
+date-released: "2026-10-21"
+license: "MIT"
+url: "https://github.com/jay-kestrel/dgm"
+repository-code: "https://github.com/jay-kestrel/dgm"
+type: software
+authors:
+  - family-names: "Hariharan"
+    given-names: "Jayaram"
+    email: "jayaram.hariharan@kestrelintelligence.com"
+keywords:
+  - "river deltas"
+  - "distributary channel networks"
+  - "generative graph models"
+  - "topological networks"
+  - "hydraulics"
+  - "Murray's law"
+  - "Shannon entropy"
+  - "geomorphology"
+  - "stochastic ensembles"

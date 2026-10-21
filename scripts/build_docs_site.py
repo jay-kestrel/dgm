@@ -8,10 +8,9 @@ and vector embeddings for the client-side AI Assistant.
 
 import argparse
 import html
-import re
 import sys
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DOCS_DIR = REPO_ROOT / "docs"
@@ -30,7 +29,7 @@ DOCS_MANIFEST = [
         "category": "Getting Started",
         "src": DOCS_DIR / "index.md",
         "dest": "index.html",
-        "prompt": "Explain the high-level capabilities, philosophy, and installation of DeltaGraphModel."
+        "prompt": "Explain the high-level capabilities, philosophy, and installation of DeltaGraphModel.",
     },
     {
         "slug": "architecture",
@@ -38,7 +37,7 @@ DOCS_MANIFEST = [
         "category": "Core Theory",
         "src": DOCS_DIR / "architecture.md",
         "dest": "architecture.html",
-        "prompt": "Explain the 5 core pipeline stages, Murray's law hydraulics, and loop engines in DGM."
+        "prompt": "Explain the 5 core pipeline stages, Murray's law hydraulics, and loop engines in DGM.",
     },
     {
         "slug": "configuration",
@@ -46,7 +45,7 @@ DOCS_MANIFEST = [
         "category": "Core Theory",
         "src": DOCS_DIR / "configuration.md",
         "dest": "configuration.html",
-        "prompt": "How do DGM parameters, stochastic distributions, and validation constraints work in default_config.yaml?"
+        "prompt": "How do DGM parameters, stochastic distributions, and validation constraints work in default_config.yaml?",
     },
     {
         "slug": "api_reference",
@@ -54,7 +53,7 @@ DOCS_MANIFEST = [
         "category": "Reference",
         "src": DOCS_DIR / "api_reference.md",
         "dest": "api_reference.html",
-        "prompt": "What are the main functions and classes in DGM public API (dgm.generate, MetricsBattery, etc.)?"
+        "prompt": "What are the main functions and classes in DGM public API (dgm.generate, MetricsBattery, etc.)?",
     },
     {
         "slug": "walkthrough",
@@ -62,7 +61,7 @@ DOCS_MANIFEST = [
         "category": "Tutorials",
         "src": DOCS_DIR / "walkthrough.md",
         "dest": "walkthrough.html",
-        "prompt": "Walk me through generating a delta, routing flow, and computing metrics step by step in Python."
+        "prompt": "Walk me through generating a delta, routing flow, and computing metrics step by step in Python.",
     },
     {
         "slug": "tutorial_01_quickstart",
@@ -70,7 +69,7 @@ DOCS_MANIFEST = [
         "category": "Tutorials",
         "src": DOCS_DIR / "tutorials" / "01_quickstart.md",
         "dest": "tutorial_01_quickstart.html",
-        "prompt": "How do I run the DGM quickstart example and export to GraphML or GeoJSON?"
+        "prompt": "How do I run the DGM quickstart example and export to GraphML or GeoJSON?",
     },
     {
         "slug": "tutorial_02_ensemble_clouds",
@@ -78,12 +77,12 @@ DOCS_MANIFEST = [
         "category": "Tutorials",
         "src": DOCS_DIR / "tutorials" / "02_ensemble_clouds.md",
         "dest": "tutorial_02_ensemble_clouds.html",
-        "prompt": "How does DGM sample large stochastic ensembles and compute geomorphic metric distributions?"
+        "prompt": "How does DGM sample large stochastic ensembles and compute geomorphic metric distributions?",
     },
 ]
 
 
-def render_html_page(doc_info: Dict[str, Any], body_html: str) -> str:
+def render_html_page(doc_info: dict[str, Any], body_html: str) -> str:
     current_dest = doc_info["dest"]
     title = doc_info["title"]
     category = doc_info["category"]
@@ -91,7 +90,7 @@ def render_html_page(doc_info: Dict[str, Any], body_html: str) -> str:
 
     # Build Sidebar links grouped by category
     sidebar_items_html = []
-    categories: Dict[str, List[Dict[str, Any]]] = {}
+    categories: dict[str, list[dict[str, Any]]] = {}
     for item in DOCS_MANIFEST:
         cat = item["category"]
         if cat not in categories:
@@ -101,20 +100,18 @@ def render_html_page(doc_info: Dict[str, Any], body_html: str) -> str:
     for cat_name, items in categories.items():
         sidebar_items_html.append(
             f'<div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">'
-            f'{cat_name}'
-            f'</div>'
+            f"{cat_name}"
+            f"</div>"
         )
         for item in items:
             is_active = item["dest"] == current_dest
             active_cls = (
                 "bg-white/[0.08] text-[#ff5a35] border-l-2 border-l-[#ff5a35] font-semibold"
-                if is_active else
-                "text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent"
+                if is_active
+                else "text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent"
             )
             sidebar_items_html.append(
-                f'<a href="{item["dest"]}" class="block px-3 py-1.5 text-xs transition {active_cls}">'
-                f'{html.escape(item["title"])}'
-                f'</a>'
+                f'<a href="{item["dest"]}" class="block px-3 py-1.5 text-xs transition {active_cls}">{html.escape(item["title"])}</a>'
             )
 
     sidebar_html = "\n".join(sidebar_items_html)
@@ -125,7 +122,7 @@ def render_html_page(doc_info: Dict[str, Any], body_html: str) -> str:
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{html.escape(title)} | DeltaGraphModel Documentation</title>
-  
+
   <!-- Kestrel Typography: Aldrich (Display), Azeret Mono (Code/HUD), Plus Jakarta Sans (Body) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -176,7 +173,7 @@ def render_html_page(doc_info: Dict[str, Any], body_html: str) -> str:
       inset: 0;
       width: 100vw;
       height: 100vh;
-      background: 
+      background:
         radial-gradient(circle at 50% -12%, rgba(207, 221, 208, 0.08) 0%, transparent 65%),
         radial-gradient(circle at 90% 10%, rgba(255, 90, 53, 0.04) 0%, transparent 45%);
       pointer-events: none;
@@ -338,7 +335,7 @@ def render_html_page(doc_info: Dict[str, Any], body_html: str) -> str:
   <!-- Header Navigation -->
   <header class="border-b border-white/[0.1] bg-[#0a0b0a] sticky top-0 z-50 shrink-0">
     <div class="w-full px-4 h-14 flex items-center justify-between">
-      
+
       <!-- Brandmark & Section -->
       <div class="flex items-center space-x-3">
         <a href="../index.html" class="w-8 h-8 bg-white/[0.04] border border-white/[0.2] text-[#ff5a35] flex items-center justify-center font-heading font-bold text-base hover:border-[#ff5a35] transition" title="Go to AI Assistant Front Door">
@@ -371,7 +368,7 @@ def render_html_page(doc_info: Dict[str, Any], body_html: str) -> str:
 
   <!-- Main Body: Sidebar + Reading Canvas -->
   <div class="flex-1 w-full flex overflow-hidden relative z-10">
-    
+
     <!-- Left Navigation Sidebar -->
     <aside class="w-64 shrink-0 border-r border-white/[0.1] bg-[#0c0e0c] h-full overflow-y-auto hidden md:block">
       <div class="p-3 border-b border-white/[0.1] bg-[#080908] flex items-center justify-between">
@@ -392,7 +389,7 @@ def render_html_page(doc_info: Dict[str, Any], body_html: str) -> str:
     <!-- Reading Canvas -->
     <main class="flex-1 h-full overflow-y-auto px-6 py-8 md:px-12 lg:px-16 bg-[#0a0b0a]">
       <div class="max-w-4xl mx-auto">
-        
+
         <!-- Breadcrumbs -->
         <div class="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-wider text-white/40 mb-4 pb-2 border-b border-white/[0.06]">
           <a href="index.html" class="hover:text-white transition">Docs</a>
@@ -460,10 +457,7 @@ def build_docs_html():
         raw_md = src_path.read_text(encoding="utf-8")
 
         # Convert markdown with fenced code, tables, and auto header IDs
-        body_html = markdown.markdown(
-            raw_md,
-            extensions=["fenced_code", "tables", "toc", "sane_lists"]
-        )
+        body_html = markdown.markdown(raw_md, extensions=["fenced_code", "tables", "toc", "sane_lists"])
 
         full_html = render_html_page(doc, body_html)
         dest_path.write_text(full_html, encoding="utf-8")
@@ -487,6 +481,7 @@ def main():
     if not args.docs_only:
         print("\nRebuilding Search Index and Vector Embeddings...")
         from build_docs_index import build_index
+
         build_index()
 
     print("\n[COMPLETE] DGM documentation portal & AI assistant build finished.")
