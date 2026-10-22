@@ -13,6 +13,58 @@
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <!-- KaTeX for High-Precision Mathematical Typography -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+
+  <!-- Mermaid.js for Interactive Diagrams -->
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'dark',
+      themeVariables: {
+        darkMode: true,
+        background: '#060706',
+        primaryColor: '#ff5a35',
+        primaryTextColor: '#ffffff',
+        primaryBorderColor: 'rgba(255, 90, 53, 0.6)',
+        lineColor: '#c4f94a',
+        secondaryColor: '#0c0e0c',
+        tertiaryColor: '#121512',
+        fontFamily: '"Plus Jakarta Sans", sans-serif'
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 1. Render KaTeX Math
+      if (typeof renderMathInElement === 'function') {
+        renderMathInElement(document.body, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false}
+          ],
+          throwOnError: false,
+          trust: true
+        });
+      }
+
+      // 2. Render Mermaid Diagrams
+      const codeBlocks = document.querySelectorAll('pre code.language-mermaid');
+      for (const block of codeBlocks) {
+        const pre = block.parentElement;
+        const div = document.createElement('div');
+        div.className = 'mermaid my-6 flex justify-center bg-[#060706] p-4 border border-white/10 overflow-x-auto';
+        div.textContent = block.textContent;
+        pre.replaceWith(div);
+      }
+      if (codeBlocks.length > 0) {
+        await mermaid.run();
+      }
+    });
+  </script>
+
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -129,6 +181,15 @@
       margin-top: 1.5rem;
       margin-bottom: 0.5rem;
     }
+    .prose-kestrel h4 {
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #c4f94a;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
     .prose-kestrel p {
       margin-bottom: 1rem;
       line-height: 1.7;
@@ -170,31 +231,79 @@
       padding: 0;
       border: none;
     }
+
+    /* Table Improvements & Container */
+    .prose-kestrel .table-container {
+      overflow-x: auto;
+      margin: 1.5rem 0;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: #070907;
+    }
     .prose-kestrel table {
       width: 100%;
       border-collapse: collapse;
-      margin: 1.5rem 0;
+      margin: 0;
       font-size: 0.8rem;
     }
     .prose-kestrel th {
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.06);
       border: 1px solid rgba(255, 255, 255, 0.12);
-      padding: 0.6rem 0.85rem;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+      padding: 0.65rem 0.85rem;
       text-align: left;
       font-family: 'Azeret Mono', monospace;
       font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: #ffffff;
+      white-space: nowrap;
     }
     .prose-kestrel td {
       border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 0.6rem 0.85rem;
-      color: rgba(255, 255, 255, 0.75);
+      padding: 0.65rem 0.85rem;
+      color: rgba(255, 255, 255, 0.8);
+      vertical-align: top;
+    }
+    .prose-kestrel tr:nth-child(even) td {
+      background: rgba(255, 255, 255, 0.015);
     }
     .prose-kestrel tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
+      background: rgba(255, 255, 255, 0.035);
     }
+
+    /* KaTeX Mathematical Formula Styling */
+    .katex-display-block {
+      margin: 1.25rem 0;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow-x: auto;
+    }
+    .katex-display {
+      margin: 0.5rem 0 !important;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    .katex {
+      color: #ffffff;
+      font-size: 1.05em;
+    }
+
+    /* Mermaid Diagram Styling */
+    .mermaid {
+      background: #060706;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+    }
+    .mermaid svg {
+      max-width: 100%;
+      height: auto;
+    }
+
     .prose-kestrel blockquote {
       border-left: 2px solid #ff5a35;
       background: rgba(255, 90, 53, 0.05);
@@ -206,6 +315,11 @@
     .prose-kestrel a {
       color: #ff5a35;
       text-decoration: underline;
+    }
+    .prose-kestrel hr {
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin: 2rem 0;
     }
   </style>
 </head>
@@ -265,6 +379,7 @@
 <a href="configuration.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">YAML Configuration</a>
 <div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Reference</div>
 <a href="api_reference.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Python API Reference</a>
+<a href="parameter_justifications.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Parameter Justifications</a>
 <div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Tutorials</div>
 <a href="walkthrough.html" class="block px-3 py-1.5 text-xs transition bg-white/[0.08] text-[#ff5a35] border-l-2 border-l-[#ff5a35] font-semibold">End-to-End Walkthrough</a>
 <a href="tutorial_01_quickstart.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Tutorial 01: Quickstart</a>
@@ -347,7 +462,7 @@ dgm --help
 <li>
 <p><strong><code>model</code></strong>: High-level simulation control
    - <code>N</code> (<em>int</em>, default <code>50</code>): Target node budget (junctions + outlets).
-   - <code>R_rt</code> (<em>float</em>, default <code>0.5</code>): River-to-tidal marine forcing ratio in $[0, 1]$ ($0 = \text{pure fluvial}$, $1 = \text{pure tidal}$).
+   - <code>R_rt</code> (<em>float</em>, default <code>0.5</code>): River-to-tidal marine forcing ratio in <span class="katex-inline-block">$[0, 1]$</span> (<span class="katex-inline-block">$0 = \text{pure fluvial}$</span>, <span class="katex-inline-block">$1 = \text{pure tidal}$</span>).
    - <code>loop_mechanism</code> (<em>str</em>, default <code>"potential_field"</code>): Reconnection engine (<code>"potential_field"</code> for spatial potential fields, <code>"ner_optimality"</code> for thermodynamic annealing).
    - <code>sample_parameters</code> (<em>bool</em>, default <code>false</code>): When <code>true</code>, stochastically draws parameters from specified distributions.
    - <code>seed</code> (<em>int</em>, default <code>42</code>): Base random seed.</p>
@@ -357,20 +472,20 @@ dgm --help
    - <code>r_shore</code> (<em>float</em>, default <code>10000.0</code> m): Shoreline radius.
    - <code>theta_base</code> (<em>float</em>, default <code>65.0</code>°): Fluvial opening angle.
    - <code>theta_delta</code> (<em>float</em>, default <code>60.0</code>°): Tidal fan expansion angle.
-   - <code>confinement</code> (<em>float</em>, default <code>0.0</code>): Valley wall constriction factor in $[0.0, 0.95]$.
-   - <code>lateral_valley_width</code> (<em>float</em>, optional): Fixed maximum corridor width in meters ($|x(r)| \le W/2$).</p>
+   - <code>confinement</code> (<em>float</em>, default <code>0.0</code>): Valley wall constriction factor in <span class="katex-inline-block">$[0.0, 0.95]$</span>.
+   - <code>lateral_valley_width</code> (<em>float</em>, optional): Fixed maximum corridor width in meters (<span class="katex-inline-block">$|x(r)| \le W/2$</span>).</p>
 </li>
 <li>
 <p><strong><code>backbone</code></strong>: Branching tree growth
-   - <code>branching_weights</code> (<em>tuple</em>, default <code>(0.50, 0.45, 0.05)</code>): Probabilities of $1$, $2$, or $3$ child branches.
+   - <code>branching_weights</code> (<em>tuple</em>, default <code>(0.50, 0.45, 0.05)</code>): Probabilities of <span class="katex-inline-block">$1$</span>, <span class="katex-inline-block">$2$</span>, or <span class="katex-inline-block">$3$</span> child branches.
    - <code>coastal_node_decay</code> (<em>float</em>, default <code>0.40</code>): Shoreward contraction rate of radial inter-junction spacing.
    - <code>coastal_sinuosity_decay</code> (<em>float</em>, default <code>0.30</code>): Shoreward straightening of distributary branches.</p>
 </li>
 <li>
 <p><strong><code>loops</code></strong>: Emergent loop formation &amp; cross-ties
-   - <code>reconnection_prob_base</code> ($c_0$, default <code>0.55</code>): Tidal/floodplain reconnection scale.
-   - <code>anastomosis_prob_base</code> ($P_0$, default <code>0.0</code>): Baseline inland floodplain anastomosis probability.
-   - <code>candidate_dist_scale</code> ($l_0 / r_{\text{shore}}$, default <code>0.25</code>): Spatial neighborhood search distance.
+   - <code>reconnection_prob_base</code> (<span class="katex-inline-block">$c_0$</span>, default <code>0.55</code>): Tidal/floodplain reconnection scale.
+   - <code>anastomosis_prob_base</code> (<span class="katex-inline-block">$P_0$</span>, default <code>0.0</code>): Baseline inland floodplain anastomosis probability.
+   - <code>candidate_dist_scale</code> (<span class="katex-inline-block">$l_0 / r_{\text{shore}}$</span>, default <code>0.25</code>): Spatial neighborhood search distance.
    - <code>max_in_degree</code> (default <code>2</code>), <code>max_out_degree</code> (default <code>3</code>): Geomorphic junction degree constraints.
    - <code>target_max_loops_slope</code> (default <code>0.22</code>), <code>target_max_loops_intercept</code> (default <code>0.05</code>): Scaling for maximum allowable loop closures.</p>
 </li>
@@ -378,20 +493,20 @@ dgm --help
 <p><strong><code>pruning</code></strong>: Pre-hydraulic network simplification &amp; spur removal
    - <code>enable_pruning</code> (<em>bool</em>, default <code>false</code>): Toggles pre-hydraulic simplification.
    - <code>prune_inland_dead_ends</code> (<em>bool</em>, default <code>true</code>): Prunes blind channels that do not reach the coast.
-   - <code>outlet_tolerance</code> (<em>float</em>, default <code>0.05</code>): Coastal buffer envelope $(1 - \text{tol}) \cdot r_{\text{shore}}$ protecting near-shore outlets.
+   - <code>outlet_tolerance</code> (<em>float</em>, default <code>0.05</code>): Coastal buffer envelope <span class="katex-inline-block">$(1 - \text{tol}) \cdot r_{\text{shore}}$</span> protecting near-shore outlets.
    - <code>min_spur_length</code> (<em>float</em>, default <code>0.0</code> m): Length threshold below which dead-end spurs are pruned.
-   - <code>simplify_pass_through_nodes</code> (<em>bool</em>, default <code>false</code>): Contracts degree-2 chains ($d_{\text{in}}=1, d_{\text{out}}=1$) into single morphological reaches (RivGraph convention).
+   - <code>simplify_pass_through_nodes</code> (<em>bool</em>, default <code>false</code>): Contracts degree-2 chains (<span class="katex-inline-block">$d_{\text{in}}=1, d_{\text{out}}=1$</span>) into single morphological reaches (RivGraph convention).
    - <code>recalculate_reach_sinuosity</code> (<em>bool</em>, default <code>true</code>): Recalculates unified reach sinuosity from the process model, preventing double-counting of geometric knees.</p>
 </li>
 <li>
 <p><strong><code>hydraulics</code></strong>: Murray's Law width conservation &amp; discharge
-   - <code>murray_p</code> (<em>float</em>, default <code>1.85</code>): Murray's Law exponent ($w_{\text{parent}}^p = w_1^p + w_2^p$).
+   - <code>murray_p</code> (<em>float</em>, default <code>1.85</code>): Murray's Law exponent (<span class="katex-inline-block">$w_{\text{parent}}^p = w_1^p + w_2^p$</span>).
    - <code>width_beta</code> (<em>float</em>, default <code>0.745</code>): Bifurcation width asymmetry factor.
    - <code>apex_width</code> (<em>float</em>, default <code>250.0</code> m): Feeder trunk channel width at the apex.
    - <code>tidal_flare_k</code> (<em>float</em>, default <code>1.40</code>): Seaward exponential width flaring rate.
-   - <code>tidal_flare_onset</code> (<em>float</em>, default <code>0.30</code>): Normalized radius ($r / r_{\text{shore}}$) where tidal widening begins.
+   - <code>tidal_flare_onset</code> (<em>float</em>, default <code>0.30</code>): Normalized radius (<span class="katex-inline-block">$r / r_{\text{shore}}$</span>) where tidal widening begins.
    - <code>loop_flow_penalty</code> (<em>float</em>, default <code>0.40</code>): Conductance penalty factor applied to secondary loop channels.
-   - <code>manning_eta</code> (<em>float</em>, default <code>1.65</code>): Width exponent in Manning conductance ($C_e = w^\eta / L^\gamma$).
+   - <code>manning_eta</code> (<em>float</em>, default <code>1.65</code>): Width exponent in Manning conductance (<span class="katex-inline-block">$C_e = w^\eta / L^\gamma$</span>).
    - <code>length_gamma</code> (<em>float</em>, default <code>0.50</code>): Length friction damping exponent in conductance.</p>
 </li>
 <li>
@@ -538,7 +653,7 @@ print(f&quot;  Mean Channel Sinuosity:          {metrics['mean_sinuosity']:.3f}&
 print(f&quot;  Shoreline Delivery Ratio:        {metrics['shoreline_delivery_ratio']:.2%}&quot;)
 </code></pre>
 <h3 id="sampling-stochastic-ensemble-clouds">Sampling Stochastic Ensemble Clouds</h3>
-<p>Sample an ensemble of $M$ realizations across parameter distributions to quantify natural delta variability:</p>
+<p>Sample an ensemble of <span class="katex-inline-block">$M$</span> realizations across parameter distributions to quantify natural delta variability:</p>
 <pre><code class="language-python">cfg = dgm.DGMConfig.load_default()
 cfg.N = 45
 cfg.R_rt = 0.55
@@ -614,9 +729,9 @@ plt.close(fig)
 <li><code>"dark"</code>: Slate-blue dark mode background with luminous cyan/blue channels.</li>
 <li><code>"clean"</code>: Transparent background with minimal ornamentation.</li>
 <li><strong>Orientations</strong>:</li>
-<li><code>"cartesian"</code>: Apex at $(0, 0)$, flow moves rightward towards $+x$.</li>
-<li><code>"downward"</code>: Apex at top $(0, 0)$, flow moves downward towards $-y$ (traditional map view).</li>
-<li><code>"upward"</code>: Apex at bottom $(0, 0)$, flow moves upward towards $+y$.</li>
+<li><code>"cartesian"</code>: Apex at <span class="katex-inline-block">$(0, 0)$</span>, flow moves rightward towards <span class="katex-inline-block">$+x$</span>.</li>
+<li><code>"downward"</code>: Apex at top <span class="katex-inline-block">$(0, 0)$</span>, flow moves downward towards <span class="katex-inline-block">$-y$</span> (traditional map view).</li>
+<li><code>"upward"</code>: Apex at bottom <span class="katex-inline-block">$(0, 0)$</span>, flow moves upward towards <span class="katex-inline-block">$+y$</span>.</li>
 </ul>
 <hr />
 <h3 id="2-side-by-side-tree-vs-network-comparison-dgmplot_tree_vs_network">2. Side-by-Side Tree vs. Network Comparison (<code>dgm.plot_tree_vs_network</code>)</h3>

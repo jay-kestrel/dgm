@@ -13,6 +13,58 @@
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <!-- KaTeX for High-Precision Mathematical Typography -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+
+  <!-- Mermaid.js for Interactive Diagrams -->
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'dark',
+      themeVariables: {
+        darkMode: true,
+        background: '#060706',
+        primaryColor: '#ff5a35',
+        primaryTextColor: '#ffffff',
+        primaryBorderColor: 'rgba(255, 90, 53, 0.6)',
+        lineColor: '#c4f94a',
+        secondaryColor: '#0c0e0c',
+        tertiaryColor: '#121512',
+        fontFamily: '"Plus Jakarta Sans", sans-serif'
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 1. Render KaTeX Math
+      if (typeof renderMathInElement === 'function') {
+        renderMathInElement(document.body, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false}
+          ],
+          throwOnError: false,
+          trust: true
+        });
+      }
+
+      // 2. Render Mermaid Diagrams
+      const codeBlocks = document.querySelectorAll('pre code.language-mermaid');
+      for (const block of codeBlocks) {
+        const pre = block.parentElement;
+        const div = document.createElement('div');
+        div.className = 'mermaid my-6 flex justify-center bg-[#060706] p-4 border border-white/10 overflow-x-auto';
+        div.textContent = block.textContent;
+        pre.replaceWith(div);
+      }
+      if (codeBlocks.length > 0) {
+        await mermaid.run();
+      }
+    });
+  </script>
+
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -129,6 +181,15 @@
       margin-top: 1.5rem;
       margin-bottom: 0.5rem;
     }
+    .prose-kestrel h4 {
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #c4f94a;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
     .prose-kestrel p {
       margin-bottom: 1rem;
       line-height: 1.7;
@@ -170,31 +231,79 @@
       padding: 0;
       border: none;
     }
+
+    /* Table Improvements & Container */
+    .prose-kestrel .table-container {
+      overflow-x: auto;
+      margin: 1.5rem 0;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: #070907;
+    }
     .prose-kestrel table {
       width: 100%;
       border-collapse: collapse;
-      margin: 1.5rem 0;
+      margin: 0;
       font-size: 0.8rem;
     }
     .prose-kestrel th {
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.06);
       border: 1px solid rgba(255, 255, 255, 0.12);
-      padding: 0.6rem 0.85rem;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+      padding: 0.65rem 0.85rem;
       text-align: left;
       font-family: 'Azeret Mono', monospace;
       font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: #ffffff;
+      white-space: nowrap;
     }
     .prose-kestrel td {
       border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 0.6rem 0.85rem;
-      color: rgba(255, 255, 255, 0.75);
+      padding: 0.65rem 0.85rem;
+      color: rgba(255, 255, 255, 0.8);
+      vertical-align: top;
+    }
+    .prose-kestrel tr:nth-child(even) td {
+      background: rgba(255, 255, 255, 0.015);
     }
     .prose-kestrel tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
+      background: rgba(255, 255, 255, 0.035);
     }
+
+    /* KaTeX Mathematical Formula Styling */
+    .katex-display-block {
+      margin: 1.25rem 0;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow-x: auto;
+    }
+    .katex-display {
+      margin: 0.5rem 0 !important;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    .katex {
+      color: #ffffff;
+      font-size: 1.05em;
+    }
+
+    /* Mermaid Diagram Styling */
+    .mermaid {
+      background: #060706;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+    }
+    .mermaid svg {
+      max-width: 100%;
+      height: auto;
+    }
+
     .prose-kestrel blockquote {
       border-left: 2px solid #ff5a35;
       background: rgba(255, 90, 53, 0.05);
@@ -206,6 +315,11 @@
     .prose-kestrel a {
       color: #ff5a35;
       text-decoration: underline;
+    }
+    .prose-kestrel hr {
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin: 2rem 0;
     }
   </style>
 </head>
@@ -265,6 +379,7 @@
 <a href="configuration.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">YAML Configuration</a>
 <div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Reference</div>
 <a href="api_reference.html" class="block px-3 py-1.5 text-xs transition bg-white/[0.08] text-[#ff5a35] border-l-2 border-l-[#ff5a35] font-semibold">Python API Reference</a>
+<a href="parameter_justifications.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Parameter Justifications</a>
 <div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Tutorials</div>
 <a href="walkthrough.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">End-to-End Walkthrough</a>
 <a href="tutorial_01_quickstart.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Tutorial 01: Quickstart</a>
@@ -294,222 +409,1270 @@
         <!-- Markdown Body -->
         <article class="prose-kestrel">
           <h1 id="dgm-python-api-reference">DGM Python API Reference</h1>
-<p>This reference documents the public Python API of <strong>DeltaGraphModel (DGM)</strong> (<code>import dgm</code>).</p>
+<p>This reference documents the complete public Python API of <strong>DeltaGraphModel (DGM)</strong> (<code>import dgm</code>).</p>
 <hr />
 <h2 id="top-level-functions">Top-Level Functions</h2>
-<h3 id="dgmgenerate-unionnxdigraph-tuplenxdigraph-dictstr-nxdigraph"><code>dgm.generate(...) -&gt; Union[nx.DiGraph, Tuple[nx.DiGraph, Dict[str, nx.DiGraph]]]</code></h3>
-<p>Synthesizes a single synthetic delta channel network graph.</p>
-<pre><code class="language-python">G = dgm.generate(
-    N=50,
-    R_rt=0.5,
-    confinement=None,
-    lateral_valley_width=None,
-    coastal_node_decay=None,
-    coastal_sinuosity_decay=None,
-    enable_curved_centerlines=None,
-    min_channel_clearance=None,
-    enable_pruning=None,
-    prune_inland_dead_ends=None,
-    min_spur_length=None,
-    simplify_pass_through_nodes=None,
-    return_stages=False,
-    config=None,
-    seed=None,
-    **overrides
-)
+<p><a id="generate"></a></p>
+<h3 id="dgmgenerate"><code>dgm.generate</code></h3>
+<p>Synthesizes a single synthetic delta channel network graph according to boundary conditions and physical parameters.</p>
+<pre><code class="language-python">dgm.generate(
+    N: int = 50,
+    R_rt: float = 0.5,
+    confinement: Optional[float] = None,
+    lateral_valley_width: Optional[float] = None,
+    coastal_node_decay: Optional[float] = None,
+    coastal_sinuosity_decay: Optional[float] = None,
+    enable_curved_centerlines: Optional[bool] = None,
+    min_channel_clearance: Optional[float] = None,
+    enable_pruning: Optional[bool] = None,
+    prune_inland_dead_ends: Optional[bool] = None,
+    min_spur_length: Optional[float] = None,
+    simplify_pass_through_nodes: Optional[bool] = None,
+    return_stages: bool = False,
+    config: Optional[Union[str, Path, DGMConfig]] = None,
+    seed: Optional[int] = None,
+    **overrides: Any
+) -&gt; Union[nx.DiGraph, Tuple[nx.DiGraph, Dict[str, nx.DiGraph]]]
 </code></pre>
-<p><strong>Parameters</strong>:
-- <code>N</code> (<em>int</em>, default 50): Target node budget (junctions and outlets).
-- <code>R_rt</code> (<em>float</em>, default 0.5): Relative river-to-tidal marine forcing ratio in $[0.0, 1.0]$.
-- <code>confinement</code> (<em>float</em>, optional): Lateral valley confinement factor in $[0.0, 0.95]$.
-- <code>lateral_valley_width</code> (<em>float</em>, optional): Maximum corridor width in meters ($|x(r)| \le W/2$).
-- <code>coastal_node_decay</code> (<em>float</em>, optional): Shoreward radial node spacing contraction factor in $[0.0, 0.8]$.
-- <code>coastal_sinuosity_decay</code> (<em>float</em>, optional): Shoreward reach straightening factor in $[0.0, 0.9]$.
-- <code>enable_curved_centerlines</code> (<em>bool</em>, optional): If <code>True</code>, generates sinuous 2D polyline centerlines.
-- <code>min_channel_clearance</code> (<em>float</em>, optional): Safety fraction bounding meander amplitude near neighboring channels in $[0.05, 1.0]$.
-- <code>enable_pruning</code> (<em>bool</em>, optional): If <code>True</code>, prunes dead-end inland spurs and contracts chains.
-- <code>prune_inland_dead_ends</code> (<em>bool</em>, optional): If <code>True</code>, eliminates inland dead ends (100% shoreline outlet delivery).
-- <code>min_spur_length</code> (<em>float</em>, optional): Length threshold below which dead-end spurs are pruned.
-- <code>simplify_pass_through_nodes</code> (<em>bool</em>, optional): If <code>True</code>, contracts degree-2 pass-through chains ($d_{\text{in}}=1, d_{\text{out}}=1$).
-- <code>return_stages</code> (<em>bool</em>, default <code>False</code>): If <code>True</code>, returns <code>(G_final, stages)</code> where <code>stages</code> is a dictionary mapping stage names (<code>'tree'</code>, <code>'looped'</code>, <code>'pruned'</code>, <code>'final'</code>) to their respective graph snapshots.
-- <code>config</code> (<em>Union[str, DGMConfig]</em>, optional): Master configuration object or path to YAML file.
-- <code>seed</code> (<em>int</em>, optional): Random seed for reproducibility.
-- <code>**overrides</code>: Direct parameter overrides applied to the active configuration (e.g. <code>tidal_flare_onset=0.35</code>, <code>loop_flow_penalty=0.50</code>, <code>outlet_tolerance=0.04</code>).</p>
-<p><strong>Returns</strong>:
-- <code>nx.DiGraph</code> (if <code>return_stages=False</code>): Directed planar graph with node Cartesian coordinates (<code>x</code>, <code>y</code>), polar coordinates (<code>r</code>, <code>theta</code>), edge widths (<code>width</code>), lengths (<code>length</code>), sinuosities (<code>sinuosity</code>), conductances (<code>conductance</code>), and steady-state Markov flux (<code>flux</code>).
-- <code>Tuple[nx.DiGraph, Dict[str, nx.DiGraph]]</code> (if <code>return_stages=True</code>): Tuple of final graph and dictionary of intermediate stage graph snapshots.</p>
-<hr />
-<h3 id="dgmsample_ensemble-listnxdigraph"><code>dgm.sample_ensemble(...) -&gt; List[nx.DiGraph]</code></h3>
-<p>Generates an ensemble array of $M$ graph realizations across the parameter space.</p>
-<pre><code class="language-python">graphs = dgm.sample_ensemble(
-    N=50,
-    R_rt=0.5,
-    num_realizations=50,
-    config=None,
-    base_seed=42,
-    **overrides
+<h4 id="parameters">Parameters</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Parameter</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>N</code></td>
+<td style="text-align: center;"><code>int</code></td>
+<td style="text-align: center;"><code>50</code></td>
+<td style="text-align: left;">Target node budget (junctions and shoreline outlets). Must be <span class="katex-inline-block">$\ge 4$</span>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>R_rt</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>0.5</code></td>
+<td style="text-align: left;">Relative river-to-tidal marine forcing ratio in <span class="katex-inline-block">$[0.0, 1.0]$</span>. <span class="katex-inline-block">$0.0$</span> generates dendritic fluvial trees; <span class="katex-inline-block">$1.0$</span> generates looped, flared estuarine networks.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>confinement</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Lateral valley confinement factor in <span class="katex-inline-block">$[0.0, 0.95]$</span>. Compresses fan opening angle: <span class="katex-inline-block">$\theta_{\text{open}} = \theta_0 (1 - C_{\text{conf}})$</span>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>lateral_valley_width</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Maximum corridor width in meters (<span class="katex-inline-block">$\vert x(r) \vert \le W_{\text{valley}} / 2$</span>). Clamps channel excursions to simulate bedrock valley walls.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>coastal_node_decay</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Shoreward radial node spacing contraction factor in <span class="katex-inline-block">$[0.0, 0.80]$</span>. Modulates jet deceleration toward mouth-bars.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>coastal_sinuosity_decay</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Shoreward reach straightening factor in <span class="katex-inline-block">$[0.0, 0.90]$</span>. Decreases channel sinuosity near shoreline.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>enable_curved_centerlines</code></td>
+<td style="text-align: center;"><code>bool</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">If <code>True</code>, generates sinuous 2D polyline centerlines with proximity meander bounds.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>min_channel_clearance</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Safety fraction bounding meander amplitude near neighboring channels in <span class="katex-inline-block">$[0.05, 1.0]$</span>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>enable_pruning</code></td>
+<td style="text-align: center;"><code>bool</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">If <code>True</code>, removes inland dead-end spurs and contracts pass-through nodes.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>prune_inland_dead_ends</code></td>
+<td style="text-align: center;"><code>bool</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">If <code>True</code>, eliminates dead-ends terminating inland (guarantees 100% shoreline outlet delivery).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>min_spur_length</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Length threshold in meters below which dead-end channel spurs are pruned.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>simplify_pass_through_nodes</code></td>
+<td style="text-align: center;"><code>bool</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">If <code>True</code>, contracts degree-2 pass-through chains (<span class="katex-inline-block">$d_{\text{in}}=1, d_{\text{out}}=1$</span>) into single morphological links.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>return_stages</code></td>
+<td style="text-align: center;"><code>bool</code></td>
+<td style="text-align: center;"><code>False</code></td>
+<td style="text-align: left;">If <code>True</code>, returns <code>(G_final, stages)</code> capturing snapshots at key pipeline milestones.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>config</code></td>
+<td style="text-align: center;"><code>Union[str, Path, DGMConfig]</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Master configuration object or path to custom YAML file.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>seed</code></td>
+<td style="text-align: center;"><code>int</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Random seed for exact reproducible generation.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>**overrides</code></td>
+<td style="text-align: center;"><code>Any</code></td>
+<td style="text-align: center;">—</td>
+<td style="text-align: left;">Direct overrides applied to active configuration (e.g. <code>tidal_flare_onset=0.35</code>, <code>loop_flow_penalty=0.50</code>).</td>
+</tr>
+</tbody>
+</table></div>
+<h4 id="returns">Returns</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>nx.DiGraph</code></td>
+<td style="text-align: left;">When <code>return_stages=False</code>: Directed planar graph with node coordinates (<code>x</code>, <code>y</code>, <code>r</code>, <code>theta</code>) and edge attributes (<code>width</code>, <code>length</code>, <code>sinuosity</code>, <code>conductance</code>, <code>flux</code>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Tuple[nx.DiGraph, Dict[str, nx.DiGraph]]</code></td>
+<td style="text-align: left;">When <code>return_stages=True</code>: Tuple containing the final graph and a dictionary of intermediate stage snapshots (<code>'tree'</code>, <code>'looped'</code>, <code>'pruned'</code>, <code>'final'</code>).</td>
+</tr>
+</tbody>
+</table></div>
+<h4 id="example">Example</h4>
+<pre><code class="language-python">import dgm
+
+# Standard generation with sinuous centerlines and pruning
+G = dgm.generate(
+    N=60,
+    R_rt=0.45,
+    enable_curved_centerlines=True,
+    enable_pruning=True,
+    seed=42
 )
+print(f&quot;Generated delta with {G.number_of_nodes()} nodes and {G.number_of_edges()} channels.&quot;)
 </code></pre>
-<p><strong>Parameters</strong>:
-- <code>N</code> (<em>int</em>, default 50): Target node budget.
-- <code>R_rt</code> (<em>float</em>, default 0.5): River-to-tidal forcing ratio.
-- <code>num_realizations</code> (<em>int</em>, default 50): Number of realizations to sample.
-- <code>config</code> (<em>Union[str, DGMConfig]</em>, optional): Configuration object or path.
-- <code>base_seed</code> (<em>int</em>, default 42): Base random seed (each realization uses <code>base_seed + i * 1000</code>).
-- <code>**overrides</code>: Additional parameter overrides forwarded to each realization.</p>
-<p><strong>Returns</strong>:
-- <code>List[nx.DiGraph]</code>: List of $M$ synthesized graph realizations.</p>
 <hr />
-<h2 id="core-classes">Core Classes</h2>
+<p><a id="sample_ensemble"></a></p>
+<h3 id="dgmsample_ensemble"><code>dgm.sample_ensemble</code></h3>
+<p>Samples an ensemble array of <span class="katex-inline-block">$M$</span> independent graph realizations conditioned on boundary conditions and stochastic parameter distributions.</p>
+<pre><code class="language-python">dgm.sample_ensemble(
+    N: int = 50,
+    R_rt: float = 0.5,
+    num_realizations: int = 50,
+    config: Optional[Union[str, Path, DGMConfig]] = None,
+    base_seed: int = 42,
+    **overrides: Any
+) -&gt; List[nx.DiGraph]
+</code></pre>
+<h4 id="parameters_1">Parameters</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Parameter</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>N</code></td>
+<td style="text-align: center;"><code>int</code></td>
+<td style="text-align: center;"><code>50</code></td>
+<td style="text-align: left;">Target node budget for each realization.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>R_rt</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>0.5</code></td>
+<td style="text-align: left;">River-to-tidal forcing ratio.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>num_realizations</code></td>
+<td style="text-align: center;"><code>int</code></td>
+<td style="text-align: center;"><code>50</code></td>
+<td style="text-align: left;">Total number of realizations to sample (<span class="katex-inline-block">$M \ge 1$</span>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>config</code></td>
+<td style="text-align: center;"><code>Union[str, Path, DGMConfig]</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Master configuration object or path to YAML file.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>base_seed</code></td>
+<td style="text-align: center;"><code>int</code></td>
+<td style="text-align: center;"><code>42</code></td>
+<td style="text-align: left;">Base random seed (each realization <span class="katex-inline-block">$i$</span> uses <code>base_seed + i * 1000</code>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>**overrides</code></td>
+<td style="text-align: center;"><code>Any</code></td>
+<td style="text-align: center;">—</td>
+<td style="text-align: left;">Parameter overrides forwarded to all realizations.</td>
+</tr>
+</tbody>
+</table></div>
+<h4 id="returns_1">Returns</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>List[nx.DiGraph]</code></td>
+<td style="text-align: left;">List of <span class="katex-inline-block">$M$</span> synthesized graph realizations.</td>
+</tr>
+</tbody>
+</table></div>
+<h4 id="example_1">Example</h4>
+<pre><code class="language-python">import dgm
+
+# Sample 100 stochastic realizations
+ensemble = dgm.sample_ensemble(N=40, R_rt=0.60, num_realizations=100, base_seed=42)
+print(f&quot;Sampled {len(ensemble)} realizations.&quot;)
+</code></pre>
+<hr />
+<h2 id="core-configuration-generation-classes">Core Configuration &amp; Generation Classes</h2>
 <p><a id="dgmconfig"></a></p>
 <h3 id="dgmdgmconfig"><code>dgm.DGMConfig</code></h3>
-<p>Unified configuration dataclass handling baseline parameters, solver thresholds, and bounded distributions.</p>
-<pre><code class="language-python">cfg = dgm.DGMConfig.load_default()
-cfg.N = 60
-cfg.set_parameter(&quot;tidal_flare_onset&quot;, 0.35)
-cfg.set_parameter(&quot;loop_flow_penalty&quot;, (0.25, 0.55))
+<p>Unified dataclass encapsulating all model hyperparameters, numerical solver tolerances, domain boundaries, and stochastic parameter distributions.</p>
+<pre><code class="language-python">from dgm import DGMConfig
+
+cfg = DGMConfig.load_default()
 </code></pre>
-<p><strong>Key Methods</strong>:
-- <code>DGMConfig.load_default() -&gt; DGMConfig</code>: Loads baseline settings from package default configuration.
-- <code>DGMConfig.from_yaml(path: Union[str, Path], **overrides) -&gt; DGMConfig</code>: Loads custom YAML with runtime overrides and inline distribution parsing.
-- <code>cfg.to_yaml(path: Union[str, Path]) -&gt; None</code>: Serializes configuration to a YAML file.
-- <code>cfg.set_parameter(name: str, value_or_spec: Union[float, int, str, bool, Tuple[float, float], Dict[str, Any]]) -&gt; None</code>: Sets a parameter as a fixed value, a uniform distribution tuple <code>(low, high)</code>, or a distribution dictionary (<code>{'type': 'normal', ...}</code>).
-- <code>cfg.get_active_parameters(rng=None, sample=None) -&gt; Dict[str, Any]</code>: Returns active parameters, drawing from distributions if <code>sample_parameters=True</code>.
-- <code>cfg.sample_distribution_parameters(rng=None) -&gt; Dict[str, Any]</code>: Explicitly samples all parameters declared in the <code>distributions</code> block.
-- <code>cfg.validate() -&gt; None</code>: Validates all physical parameter bounds and domain consistency.</p>
+<h4 id="core-attributes">Core Attributes</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Attribute</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>N</code></td>
+<td style="text-align: center;"><code>int</code></td>
+<td style="text-align: center;"><code>50</code></td>
+<td style="text-align: left;">Target node budget (<span class="katex-inline-block">$N \ge 4$</span>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>R_rt</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>0.50</code></td>
+<td style="text-align: left;">River-to-tidal forcing ratio (<span class="katex-inline-block">$0.0 \le R_{\text{rt}} \le 1.0$</span>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>loop_mechanism</code></td>
+<td style="text-align: center;"><code>str</code></td>
+<td style="text-align: center;"><code>"potential_field"</code></td>
+<td style="text-align: left;">Loop reconnection engine: <code>'potential_field'</code> or <code>'ner_optimality'</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>r_shore</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>10000.0</code></td>
+<td style="text-align: left;">Radial distance from apex to receiving shoreline (meters).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>theta_base</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>65.0</code></td>
+<td style="text-align: left;">Baseline opening angle in degrees for river-dominated deltas.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>theta_delta</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>60.0</code></td>
+<td style="text-align: left;">Additional marine opening angle spreading capacity in degrees.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>confinement</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>0.0</code></td>
+<td style="text-align: left;">Valley confinement coefficient in <span class="katex-inline-block">$[0.0, 0.95]$</span>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>lateral_valley_width</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Optional valley corridor width limit (meters).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>murray_p</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>1.85</code></td>
+<td style="text-align: left;">Murray's Law width conservation exponent (<span class="katex-inline-block">$p > 0$</span>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>tidal_flare_k</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>1.40</code></td>
+<td style="text-align: left;">Exponential mouth flaring rate coefficient.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>tidal_flare_onset</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>0.30</code></td>
+<td style="text-align: left;">Relative radial distance where tidal mouth flaring initiates.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>loop_flow_penalty</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>0.40</code></td>
+<td style="text-align: left;">Conductance reduction factor for secondary anastomosing cross-ties.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>enable_pruning</code></td>
+<td style="text-align: center;"><code>bool</code></td>
+<td style="text-align: center;"><code>False</code></td>
+<td style="text-align: left;">Whether dead-end spur pruning is enabled.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>simplify_pass_through_nodes</code></td>
+<td style="text-align: center;"><code>bool</code></td>
+<td style="text-align: center;"><code>False</code></td>
+<td style="text-align: left;">Whether degree-2 pass-through chains are contracted.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>enable_curved_centerlines</code></td>
+<td style="text-align: center;"><code>bool</code></td>
+<td style="text-align: center;"><code>False</code></td>
+<td style="text-align: left;">Whether curved polyline meander coordinates are synthesized.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>distributions</code></td>
+<td style="text-align: center;"><code>Dict[str, Any]</code></td>
+<td style="text-align: center;"><code>{}</code></td>
+<td style="text-align: left;">Parameter distribution specifications for stochastic sampling.</td>
+</tr>
+</tbody>
+</table></div>
+<h4 id="methods">Methods</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Method</th>
+<th style="text-align: center;">Return Type</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>load_default()</code></td>
+<td style="text-align: center;"><code>DGMConfig</code></td>
+<td style="text-align: left;">Loads default configuration packaged with DGM.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>from_yaml(path, **overrides)</code></td>
+<td style="text-align: center;"><code>DGMConfig</code></td>
+<td style="text-align: left;">Loads configuration from custom YAML file with keyword overrides.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>to_yaml(path)</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Serializes configuration to a YAML file.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>set_parameter(name, val_or_spec)</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Sets a fixed value, uniform range <code>(low, high)</code>, or distribution dict.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>get_active_parameters(rng, sample)</code></td>
+<td style="text-align: center;"><code>Dict[str, Any]</code></td>
+<td style="text-align: left;">Returns dictionary of active parameter values for a realization.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>validate()</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Validates all physical bounds and invariants, raising <code>ValueError</code> on violation.</td>
+</tr>
+</tbody>
+</table></div>
 <hr />
+<p><a id="deltagenerator"></a></p>
 <h3 id="dgmdeltagenerator"><code>dgm.DeltaGenerator</code></h3>
-<p>Single-realization generator facade.</p>
-<pre><code class="language-python">gen = dgm.DeltaGenerator(config=cfg)
-G = gen.generate(seed_override=42, return_stages=False)
+<p>Single-realization generator facade providing fine-grained control over execution and intermediate stage extraction.</p>
+<pre><code class="language-python">from dgm import DeltaGenerator, DGMConfig
+
+cfg = DGMConfig.load_default()
+gen = DeltaGenerator(config=cfg)
+G = gen.generate(seed_override=42)
 metrics = gen.evaluate_metrics(G)
 </code></pre>
-<ul>
-<li><code>gen.generate(seed_override=None, return_stages=False) -&gt; Union[nx.DiGraph, Tuple[nx.DiGraph, Dict[str, nx.DiGraph]]]</code>: Synthesizes graph realization, optionally capturing intermediate stages.</li>
-<li><code>gen.evaluate_metrics(G: nx.DiGraph) -&gt; Dict[str, Any]</code>: Evaluates the full 20-metric geomorphic battery.</li>
-</ul>
+<h4 id="constructor-parameters">Constructor Parameters</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Parameter</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>config</code></td>
+<td style="text-align: center;"><code>Optional[DGMConfig]</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Master configuration dataclass. Defaults to <code>DGMConfig.load_default()</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>target_nodes</code></td>
+<td style="text-align: center;"><code>Optional[int]</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Explicit node budget override.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>**overrides</code></td>
+<td style="text-align: center;"><code>Any</code></td>
+<td style="text-align: center;">—</td>
+<td style="text-align: left;">Runtime parameter overrides applied to the configuration.</td>
+</tr>
+</tbody>
+</table></div>
+<h4 id="methods_1">Methods</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Method</th>
+<th style="text-align: left;">Parameters</th>
+<th style="text-align: center;">Return Type</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>generate</code></td>
+<td style="text-align: left;"><code>seed_override=None, return_stages=False</code></td>
+<td style="text-align: center;"><code>nx.DiGraph</code> or <code>Tuple</code></td>
+<td style="text-align: left;">Synthesizes graph realization, optionally capturing intermediate stages.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>evaluate_metrics</code></td>
+<td style="text-align: left;"><code>G: nx.DiGraph</code></td>
+<td style="text-align: center;"><code>Dict[str, Any]</code></td>
+<td style="text-align: left;">Evaluates the full 20-metric geomorphic battery on graph <code>G</code>.</td>
+</tr>
+</tbody>
+</table></div>
 <hr />
+<p><a id="ensemblegenerator"></a></p>
 <h3 id="dgmensemblegenerator"><code>dgm.EnsembleGenerator</code></h3>
-<p>Ensemble generator facade for cloud sampling and statistical evaluation.</p>
-<pre><code class="language-python">ens = dgm.EnsembleGenerator(
+<p>Stochastic cloud generator for statistical ensemble sampling and Monte Carlo morphological analysis.</p>
+<pre><code class="language-python">from dgm import EnsembleGenerator
+
+ens = EnsembleGenerator(
     N=50,
-    R_rt=0.6,
+    R_rt=0.55,
     num_realizations=100,
     sample_parameters=True,
-    base_seed=100,
-    config=cfg
+    base_seed=42
 )
 graphs = ens.generate_ensemble()
 summary = ens.evaluate_ensemble()
 </code></pre>
-<ul>
-<li><code>ens.generate_ensemble() -&gt; List[nx.DiGraph]</code>: Generates list of graph realizations.</li>
-<li><code>ens.evaluate_ensemble() -&gt; Dict[str, Any]</code>: Generates graphs and computes cloud statistics (<code>mean</code>, <code>std</code>, <code>min</code>, <code>max</code>, <code>p10</code>, <code>p25</code>, <code>p50</code>, <code>p75</code>, <code>p90</code>) for all 20 metrics.</li>
-</ul>
+<h4 id="constructor-parameters_1">Constructor Parameters</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Parameter</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>N</code></td>
+<td style="text-align: center;"><code>int</code></td>
+<td style="text-align: center;"><code>50</code></td>
+<td style="text-align: left;">Node budget for realizations.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>R_rt</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>0.5</code></td>
+<td style="text-align: left;">River-to-tidal forcing ratio.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>num_realizations</code></td>
+<td style="text-align: center;"><code>int</code></td>
+<td style="text-align: center;"><code>100</code></td>
+<td style="text-align: left;">Number of graphs to sample (<span class="katex-inline-block">$M \ge 1$</span>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>loop_mechanism</code></td>
+<td style="text-align: center;"><code>str</code></td>
+<td style="text-align: center;"><code>"potential_field"</code></td>
+<td style="text-align: left;">Loop engine (<code>'potential_field'</code> or <code>'ner_optimality'</code>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>sample_parameters</code></td>
+<td style="text-align: center;"><code>bool</code></td>
+<td style="text-align: center;"><code>True</code></td>
+<td style="text-align: left;">If <code>True</code>, draws active parameters from stochastic distributions.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>base_seed</code></td>
+<td style="text-align: center;"><code>int</code></td>
+<td style="text-align: center;"><code>42</code></td>
+<td style="text-align: left;">Seed offset for deterministic reproducibility.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>config</code></td>
+<td style="text-align: center;"><code>Optional[DGMConfig]</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Base configuration dataclass.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>**overrides</code></td>
+<td style="text-align: center;"><code>Any</code></td>
+<td style="text-align: center;">—</td>
+<td style="text-align: left;">Runtime parameter overrides.</td>
+</tr>
+</tbody>
+</table></div>
+<h4 id="methods_2">Methods</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Method</th>
+<th style="text-align: left;">Parameters</th>
+<th style="text-align: center;">Return Type</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>generate_ensemble</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: center;"><code>List[nx.DiGraph]</code></td>
+<td style="text-align: left;">Synthesizes and returns list of <span class="katex-inline-block">$M$</span> graph realizations.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>evaluate_ensemble</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: center;"><code>Dict[str, Any]</code></td>
+<td style="text-align: left;">Generates ensemble and calculates statistical distributions (<code>mean</code>, <code>std</code>, <code>min</code>, <code>max</code>, <code>p25</code>, <code>p75</code>) across all 20 metrics.</td>
+</tr>
+</tbody>
+</table></div>
 <hr />
+<p><a id="metricsbattery"></a></p>
 <h3 id="dgmmetricsbattery"><code>dgm.MetricsBattery</code></h3>
-<p>Evaluates the 20-metric geomorphic battery across topological, entropic, energetic, and hydraulic properties.</p>
-<ul>
-<li><code>battery.evaluate_all(G: nx.DiGraph, params: Optional[Dict[str, Any]] = None) -&gt; Dict[str, Any]</code>: Evaluates all 20 metrics.</li>
-<li><code>battery.evaluate_topology(G) -&gt; Dict[str, Any]</code>: $\alpha$, $\beta_1$, $V_b$, $V_c$, $V_c/V_b$, topological slope $\Gamma$.</li>
-<li><code>battery.evaluate_dynamics(G, params) -&gt; Dict[str, Any]</code>: $nER^*$, $eBI$, total dissipation $D_{\text{net}}$, variance dissipation.</li>
-<li><code>battery.evaluate_vulnerability(G, params) -&gt; Dict[str, Any]</code>: Global network vulnerability $V_{\text{net}}$, max channel vulnerability.</li>
-<li><code>battery.evaluate_geomorphology(G) -&gt; Dict[str, Any]</code>: Mean width, width CV, reach sinuosity, shoreline delivery ratio.</li>
-</ul>
+<p>Comprehensive diagnostic metric battery computing 20 canonical geomorphic metrics across topological, dynamic, vulnerability, and hydraulic form tiers.</p>
+<pre><code class="language-python">from dgm import MetricsBattery
+
+battery = MetricsBattery()
+metrics = battery.evaluate_all(G)
+</code></pre>
+<h4 id="methods_3">Methods</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Method</th>
+<th style="text-align: left;">Parameters</th>
+<th style="text-align: center;">Return Type</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>evaluate_all</code></td>
+<td style="text-align: left;"><code>G: nx.DiGraph, params=None</code></td>
+<td style="text-align: center;"><code>Dict[str, Any]</code></td>
+<td style="text-align: left;">Computes complete 20-metric battery (returns 33 diagnostic fields).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>evaluate_topology</code></td>
+<td style="text-align: left;"><code>G: nx.DiGraph</code></td>
+<td style="text-align: center;"><code>Dict[str, Any]</code></td>
+<td style="text-align: left;">Computes <span class="katex-inline-block">$\alpha$</span>, <span class="katex-inline-block">$\beta_1$</span>, <span class="katex-inline-block">$V_b$</span>, <span class="katex-inline-block">$V_c$</span>, <span class="katex-inline-block">$V_c/V_b$</span>, LSI, and resistance distance.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>evaluate_dynamics</code></td>
+<td style="text-align: left;"><code>G: nx.DiGraph, params, markov_sol=None</code></td>
+<td style="text-align: center;"><code>Dict[str, Any]</code></td>
+<td style="text-align: left;">Computes <span class="katex-inline-block">$nER^*$</span>, <span class="katex-inline-block">$eBI$</span>, energy dissipation <span class="katex-inline-block">$D_{\text{net}}$</span>, and algebraic connectivity.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>evaluate_vulnerability</code></td>
+<td style="text-align: left;"><code>G: nx.DiGraph, params, markov_sol=None</code></td>
+<td style="text-align: center;"><code>Dict[str, Any]</code></td>
+<td style="text-align: left;">Computes global vulnerability <span class="katex-inline-block">$V_{\text{net}}$</span> and outlet flux entropy <span class="katex-inline-block">$H_{\text{out}}$</span>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>evaluate_geomorphology</code></td>
+<td style="text-align: left;"><code>G: nx.DiGraph</code></td>
+<td style="text-align: center;"><code>Dict[str, Any]</code></td>
+<td style="text-align: left;">Computes mean width, width CV, radial sinuosity, and angular dispersion.</td>
+</tr>
+</tbody>
+</table></div>
+<h4 id="canonical-20-metric-summary-reference">Canonical 20-Metric Summary Reference</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Category</th>
+<th style="text-align: left;">Metric Key</th>
+<th style="text-align: center;">Symbol</th>
+<th style="text-align: left;">Empirical Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Topological Form</strong></td>
+<td style="text-align: left;"><code>alpha_index</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$\alpha$</span></td>
+<td style="text-align: left;">Meshedness coefficient measuring planar loop redundancy.</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>betti_1_norm</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$\beta_1/N$</span></td>
+<td style="text-align: left;">Normalized loop density per node.</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>ratio_vc_vb</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$V_c/V_b$</span></td>
+<td style="text-align: left;">Ratio of confluences to bifurcations.</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>topological_slope</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$\Gamma$</span></td>
+<td style="text-align: left;">Rate of loop growth relative to recombination.</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>horton_inversion_index</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$H_{\text{inv}}$</span></td>
+<td style="text-align: left;">Balance of branching vs. confluence dominance.</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>link_sharing_index</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$\text{LSI}$</span></td>
+<td style="text-align: left;">Normalized path redundancy from apex to shoreline outlets.</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>resistance_distance</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$\text{RD}$</span></td>
+<td style="text-align: left;">Effective unweighted graph resistance from apex to sea.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Dynamic &amp; Entropic</strong></td>
+<td style="text-align: left;"><code>nER_star</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$nER^*$</span></td>
+<td style="text-align: left;">Non-Local Shannon Entropy Rate normalized to <span class="katex-inline-block">$[0, 1]$</span>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>eBI</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$\text{eBI}$</span></td>
+<td style="text-align: left;">Entropic Braiding Index (effective active channels across transects).</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>energy_dissipation</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$D_{\text{net}}$</span></td>
+<td style="text-align: left;">Total hydrodynamic energy dissipation: <span class="katex-inline-block">$\sum Q_e^2 / C_e$</span>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>algebraic_connectivity</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$\lambda_2$</span></td>
+<td style="text-align: left;">Fiedler eigenvalue of normalized symmetric Laplacian.</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>energy_entropy_ratio</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$E_{\text{ratio}}$</span></td>
+<td style="text-align: left;">Ratio of normalized entropy rate to energy dissipation.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Vulnerability</strong></td>
+<td style="text-align: left;"><code>global_vulnerability</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$V_{\text{net}}$</span></td>
+<td style="text-align: left;">Average network sensitivity to single-channel disruptions.</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>outlet_flux_entropy</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$H_{\text{out}}$</span></td>
+<td style="text-align: left;">Shannon entropy in bits of discharge partition across outlets.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Geomorphic Form</strong></td>
+<td style="text-align: left;"><code>mean_width</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$\mu_w$</span></td>
+<td style="text-align: left;">Mean emergent channel width in meters.</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>width_cv</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$\sigma_w / \mu_w$</span></td>
+<td style="text-align: left;">Coefficient of variation of channel widths.</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>radial_sinuosity</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$\chi_{\text{rad}}$</span></td>
+<td style="text-align: left;">Path length to outlet divided by straight-line radial distance.</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>angular_dispersion</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$\theta_{\text{disp}}$</span></td>
+<td style="text-align: left;">Standard deviation of branch deflection angles at bifurcations.</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>loop_length_anisotropy</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$\Lambda_{\text{loop}}$</span></td>
+<td style="text-align: left;">Ratio of mean tree link length to mean loop link length.</td>
+</tr>
+<tr>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>num_outlets</code></td>
+<td style="text-align: center;"><span class="katex-inline-block">$N_{\text{out}}$</span></td>
+<td style="text-align: left;">Number of terminal outlet channels reaching the sea.</td>
+</tr>
+</tbody>
+</table></div>
 <hr />
+<p><a id="polardomain"></a></p>
 <h3 id="dgmpolardomain"><code>dgm.PolarDomain</code></h3>
-<p>Encapsulates polar fan domain coordinates, lateral valley confinement, and angular opening boundaries.</p>
-<pre><code class="language-python">domain = dgm.PolarDomain(
+<p>Manages polar coordinate transformations, fan opening geometry, and lateral valley confinement boundaries.</p>
+<pre><code class="language-python">from dgm import PolarDomain
+
+domain = PolarDomain(
     r_shore=10000.0,
-    theta_base=45.0,
+    theta_base=65.0,
     theta_delta=60.0,
-    confinement=0.3,
-    lateral_valley_width=8000.0
+    confinement=0.40,
+    lateral_valley_width=6000.0
 )
 </code></pre>
-<ul>
-<li><code>domain.opening_angle(R_rt: float) -&gt; float</code>: Computes effective opening angle $\theta_{\text{open}}(R_{\text{rt}}, C_{\text{conf}})$.</li>
-<li><code>domain.is_in_bounds(r: float, theta: float, R_rt: float) -&gt; bool</code>: Verifies polar and lateral Cartesian limits.</li>
-<li><code>domain.clamp_coordinates(x: float, y: float) -&gt; Tuple[float, float]</code>: Enforces lateral valley bounds $|x| \le W/2$.</li>
-</ul>
+<h4 id="parameters_2">Parameters</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Parameter</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>r_shore</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>10000.0</code></td>
+<td style="text-align: left;">Radial distance from apex to shoreline (meters).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>theta_base</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>65.0</code></td>
+<td style="text-align: left;">Baseline opening angle in degrees.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>theta_delta</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>60.0</code></td>
+<td style="text-align: left;">Marine tidal spreading capacity in degrees.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>confinement</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>0.0</code></td>
+<td style="text-align: left;">Lateral valley confinement factor in <span class="katex-inline-block">$[0.0, 0.95]$</span>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>lateral_valley_width</code></td>
+<td style="text-align: center;"><code>Optional[float]</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Lateral corridor width limit in meters.</td>
+</tr>
+</tbody>
+</table></div>
+<h4 id="methods_4">Methods</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Method</th>
+<th style="text-align: left;">Parameters</th>
+<th style="text-align: center;">Return Type</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>opening_angle</code></td>
+<td style="text-align: left;"><code>R_rt: float</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: left;">Computes effective planform opening angle <span class="katex-inline-block">$\theta_{\text{open}}(R_{\text{rt}}, C_{\text{conf}})$</span>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>is_in_bounds</code></td>
+<td style="text-align: left;"><code>r: float, theta: float, R_rt: float</code></td>
+<td style="text-align: center;"><code>bool</code></td>
+<td style="text-align: left;">Verifies whether polar coordinates fall within fan and valley limits.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>clamp_coordinates</code></td>
+<td style="text-align: left;"><code>x: float, y: float</code></td>
+<td style="text-align: center;"><code>Tuple[float, float]</code></td>
+<td style="text-align: left;">Clamps Cartesian coordinates to valley width (<span class="katex-inline-block">$\vert x \vert \le W_{\text{valley}}/2$</span>).</td>
+</tr>
+</tbody>
+</table></div>
 <hr />
-<h2 id="spatial-network-visualization">Spatial Network Visualization</h2>
-<h3 id="dgmplot_networkg-nxdigraph-axnone-curvedtrue-pltaxes"><code>dgm.plot_network(G: nx.DiGraph, ax=None, curved=True, ...) -&gt; plt.Axes</code></h3>
+<h2 id="spatial-network-cartography-visualization-viz">Spatial Network Cartography &amp; Visualization (<code>[viz]</code>)</h2>
+<p><a id="plot_network"></a></p>
+<h3 id="dgmplot_network"><code>dgm.plot_network</code></h3>
 <p><em>(Alias: <code>dgm.plot_delta</code>)</em></p>
-<p>Renders a geomorphically accurate 2D spatial map of a DGM network or tree backbone preserving physical geometry.</p>
-<pre><code class="language-python">ax = dgm.plot_network(
-    G,
-    ax=None,
-    curved=True,
-    edge_width=&quot;width&quot;,
-    min_linewidth=0.8,
-    max_linewidth=5.5,
-    width_scaling=&quot;sqrt&quot;,
-    edge_color=&quot;type&quot;,
-    edge_alpha=0.85,
-    show_nodes=True,
-    node_size=30.0,
-    node_style=&quot;type&quot;,
-    show_domain=True,
-    orientation=&quot;cartesian&quot;,
-    theme=&quot;light&quot;,
-    title=&quot;Synthetic River Delta&quot;,
-    show_legend=True,
-    show_stats=False,
-    domain=None
-)
+<p>Renders publication-quality 2D spatial maps of delta networks, supporting multi-vertex sinuous polylines, width-weighted channels, and geomorphic themes.</p>
+<pre><code class="language-python">dgm.plot_network(
+    G: nx.DiGraph,
+    ax: Optional[plt.Axes] = None,
+    curved: bool = True,
+    edge_width: Union[str, float] = &quot;width&quot;,
+    min_linewidth: float = 0.8,
+    max_linewidth: float = 5.5,
+    width_scaling: str = &quot;sqrt&quot;,
+    edge_color: Union[str, Dict[str, str]] = &quot;type&quot;,
+    edge_alpha: float = 0.85,
+    show_nodes: bool = True,
+    node_size: float = 30.0,
+    node_style: str = &quot;type&quot;,
+    show_domain: bool = True,
+    orientation: str = &quot;cartesian&quot;,
+    theme: str = &quot;light&quot;,
+    title: Optional[str] = &quot;Synthetic River Delta&quot;,
+    show_legend: bool = True,
+    show_stats: bool = False,
+    domain: Optional[PolarDomain] = None
+) -&gt; plt.Axes
 </code></pre>
-<p><strong>Parameters</strong>:
-- <code>G</code> (<em>nx.DiGraph</em>): DGM network graph with node positions (<code>x</code>, <code>y</code>) and edge attributes (<code>width</code>, <code>sinuosity</code>, optional <code>coordinates</code>).
-- <code>ax</code> (<em>plt.Axes</em>, optional): Target Matplotlib Axes. If <code>None</code>, creates a new figure and axes.
-- <code>curved</code> (<em>bool</em>, default <code>True</code>): If <code>True</code>, renders multi-vertex sinuous polylines from edge <code>coordinates</code>.
-- <code>edge_width</code> (<em>Union[str, float]</em>, default <code>'width'</code>): Channel thickness attribute name or constant float linewidth.
-- <code>width_scaling</code> (<em>str</em>, default <code>'sqrt'</code>): Scaling mode for linewidths: <code>'sqrt'</code> ($W \propto \sqrt{w}$ cross-sectional diameter), <code>'linear'</code>, or <code>'fixed'</code>.
-- <code>min_linewidth</code> / <code>max_linewidth</code> (<em>float</em>, default <code>0.8</code> / <code>5.5</code>): Minimum and maximum line thickness in points.
-- <code>edge_color</code> (<em>Union[str, Dict[str, str]]</em>, default <code>'type'</code>): Colors channels by edge type (<code>'tree'</code>, <code>'loop'</code>, <code>'tidal_loop'</code>, <code>'crevasse_splay'</code>) or a specific color.
-- <code>show_nodes</code> (<em>bool</em>, default <code>True</code>): Renders geomorphic node markers.
-- <code>node_style</code> (<em>str</em>, default <code>'type'</code>): Node styling strategy: <code>'type'</code> (distinguishes apex, outlets, bifurcations, confluences, dead-ends) or <code>'uniform'</code>.
-- <code>show_domain</code> (<em>bool</em>, default <code>True</code>): Draws polar opening rays, shoreline boundary arc, and valley walls.
-- <code>orientation</code> (<em>str</em>, default <code>'cartesian'</code>): Viewing orientation: <code>'cartesian'</code> (apex origin, seaward $+x$), <code>'downward'</code> (apex top, seaward $-y$), or <code>'upward'</code> (apex bottom, seaward $+y$).
-- <code>theme</code> (<em>str</em>, default <code>'light'</code>): Color palette theme (<code>'light'</code>, <code>'dark'</code>, <code>'clean'</code>).
-- <code>show_stats</code> (<em>bool</em>, default <code>False</code>): Overlays summary statistics badge ($N, E, \beta_1$, mean width, sinuosity).</p>
-<p><strong>Returns</strong>:
-- <code>plt.Axes</code>: The Matplotlib Axes containing the plot.</p>
+<h4 id="parameters_3">Parameters</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Parameter</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>G</code></td>
+<td style="text-align: center;"><code>nx.DiGraph</code></td>
+<td style="text-align: center;"><em>required</em></td>
+<td style="text-align: left;">Network graph with node positions (<code>x</code>, <code>y</code>) and edge attributes (<code>width</code>, <code>sinuosity</code>, optional <code>coordinates</code>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ax</code></td>
+<td style="text-align: center;"><code>Optional[plt.Axes]</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Target Matplotlib Axes. If <code>None</code>, creates a new figure.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>curved</code></td>
+<td style="text-align: center;"><code>bool</code></td>
+<td style="text-align: center;"><code>True</code></td>
+<td style="text-align: left;">If <code>True</code>, renders multi-vertex sinuous polylines from edge <code>coordinates</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>edge_width</code></td>
+<td style="text-align: center;"><code>Union[str, float]</code></td>
+<td style="text-align: center;"><code>"width"</code></td>
+<td style="text-align: left;">Attribute key for linewidth scaling or fixed float width.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>min_linewidth</code> / <code>max_linewidth</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>0.8</code> / <code>5.5</code></td>
+<td style="text-align: left;">Minimum and maximum line thickness in points.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>width_scaling</code></td>
+<td style="text-align: center;"><code>str</code></td>
+<td style="text-align: center;"><code>"sqrt"</code></td>
+<td style="text-align: left;">Scaling function: <code>'sqrt'</code> (<span class="katex-inline-block">$W \propto \sqrt{w}$</span> diameter), <code>'linear'</code>, or <code>'fixed'</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>edge_color</code></td>
+<td style="text-align: center;"><code>Union[str, Dict[str, str]]</code></td>
+<td style="text-align: center;"><code>"type"</code></td>
+<td style="text-align: left;">Channel coloring strategy: <code>'type'</code> (distinguishes tree, loop, tidal loop), or specific color.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>edge_alpha</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>0.85</code></td>
+<td style="text-align: left;">Alpha opacity for channel lines in <span class="katex-inline-block">$[0.0, 1.0]$</span>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>show_nodes</code></td>
+<td style="text-align: center;"><code>bool</code></td>
+<td style="text-align: center;"><code>True</code></td>
+<td style="text-align: left;">Whether node markers are rendered.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>node_style</code></td>
+<td style="text-align: center;"><code>str</code></td>
+<td style="text-align: center;"><code>"type"</code></td>
+<td style="text-align: left;">Node marker styling: <code>'type'</code> (apex, outlets, bifurcations, confluences) or <code>'uniform'</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>node_size</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>30.0</code></td>
+<td style="text-align: left;">Node marker point size.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>show_domain</code></td>
+<td style="text-align: center;"><code>bool</code></td>
+<td style="text-align: center;"><code>True</code></td>
+<td style="text-align: left;">Draws polar fan boundary rays, shoreline arc, and valley walls.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>orientation</code></td>
+<td style="text-align: center;"><code>str</code></td>
+<td style="text-align: center;"><code>"cartesian"</code></td>
+<td style="text-align: left;">Viewing orientation: <code>'cartesian'</code> (apex origin, seaward <span class="katex-inline-block">$+x$</span>), <code>'downward'</code> (apex top, seaward <span class="katex-inline-block">$-y$</span>), or <code>'upward'</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>theme</code></td>
+<td style="text-align: center;"><code>str</code></td>
+<td style="text-align: center;"><code>"light"</code></td>
+<td style="text-align: left;">Visual theme: <code>'light'</code>, <code>'dark'</code>, or <code>'clean'</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>title</code></td>
+<td style="text-align: center;"><code>Optional[str]</code></td>
+<td style="text-align: center;"><code>"Synthetic River Delta"</code></td>
+<td style="text-align: left;">Title string displayed above plot.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>show_legend</code></td>
+<td style="text-align: center;"><code>bool</code></td>
+<td style="text-align: center;"><code>True</code></td>
+<td style="text-align: left;">Displays legend classifying channel reach types and junctions.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>show_stats</code></td>
+<td style="text-align: center;"><code>bool</code></td>
+<td style="text-align: center;"><code>False</code></td>
+<td style="text-align: left;">Overlays a summary badge with <span class="katex-inline-block">$N, E, \beta_1$</span>, mean width, and sinuosity.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>domain</code></td>
+<td style="text-align: center;"><code>Optional[PolarDomain]</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Explicit domain instance defining boundary geometry.</td>
+</tr>
+</tbody>
+</table></div>
+<h4 id="returns_2">Returns</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>plt.Axes</code></td>
+<td style="text-align: left;">The Matplotlib Axes containing the rendered network.</td>
+</tr>
+</tbody>
+</table></div>
 <hr />
-<h3 id="dgmplot_tree_vs_networkg_tree-g_final-curvedtrue-tuplepltfigure-tuplepltaxes-pltaxes"><code>dgm.plot_tree_vs_network(G_tree, G_final, curved=True, ...) -&gt; Tuple[plt.Figure, Tuple[plt.Axes, plt.Axes]]</code></h3>
-<p>Renders a synchronized side-by-side comparative figure displaying the Stage 1 Polar Tree Backbone versus the Stage 6 Final Hydraulic Network with meanders and loops.</p>
-<p><strong>Returns</strong>:
-- <code>Tuple[plt.Figure, Tuple[plt.Axes, plt.Axes]]</code>: Matplotlib Figure and pair of <code>(ax_tree, ax_final)</code> Axes.</p>
+<p><a id="plot_tree_vs_network"></a></p>
+<h3 id="dgmplot_tree_vs_network"><code>dgm.plot_tree_vs_network</code></h3>
+<p>Renders a synchronized side-by-side comparative figure displaying the initial Polar Tree Backbone alongside the final Hydraulic Network with emergent loops and sinuous channels.</p>
+<pre><code class="language-python">dgm.plot_tree_vs_network(
+    G_tree: nx.DiGraph,
+    G_final: nx.DiGraph,
+    curved: bool = True,
+    theme: str = &quot;light&quot;,
+    **kwargs: Any
+) -&gt; Tuple[plt.Figure, Tuple[plt.Axes, plt.Axes]]
+</code></pre>
+<h4 id="returns_3">Returns</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>Tuple[plt.Figure, Tuple[plt.Axes, plt.Axes]]</code></td>
+<td style="text-align: left;">Figure object and pair of <code>(ax_tree, ax_final)</code> Axes.</td>
+</tr>
+</tbody>
+</table></div>
 <hr />
-<h3 id="dgmplot_stagesstages-dictstr-nxdigraph-curvedtrue-tuplepltfigure-listpltaxes"><code>dgm.plot_stages(stages: Dict[str, nx.DiGraph], curved=True, ...) -&gt; Tuple[plt.Figure, List[plt.Axes]]</code></h3>
-<p>Renders a progressive multi-stage assembly figure (Tree Backbone $\to$ + Emergent Loops $\to$ Simplified &amp; Pruned $\to$ Final Murray Hydraulics &amp; Meanders).</p>
-<p><strong>Returns</strong>:
-- <code>Tuple[plt.Figure, List[plt.Axes]]</code>: Matplotlib Figure and list of Axes for each stage.</p>
+<p><a id="plot_stages"></a></p>
+<h3 id="dgmplot_stages"><code>dgm.plot_stages</code></h3>
+<p>Renders a progressive 4-panel assembly figure showing the generative evolution of the network across key milestones: <code>'tree'</code>, <code>'looped'</code>, <code>'pruned'</code>, and <code>'final'</code>.</p>
+<pre><code class="language-python">dgm.plot_stages(
+    stages: Dict[str, nx.DiGraph],
+    curved: bool = True,
+    theme: str = &quot;light&quot;,
+    **kwargs: Any
+) -&gt; Tuple[plt.Figure, List[plt.Axes]]
+</code></pre>
+<h4 id="returns_4">Returns</h4>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>Tuple[plt.Figure, List[plt.Axes]]</code></td>
+<td style="text-align: left;">Figure object and list of 4 panel Axes.</td>
+</tr>
+</tbody>
+</table></div>
 <hr />
-<h2 id="io-serialization">IO &amp; Serialization</h2>
-<ul>
-<li><code>dgm.to_graphml(G: nx.DiGraph, path: Union[str, Path]) -&gt; None</code>: Writes graph topology, node positions, and hydraulic attributes to GraphML format (compatible with Gephi, Cytoscape, NetworkX).</li>
-<li><code>dgm.to_geojson(G: nx.DiGraph, path: Optional[Union[str, Path]] = None) -&gt; Dict[str, Any]</code>: Exports nodes (Points) and channel reaches (LineStrings) as a standard GeoJSON <code>FeatureCollection</code> (for QGIS, ArcGIS, Mapbox).</li>
-<li><code>dgm.metrics_to_dataframe(metrics_data) -&gt; pd.DataFrame</code>: Converts realization dictionary or ensemble summary to a <code>pandas.DataFrame</code>.</li>
-<li><code>dgm.metrics_to_csv(metrics_data, path: Union[str, Path]) -&gt; None</code>: Saves metrics table directly to CSV.</li>
-<li><code>dgm.summary_to_dataframe(summary: Dict[str, Any]) -&gt; pd.DataFrame</code>: Converts ensemble aggregated statistics dictionary into a clean <code>pandas.DataFrame</code>.</li>
-<li><code>dgm.summary_to_csv(summary: Dict[str, Any], path: Union[str, Path]) -&gt; None</code>: Saves ensemble summary statistics directly to CSV (with standard library <code>csv</code> fallback).</li>
-<li><code>dgm.DIDNTLoader(dataset_dir: Optional[Union[str, Path]] = None)</code>: Loads canonical real deltas from the DIDNT global dataset.</li>
-<li><code>dgm.get_empirical_deltas() -&gt; List[EmpiricalDelta]</code>: Returns empirical delta descriptors for all 28 real-world systems.</li>
-</ul>
+<h2 id="io-export-utilities">IO &amp; Export Utilities</h2>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Function</th>
+<th style="text-align: left;">Parameters</th>
+<th style="text-align: center;">Return Type</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>dgm.to_graphml</code></td>
+<td style="text-align: left;"><code>G, path</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Exports graph topology, node positions, and hydraulic attributes to standard GraphML (for Gephi, Cytoscape, NetworkX).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>dgm.to_geojson</code></td>
+<td style="text-align: left;"><code>G, path=None</code></td>
+<td style="text-align: center;"><code>Dict[str, Any]</code></td>
+<td style="text-align: left;">Exports nodes (<code>Point</code>) and channels (<code>LineString</code>) as a GeoJSON <code>FeatureCollection</code> (for QGIS, ArcGIS, Mapbox).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>dgm.metrics_to_dataframe</code></td>
+<td style="text-align: left;"><code>metrics_data</code></td>
+<td style="text-align: center;"><code>pd.DataFrame</code></td>
+<td style="text-align: left;">Converts realization metrics dict or ensemble raw list to a Pandas DataFrame.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>dgm.metrics_to_csv</code></td>
+<td style="text-align: left;"><code>metrics_data, path</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Exports realization metrics directly to CSV (with standard library fallback).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>dgm.summary_to_dataframe</code></td>
+<td style="text-align: left;"><code>summary</code></td>
+<td style="text-align: center;"><code>pd.DataFrame</code></td>
+<td style="text-align: left;">Converts ensemble aggregated summary statistics into a Pandas DataFrame.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>dgm.summary_to_csv</code></td>
+<td style="text-align: left;"><code>summary, path</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Exports ensemble aggregated summary statistics directly to CSV.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>dgm.get_empirical_deltas</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: center;"><code>List[EmpiricalDelta]</code></td>
+<td style="text-align: left;">Returns descriptors and feature vectors for all 28 real-world deltas in the DIDNT dataset.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>dgm.DIDNTLoader</code></td>
+<td style="text-align: left;"><code>dataset_dir=None</code></td>
+<td style="text-align: center;"><code>DIDNTLoader</code></td>
+<td style="text-align: left;">Loader utility for loading and parsing canonical empirical delta networks.</td>
+</tr>
+</tbody>
+</table></div>
 <hr />
 <h2 id="command-line-interface-cli">Command Line Interface (CLI)</h2>
-<p>The <code>dgm</code> CLI provides access to single generation and ensemble sampling directly from the shell:</p>
-<pre><code class="language-bash"># Generate a single graph realization and save as GraphML or GeoJSON
-dgm generate -N 50 -R 0.45 --curved --enable-pruning -o outputs/delta.graphml
-dgm generate -N 50 -R 0.45 --curved --enable-pruning -o outputs/delta.geojson
-
-# Render directly to an image (.png, .pdf, .svg)
-dgm generate -N 50 -R 0.45 --curved --enable-pruning -o outputs/delta.png
-
-# Sample an ensemble cloud and export statistics to CSV
-dgm ensemble -N 50 -R 0.65 -n 100 --sample-parameters -o outputs/ensemble.csv
+<p>The <code>dgm</code> CLI provides access to single generation and ensemble sampling directly from the terminal.</p>
+<h3 id="dgm-generate"><code>dgm generate</code></h3>
+<pre><code class="language-bash">dgm generate -N 50 -R 0.45 --curved --enable-pruning -s 42 -o delta.graphml
 </code></pre>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: center;">Flag</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>--nodes</code></td>
+<td style="text-align: center;"><code>-N</code></td>
+<td style="text-align: center;"><code>int</code></td>
+<td style="text-align: center;"><code>50</code></td>
+<td style="text-align: left;">Target node budget (<span class="katex-inline-block">$N \ge 4$</span>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--ratio</code></td>
+<td style="text-align: center;"><code>-R</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>0.5</code></td>
+<td style="text-align: left;">River-to-tidal forcing ratio (<span class="katex-inline-block">$0.0 \le R_{\text{rt}} \le 1.0$</span>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--config</code></td>
+<td style="text-align: center;"><code>-c</code></td>
+<td style="text-align: center;"><code>path</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Path to custom YAML configuration.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--seed</code></td>
+<td style="text-align: center;"><code>-s</code></td>
+<td style="text-align: center;"><code>int</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Random seed for exact reproducibility.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--mechanism</code></td>
+<td style="text-align: center;"><code>-m</code></td>
+<td style="text-align: center;"><code>str</code></td>
+<td style="text-align: center;"><code>potential_field</code></td>
+<td style="text-align: left;">Loop engine: <code>'potential_field'</code> or <code>'ner_optimality'</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--curved</code></td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;"><code>flag</code></td>
+<td style="text-align: center;"><code>False</code></td>
+<td style="text-align: left;">Enable sinuous polyline centerlines.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--enable-pruning</code></td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;"><code>flag</code></td>
+<td style="text-align: center;"><code>False</code></td>
+<td style="text-align: left;">Enable dead-end spur removal and reach simplification.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--output</code></td>
+<td style="text-align: center;"><code>-o</code></td>
+<td style="text-align: center;"><code>path</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Output filepath (<code>.graphml</code>, <code>.geojson</code>, <code>.png</code>, <code>.pdf</code>, <code>.svg</code>).</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="dgm-ensemble"><code>dgm ensemble</code></h3>
+<pre><code class="language-bash">dgm ensemble -N 50 -R 0.55 -n 100 --sample-parameters -o ensemble.csv
+</code></pre>
+<div class="table-container overflow-x-auto my-6 border border-white/10"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: center;">Flag</th>
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Default</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>--nodes</code></td>
+<td style="text-align: center;"><code>-N</code></td>
+<td style="text-align: center;"><code>int</code></td>
+<td style="text-align: center;"><code>50</code></td>
+<td style="text-align: left;">Node budget for realizations.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--ratio</code></td>
+<td style="text-align: center;"><code>-R</code></td>
+<td style="text-align: center;"><code>float</code></td>
+<td style="text-align: center;"><code>0.5</code></td>
+<td style="text-align: left;">River-to-tidal forcing ratio.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--num</code></td>
+<td style="text-align: center;"><code>-n</code></td>
+<td style="text-align: center;"><code>int</code></td>
+<td style="text-align: center;"><code>50</code></td>
+<td style="text-align: left;">Number of realizations to sample.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--sample-parameters</code></td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;"><code>flag</code></td>
+<td style="text-align: center;"><code>False</code></td>
+<td style="text-align: left;">Enable stochastic parameter sampling from distributions.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--base-seed</code></td>
+<td style="text-align: center;"><code>-s</code></td>
+<td style="text-align: center;"><code>int</code></td>
+<td style="text-align: center;"><code>42</code></td>
+<td style="text-align: left;">Base random seed offset.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>--output</code></td>
+<td style="text-align: center;"><code>-o</code></td>
+<td style="text-align: center;"><code>path</code></td>
+<td style="text-align: center;"><code>None</code></td>
+<td style="text-align: left;">Output filepath for CSV metric summary.</td>
+</tr>
+</tbody>
+</table></div>
         </article>
 
         <!-- Page Footer / Next Step Banner -->

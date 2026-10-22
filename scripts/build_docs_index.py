@@ -18,10 +18,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 GITHUB_REPO_URL = "https://github.com/jay-kestrel/dgm/blob/main"
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
-# Documents excluded from search indexing (e.g. draft/unverified citations)
-EXCLUDED_DOC_FILES = {
-    "parameter_justifications.md",
-}
+# Documents excluded from search indexing (if any)
+EXCLUDED_DOC_FILES: set[str] = set()
 
 
 def extract_python_chunks(py_path: Path) -> list[dict[str, Any]]:

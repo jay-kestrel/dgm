@@ -13,6 +13,58 @@
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <!-- KaTeX for High-Precision Mathematical Typography -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+
+  <!-- Mermaid.js for Interactive Diagrams -->
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'dark',
+      themeVariables: {
+        darkMode: true,
+        background: '#060706',
+        primaryColor: '#ff5a35',
+        primaryTextColor: '#ffffff',
+        primaryBorderColor: 'rgba(255, 90, 53, 0.6)',
+        lineColor: '#c4f94a',
+        secondaryColor: '#0c0e0c',
+        tertiaryColor: '#121512',
+        fontFamily: '"Plus Jakarta Sans", sans-serif'
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 1. Render KaTeX Math
+      if (typeof renderMathInElement === 'function') {
+        renderMathInElement(document.body, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false}
+          ],
+          throwOnError: false,
+          trust: true
+        });
+      }
+
+      // 2. Render Mermaid Diagrams
+      const codeBlocks = document.querySelectorAll('pre code.language-mermaid');
+      for (const block of codeBlocks) {
+        const pre = block.parentElement;
+        const div = document.createElement('div');
+        div.className = 'mermaid my-6 flex justify-center bg-[#060706] p-4 border border-white/10 overflow-x-auto';
+        div.textContent = block.textContent;
+        pre.replaceWith(div);
+      }
+      if (codeBlocks.length > 0) {
+        await mermaid.run();
+      }
+    });
+  </script>
+
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -129,6 +181,15 @@
       margin-top: 1.5rem;
       margin-bottom: 0.5rem;
     }
+    .prose-kestrel h4 {
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #c4f94a;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
     .prose-kestrel p {
       margin-bottom: 1rem;
       line-height: 1.7;
@@ -170,31 +231,79 @@
       padding: 0;
       border: none;
     }
+
+    /* Table Improvements & Container */
+    .prose-kestrel .table-container {
+      overflow-x: auto;
+      margin: 1.5rem 0;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: #070907;
+    }
     .prose-kestrel table {
       width: 100%;
       border-collapse: collapse;
-      margin: 1.5rem 0;
+      margin: 0;
       font-size: 0.8rem;
     }
     .prose-kestrel th {
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.06);
       border: 1px solid rgba(255, 255, 255, 0.12);
-      padding: 0.6rem 0.85rem;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+      padding: 0.65rem 0.85rem;
       text-align: left;
       font-family: 'Azeret Mono', monospace;
       font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: #ffffff;
+      white-space: nowrap;
     }
     .prose-kestrel td {
       border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 0.6rem 0.85rem;
-      color: rgba(255, 255, 255, 0.75);
+      padding: 0.65rem 0.85rem;
+      color: rgba(255, 255, 255, 0.8);
+      vertical-align: top;
+    }
+    .prose-kestrel tr:nth-child(even) td {
+      background: rgba(255, 255, 255, 0.015);
     }
     .prose-kestrel tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
+      background: rgba(255, 255, 255, 0.035);
     }
+
+    /* KaTeX Mathematical Formula Styling */
+    .katex-display-block {
+      margin: 1.25rem 0;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow-x: auto;
+    }
+    .katex-display {
+      margin: 0.5rem 0 !important;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    .katex {
+      color: #ffffff;
+      font-size: 1.05em;
+    }
+
+    /* Mermaid Diagram Styling */
+    .mermaid {
+      background: #060706;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+    }
+    .mermaid svg {
+      max-width: 100%;
+      height: auto;
+    }
+
     .prose-kestrel blockquote {
       border-left: 2px solid #ff5a35;
       background: rgba(255, 90, 53, 0.05);
@@ -206,6 +315,11 @@
     .prose-kestrel a {
       color: #ff5a35;
       text-decoration: underline;
+    }
+    .prose-kestrel hr {
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin: 2rem 0;
     }
   </style>
 </head>
@@ -265,6 +379,7 @@
 <a href="configuration.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">YAML Configuration</a>
 <div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Reference</div>
 <a href="api_reference.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Python API Reference</a>
+<a href="parameter_justifications.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Parameter Justifications</a>
 <div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Tutorials</div>
 <a href="walkthrough.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">End-to-End Walkthrough</a>
 <a href="tutorial_01_quickstart.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Tutorial 01: Quickstart</a>
@@ -301,15 +416,15 @@
    Guarantees zero unphysical channel crossings using a Jordan Curve Theorem orientation filter and 2D bounding-box spatial indexing.</li>
 <li><strong>Emergent Dual Loop Engines</strong>:
    - <strong>Mechanism A (Spatial Potential-Field Reconnection)</strong>: Models hydrodynamic cross-tie reconnections and floodplain anastomosis.
-   - *<em>Mechanism B (Thermodynamic nER</em> Optimality)**: Simulates long-term topological reorganization under volume budgets by maximizing non-local entropy rate ($nER^*$).</li>
+   - *<em>Mechanism B (Thermodynamic nER</em> Optimality)**: Simulates long-term topological reorganization under volume budgets by maximizing non-local entropy rate (<span class="katex-inline-block">$nER^*$</span>).</li>
 <li><strong>Pre-Hydraulic Simplification &amp; Shoreline Protection</strong>:
    Removes inland blind spurs while protecting coastal outlets via <code>outlet_tolerance</code>, and simplifies degree-2 pass-through chains with unified reach-scale sinuosity recalculation (<code>recalculate_reach_sinuosity</code>).</li>
 <li><strong>Hydraulics &amp; Murray's Law Conservation</strong>:
-   Conserves cross-sectional capacity at bifurcations ($w_0^p = w_1^p + w_2^p$), models estuarine tidal flaring with customizable onset distance (<code>tidal_flare_onset</code>), penalizes secondary loop resistance (<code>loop_flow_penalty</code>), and computes Manning conductance ($C_e = w^\eta / L^\gamma$).</li>
+   Conserves cross-sectional capacity at bifurcations (<span class="katex-inline-block">$w_0^p = w_1^p + w_2^p$</span>), models estuarine tidal flaring with customizable onset distance (<code>tidal_flare_onset</code>), penalizes secondary loop resistance (<code>loop_flow_penalty</code>), and computes Manning conductance (<span class="katex-inline-block">$C_e = w^\eta / L^\gamma$</span>).</li>
 <li><strong>Harmonic Sinuous Centerlines &amp; Proximity Constraints</strong>:
    Synthesizes smooth, multi-vertex curved polyline channel reaches using harmonic sine profiles with Dirichlet boundary conditions, safely bounded away from neighboring channels via proximity clearance probes.</li>
 <li><strong>Transient Submatrix Markov Flux Solver</strong>:
-   Solves the linear flux system $(I - Q^T)\Phi_T = S_{0,T}$ to compute steady-state discharge throughput, Shannon entropy, and vulnerability without heavy numerical morphodynamic simulation.</li>
+   Solves the linear flux system <span class="katex-inline-block">$(I - Q^T)\Phi_T = S_{0,T}$</span> to compute steady-state discharge throughput, Shannon entropy, and vulnerability without heavy numerical morphodynamic simulation.</li>
 <li><strong>Spatial Cartographic Visualization Suite</strong>:
    Provides publication-grade 2D map rendering (<code>dgm.plot_network</code>), side-by-side tree-versus-network comparative figures (<code>dgm.plot_tree_vs_network</code>), and progressive multi-stage generative evolution visualization (<code>dgm.plot_stages</code>).</li>
 <li><strong>YAML-Driven Extensibility &amp; Dynamic Distributions</strong>:

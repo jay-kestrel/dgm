@@ -8,6 +8,7 @@ and vector embeddings for the client-side AI Assistant.
 
 import argparse
 import html
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -17,9 +18,7 @@ DOCS_DIR = REPO_ROOT / "docs"
 SITE_DIR = REPO_ROOT / "site"
 SITE_DOCS_DIR = SITE_DIR / "docs"
 
-EXCLUDED_DOC_FILES = {
-    "parameter_justifications.md",  # Omitted pending citation/reference verification
-}
+EXCLUDED_DOC_FILES: set[str] = set()
 
 # Navigation manifest for documentation sidebar & header
 DOCS_MANIFEST = [
@@ -37,7 +36,7 @@ DOCS_MANIFEST = [
         "category": "Core Theory",
         "src": DOCS_DIR / "architecture.md",
         "dest": "architecture.html",
-        "prompt": "Explain the 5 core pipeline stages, Murray's law hydraulics, and loop engines in DGM.",
+        "prompt": "Explain the 7 core pipeline stages, Murray's law hydraulics, and loop engines in DGM.",
     },
     {
         "slug": "configuration",
@@ -54,6 +53,14 @@ DOCS_MANIFEST = [
         "src": DOCS_DIR / "api_reference.md",
         "dest": "api_reference.html",
         "prompt": "What are the main functions and classes in DGM public API (dgm.generate, MetricsBattery, etc.)?",
+    },
+    {
+        "slug": "parameter_justifications",
+        "title": "Parameter Justifications",
+        "category": "Reference",
+        "src": DOCS_DIR / "parameter_justifications.md",
+        "dest": "parameter_justifications.html",
+        "prompt": "What are the scientific justifications, empirical foundations, and literature citations for DGM parameters?",
     },
     {
         "slug": "walkthrough",
@@ -80,6 +87,102 @@ DOCS_MANIFEST = [
         "prompt": "How does DGM sample large stochastic ensembles and compute geomorphic metric distributions?",
     },
 ]
+
+
+def preprocess_markdown(raw_md: str) -> tuple[str, dict[str, str]]:
+    """
+    Protects LaTeX math expressions and code blocks from being mangled by Python-Markdown
+    (e.g., prevents underscores inside math from turning into italic tags).
+    """
+    math_store: dict[str, str] = {}
+    counter = 0
+
+    code_store: dict[str, str] = {}
+    code_counter = 0
+
+    def code_repl(m: re.Match[str]) -> str:
+        nonlocal code_counter
+        k = f"DGM_CODE_BLOCK_{code_counter}_X"
+        code_counter += 1
+        code_store[k] = m.group(0)
+        return k
+
+    # 1. Protect fenced code blocks (```...```) and inline code (`...`)
+    raw_md = re.sub(r"```[\s\S]*?```", code_repl, raw_md)
+    raw_md = re.sub(r"`[^`\n]+`", code_repl, raw_md)
+
+    # 2. Protect display math: $$ ... $$ (can span multiple lines)
+    def disp_repl(m: re.Match[str]) -> str:
+        nonlocal counter
+        k = f"DGM_MATH_DISP_{counter}_X"
+        counter += 1
+        math_store[k] = m.group(0)
+        return f"\n\n<div class=\"katex-display-block\">{k}</div>\n\n"
+
+    raw_md = re.sub(r"\$\$([\s\S]+?)\$\$", disp_repl, raw_md)
+
+    # 3. Protect inline math: $ ... $ (single-line, non-empty, not preceded/followed by $)
+    def inl_repl(m: re.Match[str]) -> str:
+        nonlocal counter
+        k = f"DGM_MATH_INL_{counter}_X"
+        counter += 1
+        math_store[k] = m.group(0)
+        return f"<span class=\"katex-inline-block\">{k}</span>"
+
+    raw_md = re.sub(r"(?<!\$)\$(?!\$)([^\$\n]+?)(?<!\$)\$(?!\$)", inl_repl, raw_md)
+
+    # 4. Restore code blocks
+    for k, v in code_store.items():
+        raw_md = raw_md.replace(k, v)
+
+    return raw_md, math_store
+
+
+def postprocess_html(html_text: str, math_store: dict[str, str]) -> str:
+    """
+    Restores original math expressions, wraps tables in responsive containers,
+    and converts GitHub-style alert callouts into styled Kestrel HUD cards.
+    """
+    # 1. Restore math expressions
+    for k, orig_math in math_store.items():
+        html_text = html_text.replace(k, orig_math)
+
+    # 2. Transform GitHub-style blockquote callouts ([!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION])
+    callout_cfg: dict[str, dict[str, str]] = {
+        "NOTE": {"color": "#38bdf8", "border": "#38bdf8", "bg": "rgba(56, 189, 248, 0.07)", "label": "NOTE"},
+        "TIP": {"color": "#c4f94a", "border": "#c4f94a", "bg": "rgba(196, 249, 74, 0.07)", "label": "TIP"},
+        "IMPORTANT": {"color": "#ff5a35", "border": "#ff5a35", "bg": "rgba(255, 90, 53, 0.07)", "label": "IMPORTANT"},
+        "WARNING": {"color": "#f59e0b", "border": "#f59e0b", "bg": "rgba(245, 158, 11, 0.07)", "label": "WARNING"},
+        "CAUTION": {"color": "#f43f5e", "border": "#f43f5e", "bg": "rgba(244, 63, 94, 0.07)", "label": "CAUTION"},
+    }
+
+    def callout_repl(m: re.Match[str]) -> str:
+        kind = m.group(1).upper()
+        content = m.group(2).strip()
+        c = callout_cfg.get(kind, callout_cfg["NOTE"])
+        return f"""<div class="my-6 border-l-2 p-4 text-xs font-mono" style="border-color: {c["border"]}; background: {c["bg"]};">
+  <div class="flex items-center gap-2 mb-2 font-bold tracking-wider uppercase text-[10px]" style="color: {c["color"]};">
+    <span>[ {c["label"]} ]</span>
+  </div>
+  <div class="text-white/85 font-sans leading-relaxed text-sm">
+    {content}
+  </div>
+</div>"""
+
+    callout_pat = re.compile(
+        r"<blockquote>\s*<p>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](?:\s*<br\s*/?>)?\s*(.*?)</p>\s*</blockquote>",
+        re.DOTALL | re.IGNORECASE
+    )
+    html_text = callout_pat.sub(callout_repl, html_text)
+
+    # 3. Wrap tables in responsive container for clean horizontal scrolling
+    html_text = re.sub(
+        r"(<table>[\s\S]*?</table>)",
+        r'<div class="table-container overflow-x-auto my-6 border border-white/10">\1</div>',
+        html_text
+    )
+
+    return html_text
 
 
 def render_html_page(doc_info: dict[str, Any], body_html: str) -> str:
@@ -130,6 +233,58 @@ def render_html_page(doc_info: dict[str, Any], body_html: str) -> str:
 
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- KaTeX for High-Precision Mathematical Typography -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+
+  <!-- Mermaid.js for Interactive Diagrams -->
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({{
+      startOnLoad: false,
+      theme: 'dark',
+      themeVariables: {{
+        darkMode: true,
+        background: '#060706',
+        primaryColor: '#ff5a35',
+        primaryTextColor: '#ffffff',
+        primaryBorderColor: 'rgba(255, 90, 53, 0.6)',
+        lineColor: '#c4f94a',
+        secondaryColor: '#0c0e0c',
+        tertiaryColor: '#121512',
+        fontFamily: '"Plus Jakarta Sans", sans-serif'
+      }}
+    }});
+
+    document.addEventListener('DOMContentLoaded', async () => {{
+      // 1. Render KaTeX Math
+      if (typeof renderMathInElement === 'function') {{
+        renderMathInElement(document.body, {{
+          delimiters: [
+            {{left: '$$', right: '$$', display: true}},
+            {{left: '$', right: '$', display: false}}
+          ],
+          throwOnError: false,
+          trust: true
+        }});
+      }}
+
+      // 2. Render Mermaid Diagrams
+      const codeBlocks = document.querySelectorAll('pre code.language-mermaid');
+      for (const block of codeBlocks) {{
+        const pre = block.parentElement;
+        const div = document.createElement('div');
+        div.className = 'mermaid my-6 flex justify-center bg-[#060706] p-4 border border-white/10 overflow-x-auto';
+        div.textContent = block.textContent;
+        pre.replaceWith(div);
+      }}
+      if (codeBlocks.length > 0) {{
+        await mermaid.run();
+      }}
+    }});
+  </script>
 
   <script>
     tailwind.config = {{
@@ -247,6 +402,15 @@ def render_html_page(doc_info: dict[str, Any], body_html: str) -> str:
       margin-top: 1.5rem;
       margin-bottom: 0.5rem;
     }}
+    .prose-kestrel h4 {{
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #c4f94a;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+    }}
     .prose-kestrel p {{
       margin-bottom: 1rem;
       line-height: 1.7;
@@ -288,31 +452,79 @@ def render_html_page(doc_info: dict[str, Any], body_html: str) -> str:
       padding: 0;
       border: none;
     }}
+
+    /* Table Improvements & Container */
+    .prose-kestrel .table-container {{
+      overflow-x: auto;
+      margin: 1.5rem 0;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: #070907;
+    }}
     .prose-kestrel table {{
       width: 100%;
       border-collapse: collapse;
-      margin: 1.5rem 0;
+      margin: 0;
       font-size: 0.8rem;
     }}
     .prose-kestrel th {{
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.06);
       border: 1px solid rgba(255, 255, 255, 0.12);
-      padding: 0.6rem 0.85rem;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+      padding: 0.65rem 0.85rem;
       text-align: left;
       font-family: 'Azeret Mono', monospace;
       font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: #ffffff;
+      white-space: nowrap;
     }}
     .prose-kestrel td {{
       border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 0.6rem 0.85rem;
-      color: rgba(255, 255, 255, 0.75);
+      padding: 0.65rem 0.85rem;
+      color: rgba(255, 255, 255, 0.8);
+      vertical-align: top;
+    }}
+    .prose-kestrel tr:nth-child(even) td {{
+      background: rgba(255, 255, 255, 0.015);
     }}
     .prose-kestrel tr:hover td {{
-      background: rgba(255, 255, 255, 0.02);
+      background: rgba(255, 255, 255, 0.035);
     }}
+
+    /* KaTeX Mathematical Formula Styling */
+    .katex-display-block {{
+      margin: 1.25rem 0;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow-x: auto;
+    }}
+    .katex-display {{
+      margin: 0.5rem 0 !important;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }}
+    .katex {{
+      color: #ffffff;
+      font-size: 1.05em;
+    }}
+
+    /* Mermaid Diagram Styling */
+    .mermaid {{
+      background: #060706;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+    }}
+    .mermaid svg {{
+      max-width: 100%;
+      height: auto;
+    }}
+
     .prose-kestrel blockquote {{
       border-left: 2px solid #ff5a35;
       background: rgba(255, 90, 53, 0.05);
@@ -324,6 +536,11 @@ def render_html_page(doc_info: dict[str, Any], body_html: str) -> str:
     .prose-kestrel a {{
       color: #ff5a35;
       text-decoration: underline;
+    }}
+    .prose-kestrel hr {{
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin: 2rem 0;
     }}
   </style>
 </head>
@@ -456,8 +673,14 @@ def build_docs_html():
 
         raw_md = src_path.read_text(encoding="utf-8")
 
-        # Convert markdown with fenced code, tables, and auto header IDs
-        body_html = markdown.markdown(raw_md, extensions=["fenced_code", "tables", "toc", "sane_lists"])
+        # 1. Preprocess: protect math expressions and code blocks
+        preprocessed_md, math_store = preprocess_markdown(raw_md)
+
+        # 2. Convert markdown to HTML
+        body_html = markdown.markdown(preprocessed_md, extensions=["fenced_code", "tables", "toc", "sane_lists"])
+
+        # 3. Postprocess: restore math, style callouts and wrap tables
+        body_html = postprocess_html(body_html, math_store)
 
         full_html = render_html_page(doc, body_html)
         dest_path.write_text(full_html, encoding="utf-8")

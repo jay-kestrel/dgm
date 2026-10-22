@@ -13,6 +13,58 @@
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <!-- KaTeX for High-Precision Mathematical Typography -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+
+  <!-- Mermaid.js for Interactive Diagrams -->
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'dark',
+      themeVariables: {
+        darkMode: true,
+        background: '#060706',
+        primaryColor: '#ff5a35',
+        primaryTextColor: '#ffffff',
+        primaryBorderColor: 'rgba(255, 90, 53, 0.6)',
+        lineColor: '#c4f94a',
+        secondaryColor: '#0c0e0c',
+        tertiaryColor: '#121512',
+        fontFamily: '"Plus Jakarta Sans", sans-serif'
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 1. Render KaTeX Math
+      if (typeof renderMathInElement === 'function') {
+        renderMathInElement(document.body, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false}
+          ],
+          throwOnError: false,
+          trust: true
+        });
+      }
+
+      // 2. Render Mermaid Diagrams
+      const codeBlocks = document.querySelectorAll('pre code.language-mermaid');
+      for (const block of codeBlocks) {
+        const pre = block.parentElement;
+        const div = document.createElement('div');
+        div.className = 'mermaid my-6 flex justify-center bg-[#060706] p-4 border border-white/10 overflow-x-auto';
+        div.textContent = block.textContent;
+        pre.replaceWith(div);
+      }
+      if (codeBlocks.length > 0) {
+        await mermaid.run();
+      }
+    });
+  </script>
+
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -129,6 +181,15 @@
       margin-top: 1.5rem;
       margin-bottom: 0.5rem;
     }
+    .prose-kestrel h4 {
+      font-family: 'Azeret Mono', monospace;
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #c4f94a;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
     .prose-kestrel p {
       margin-bottom: 1rem;
       line-height: 1.7;
@@ -170,31 +231,79 @@
       padding: 0;
       border: none;
     }
+
+    /* Table Improvements & Container */
+    .prose-kestrel .table-container {
+      overflow-x: auto;
+      margin: 1.5rem 0;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: #070907;
+    }
     .prose-kestrel table {
       width: 100%;
       border-collapse: collapse;
-      margin: 1.5rem 0;
+      margin: 0;
       font-size: 0.8rem;
     }
     .prose-kestrel th {
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.06);
       border: 1px solid rgba(255, 255, 255, 0.12);
-      padding: 0.6rem 0.85rem;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+      padding: 0.65rem 0.85rem;
       text-align: left;
       font-family: 'Azeret Mono', monospace;
       font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: #ffffff;
+      white-space: nowrap;
     }
     .prose-kestrel td {
       border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 0.6rem 0.85rem;
-      color: rgba(255, 255, 255, 0.75);
+      padding: 0.65rem 0.85rem;
+      color: rgba(255, 255, 255, 0.8);
+      vertical-align: top;
+    }
+    .prose-kestrel tr:nth-child(even) td {
+      background: rgba(255, 255, 255, 0.015);
     }
     .prose-kestrel tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
+      background: rgba(255, 255, 255, 0.035);
     }
+
+    /* KaTeX Mathematical Formula Styling */
+    .katex-display-block {
+      margin: 1.25rem 0;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow-x: auto;
+    }
+    .katex-display {
+      margin: 0.5rem 0 !important;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    .katex {
+      color: #ffffff;
+      font-size: 1.05em;
+    }
+
+    /* Mermaid Diagram Styling */
+    .mermaid {
+      background: #060706;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+    }
+    .mermaid svg {
+      max-width: 100%;
+      height: auto;
+    }
+
     .prose-kestrel blockquote {
       border-left: 2px solid #ff5a35;
       background: rgba(255, 90, 53, 0.05);
@@ -206,6 +315,11 @@
     .prose-kestrel a {
       color: #ff5a35;
       text-decoration: underline;
+    }
+    .prose-kestrel hr {
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin: 2rem 0;
     }
   </style>
 </head>
@@ -236,7 +350,7 @@
 
       <!-- Header Actions -->
       <div class="flex items-center space-x-3">
-        <a href="../index.html?q=Explain the 5 core pipeline stages, Murray&#x27;s law hydraulics, and loop engines in DGM." class="kestrel-btn kestrel-btn-orange text-[10px] py-1 px-3" title="Ask DGM Assistant about this document">
+        <a href="../index.html?q=Explain the 7 core pipeline stages, Murray&#x27;s law hydraulics, and loop engines in DGM." class="kestrel-btn kestrel-btn-orange text-[10px] py-1 px-3" title="Ask DGM Assistant about this document">
           <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>
           <span>Ask AI About This</span>
         </a>
@@ -265,6 +379,7 @@
 <a href="configuration.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">YAML Configuration</a>
 <div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Reference</div>
 <a href="api_reference.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Python API Reference</a>
+<a href="parameter_justifications.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Parameter Justifications</a>
 <div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Tutorials</div>
 <a href="walkthrough.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">End-to-End Walkthrough</a>
 <a href="tutorial_01_quickstart.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Tutorial 01: Quickstart</a>
@@ -295,125 +410,109 @@
         <article class="prose-kestrel">
           <h1 id="dgm-mathematical-formulation-architecture">DGM Mathematical Formulation &amp; Architecture</h1>
 <p>The <strong>DeltaGraphModel (DGM)</strong> generative pipeline executes seven sequential computational steps to synthesize realistic, hydraulically consistent delta channel networks (DCNs):</p>
-<pre><code>┌────────────────────────────────────────────────────────────────────────┐
-│                        DGM GENERATIVE PIPELINE                         │
-├────────────────────────────────────────────────────────────────────────┤
-│ Inputs: N (Nodes), R_rt (River-to-Tidal Ratio ∈ [0, 1]), YAML Config   │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ STEP 1: Polar Domain Geometry &amp; Lateral Valley Confinement             │
-│ θ_open = (θ_base + Δθ · R_rt) · (1 - C_conf)  |  |x(r)| ≤ W_valley / 2 │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ STEP 2: Polar Tree Backbone Growth &amp; Shoreward Spatial Scaling         │
-│ Δr(r) = Δr_0 · (1 - λ_node · r/r_shore) | S(r) = 1 + (S_0 - 1)·(1-λ_sin)│
-│ Jordan Curve Planarity Filter (0 edge crossings via 2D AABB indexing) │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ STEP 3: Emergent Loop Engines (core.loops)                             │
-│ ├─ Mechanism A: Spatial Potential-Field Reconnection (KDTree P_loop)   │
-│ └─ Mechanism B: Thermodynamic nER* Annealing under Channel Budgets     │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ STEP 4: Pre-Hydraulic Pruning &amp; Reach Simplification (core.pruning)    │
-│ ├─ Inland dead-end spur removal with coastal outlet buffer (tol_out)  │
-│ └─ Degree-2 chain contraction with unified reach sinuosity model       │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ STEP 5: Emergent Hydraulics &amp; Murray's Law (core.hydraulics)           │
-│ ├─ Murray's Law conservation: w_0^p = w_1^p + w_2^p                    │
-│ ├─ Estuarine flaring with onset radius: w(r) ∝ exp(k·(r/r_s - r_onset))│
-│ └─ Secondary loop conductance penalty &amp; Manning capacity (C_e)        │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ STEP 6: Curved Polyline Channel Geometry (core.channel_geometry)       │
-│ ├─ Harmonic Dirichlet meanders: y(s) = sin(2π·bends·s) · sin(πs)       │
-│ ├─ Analytical proximity clearance bounding: A_max = C_clear · d_clear  │
-│ └─ Conductance re-synchronization with sinuous reach length            │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ STEP 7: Markov Flux Routing Solver &amp; Metrics Battery (core.hydraulics) │
-│ ├─ Transient submatrix flux throughput: (I - Q^T) Φ_T = S_0,T          │
-│ └─ 20-metric geomorphic battery: α, β1/N, nER*, eBI, V_net, D_net      │
-└────────────────────────────────────────────────────────────────────────┘
+<pre><code class="language-mermaid">flowchart TD
+  classDef startNode fill:#121612,stroke:#ff5a35,stroke-width:2px,color:#ffffff;
+  classDef stepNode fill:#0c0e0c,stroke:rgba(255,255,255,0.2),stroke-width:1px,color:#ffffff;
+  classDef accentNode fill:#141b14,stroke:#c4f94a,stroke-width:1.5px,color:#ffffff;
+
+  Inputs[&quot;&lt;strong&gt;INPUTS&lt;/strong&gt;&lt;br/&gt;Node Budget N, Forcing Ratio R_rt ∈ [0, 1], YAML Config&quot;]:::startNode
+
+  Step1[&quot;&lt;strong&gt;STEP 1: Polar Domain &amp; Valley Confinement&lt;/strong&gt;&lt;br/&gt;Fan angle θ_open = (θ_base + Δθ · R_rt) · (1 - C_conf)&lt;br/&gt;Valley Bounds: |x(r)| ≤ W_valley / 2&quot;]:::stepNode
+
+  Step2[&quot;&lt;strong&gt;STEP 2: Polar Tree Backbone Growth&lt;/strong&gt;&lt;br/&gt;Radial Stepping Δr(r) &amp; Sinuosity S(r)&lt;br/&gt;Jordan Curve Planarity Filter (0 Edge Crossings via 2D AABB)&quot;]:::stepNode
+
+  Step3[&quot;&lt;strong&gt;STEP 3: Emergent Loop Engines&lt;/strong&gt;&lt;br/&gt;Mechanism A: Spatial Potential-Field Reconnection&lt;br/&gt;Mechanism B: Thermodynamic nER* Annealing&quot;]:::accentNode
+
+  Step4[&quot;&lt;strong&gt;STEP 4: Pre-Hydraulic Pruning &amp; Simplification&lt;/strong&gt;&lt;br/&gt;Inland Dead-End Spur Removal (100% Shoreline Delivery)&lt;br/&gt;Degree-2 Chain Contraction &amp; Sinuosity Recalculation&quot;]:::stepNode
+
+  Step5[&quot;&lt;strong&gt;STEP 5: Emergent Hydraulics &amp; Murray's Law&lt;/strong&gt;&lt;br/&gt;Murray Capacity Conservation: w_0^p = w_1^p + w_2^p&lt;br/&gt;Estuarine Tidal Flaring &amp; Manning Conductance C_e&quot;]:::stepNode
+
+  Step6[&quot;&lt;strong&gt;STEP 6: Curved Polyline Channel Geometry&lt;/strong&gt;&lt;br/&gt;Harmonic Dirichlet Meander Centerlines&lt;br/&gt;Analytical Proximity Amplitude Clearance A_max&quot;]:::stepNode
+
+  Step7[&quot;&lt;strong&gt;STEP 7: Markov Flux Routing &amp; Metrics Battery&lt;/strong&gt;&lt;br/&gt;Transient Submatrix Solver: (I - Q^T) Φ_T = S_0,T&lt;br/&gt;20-Metric Geomorphic Battery (α, β_1/N, nER*, eBI, V_net)&quot;]:::startNode
+
+  Inputs --&gt; Step1 --&gt; Step2 --&gt; Step3 --&gt; Step4 --&gt; Step5 --&gt; Step6 --&gt; Step7
 </code></pre>
 <hr />
 <h2 id="step-1-polar-domain-geometry-valley-confinement">Step 1: Polar Domain Geometry &amp; Valley Confinement</h2>
-<p>The delta apex is positioned at origin $(r=0, \theta=0)$. The marine shoreline boundary is located at radius $r = R_{\text{shore}}$ (default $10,000 \text{ m}$). Marine hydrodynamic energy expands active sectoral fan spreading, while valley confinement narrows it:</p>
-<p>$$\theta_{\text{open}}(R_{\text{rt}}, C_{\text{conf}}) = (\theta_{\text{base}} + \Delta \theta \cdot R_{\text{rt}}) \cdot (1 - C_{\text{conf}})$$</p>
-<p>Lateral valley corridor boundaries clamp Cartesian coordinate excursions:
-$$|x(r)| \le \frac{W_{\text{valley}}}{2}$$</p>
+<p>The delta apex is positioned at origin <span class="katex-inline-block">$(r=0, \theta=0)$</span>. The marine shoreline boundary is located at radius <span class="katex-inline-block">$r = R_{\text{shore}}$</span> (default <span class="katex-inline-block">$10,000 \text{ m}$</span>). Marine hydrodynamic energy expands active sectoral fan spreading, while valley confinement narrows it:</p>
+<div class="katex-display-block">$$\theta_{\text{open}}(R_{\text{rt}}, C_{\text{conf}}) = (\theta_{\text{base}} + \Delta \theta \cdot R_{\text{rt}}) \cdot (1 - C_{\text{conf}})$$</div>
+
+<p>Lateral valley corridor boundaries clamp Cartesian coordinate excursions:</p>
+<div class="katex-display-block">$$\vert x(r) \vert \le \frac{W_{\text{valley}}}{2}$$</div>
+
 <hr />
 <h2 id="step-2-polar-tree-backbone-growth-shoreward-spatial-scaling">Step 2: Polar Tree Backbone Growth &amp; Shoreward Spatial Scaling</h2>
-<p>A directed branching tree is grown outwards from apex. Branching order $k \in {1, 2, 3}$ is sampled stochastically according to <code>branching_weights</code>.</p>
+<p>A directed branching tree is grown outwards from apex. Branching order <span class="katex-inline-block">$k \in \{1, 2, 3\}$</span> is sampled stochastically according to <code>branching_weights</code>.</p>
 <ul>
-<li><strong>Shoreward Node Contraction</strong>: Inter-junction distance contracts as channels approach the sea:
-  $$\Delta r(r) = \Delta r_0 \cdot \max(0.2, 1 - \lambda_{\text{node}} \cdot r / r_{\text{shore}})$$</li>
-<li><strong>Coastal Sinuosity Straightening</strong>: Distributaries straighten in the seaward reach:
-  $$S(r) = \max\left(1.0, 1.0 + (S_0 - 1.0) \cdot \max\left(0, 1 - \lambda_{\text{sin}} \cdot \frac{r_{\text{mid}}}{r_{\text{shore}}}\right)\right)$$</li>
+<li><strong>Shoreward Node Contraction</strong>: Inter-junction distance contracts as channels approach the sea:</li>
 </ul>
+<div class="katex-display-block">$$\Delta r(r) = \Delta r_0 \cdot \max(0.2, 1 - \lambda_{\text{node}} \cdot r / r_{\text{shore}})$$</div>
+
+<ul>
+<li><strong>Coastal Sinuosity Straightening</strong>: Distributaries straighten in the seaward reach:</li>
+</ul>
+<div class="katex-display-block">$$S(r) = \max\left(1.0, 1.0 + (S_0 - 1.0) \cdot \max\left(0, 1 - \lambda_{\text{sin}} \cdot \frac{r_{\text{mid}}}{r_{\text{shore}}}\right)\right)$$</div>
+
 <p>Planarity is strictly preserved using 2D Axis-Aligned Bounding Box (AABB) fast rejection combined with the Jordan Curve orientation predicate, guaranteeing 0 unphysical edge crossings.</p>
 <hr />
 <h2 id="step-3-emergent-loop-engines">Step 3: Emergent Loop Engines</h2>
 <h3 id="mechanism-a-spatial-potential-field-reconnection">Mechanism A: Spatial Potential-Field Reconnection</h3>
-<p>Evaluates candidate pairs $(u, v)$ via KDTree nearest-neighbor queries:
-$$P_{\text{loop}}(u, v \mid R_{\text{rt}}) = \min(0.95, (P_0 + c_0 R_{\text{rt}}) \cdot e^{-d(u,v)/l_0} \cdot \max(0, \cos(\Delta \theta_{uv})))$$</p>
-<p>Links are added under strict planarity and degree bounds ($k_{\text{in}} \le 2, k_{\text{out}} \le 3$). Maximum allowable loops scale with marine forcing:
-$$N_{\text{loops}}^{\max} = \lfloor N \cdot (\text{slope} \cdot R_{\text{rt}} + \text{intercept}) \rfloor$$</p>
+<p>Evaluates candidate pairs <span class="katex-inline-block">$(u, v)$</span> via KDTree nearest-neighbor queries:</p>
+<div class="katex-display-block">$$P_{\text{loop}}(u, v \mid R_{\text{rt}}) = \min(0.95, (P_0 + c_0 R_{\text{rt}}) \cdot e^{-d(u,v)/l_0} \cdot \max(0, \cos(\Delta \theta_{uv})))$$</div>
+
+<p>Links are added under strict planarity and degree bounds (<span class="katex-inline-block">$k_{\text{in}} \le 2, k_{\text{out}} \le 3$</span>). Maximum allowable loops scale with marine forcing:</p>
+<div class="katex-display-block">$$N_{\text{loops}}^{\max} = \lfloor N \cdot (\text{slope} \cdot R_{\text{rt}} + \text{intercept}) \rfloor$$</div>
+
 <h3 id="mechanism-b-thermodynamic-ner-optimality">Mechanism B: Thermodynamic nER* Optimality</h3>
-<p>Constructs a candidate network and optimizes link configuration using Simulated Annealing to maximize Non-Local Shannon Entropy Rate ($nER^*$) under a total channel count budget.</p>
+<p>Constructs a candidate network and optimizes link configuration using Simulated Annealing to maximize Non-Local Shannon Entropy Rate (<span class="katex-inline-block">$nER^*$</span>) under a total channel count budget.</p>
 <hr />
 <h2 id="step-4-pre-hydraulic-network-pruning-simplification">Step 4: Pre-Hydraulic Network Pruning &amp; Simplification</h2>
 <ul>
-<li><strong>Inland Dead-End Pruning &amp; Coastal Protection</strong>: Cascades through leaf nodes terminating inland without reaching the shoreline envelope:
-  $$r &lt; r_{\text{shore}} \cdot (1 - \epsilon_{\text{shore}})$$
-  where $\epsilon_{\text{shore}} = \text{outlet_tolerance}$ (default $0.05$). This accommodates coastal rugosity while guaranteeing 100% shoreline outlet delivery matching DIDNT observations.</li>
-<li><strong>Degree-2 Reach Simplification</strong>: Contracts non-branching pass-through chains ($d_{\text{in}}=1, d_{\text{out}}=1$) into direct links between morphological junctions. When <code>recalculate_reach_sinuosity=True</code>, a unified reach sinuosity is drawn from the lognormal process model rather than compounding discrete knees, matching RivGraph and DIDNT reach-scale standards. Continuous polyline coordinates are preserved across merged vertices.</li>
+<li><strong>Inland Dead-End Pruning &amp; Coastal Protection</strong>: Cascades through leaf nodes terminating inland without reaching the shoreline envelope:</li>
 </ul>
+<div class="katex-display-block">$$r < r_{\text{shore}} \cdot (1 - \epsilon_{\text{shore}})$$</div>
+
+<p>where <span class="katex-inline-block">$\epsilon_{\text{shore}} = \text{outlet_tolerance}$</span> (default <span class="katex-inline-block">$0.05$</span>). This accommodates coastal rugosity while guaranteeing 100% shoreline outlet delivery matching DIDNT observations.
+- <strong>Degree-2 Reach Simplification</strong>: Contracts non-branching pass-through chains (<span class="katex-inline-block">$d_{\text{in}}=1, d_{\text{out}}=1$</span>) into direct links between morphological junctions. When <code>recalculate_reach_sinuosity=True</code>, a unified reach sinuosity is drawn from the lognormal process model rather than compounding discrete knees, matching RivGraph and DIDNT reach-scale standards. Continuous polyline coordinates are preserved across merged vertices.</p>
 <hr />
 <h2 id="step-5-emergent-hydraulics-murrays-law-conservation">Step 5: Emergent Hydraulics &amp; Murray's Law Conservation</h2>
-<p>Channel widths are solved using an iterative topological relaxation solver conserving Murray's Law at all bifurcations:
-$$w_{\text{parent}}^p = w_{\text{child1}}^p + w_{\text{child2}}^p + \dots$$
-where exponent $p \in [1.2, 2.2]$ (default $1.85$).</p>
+<p>Channel widths are solved using an iterative topological relaxation solver conserving Murray's Law at all bifurcations:</p>
+<div class="katex-display-block">$$w_{\text{parent}}^p = w_{\text{child1}}^p + w_{\text{child2}}^p + \dots$$</div>
+
+<p>where exponent <span class="katex-inline-block">$p \in [1.2, 2.2]$</span> (default <span class="katex-inline-block">$1.85$</span>).</p>
 <h3 id="estuarine-tidal-mouth-flaring">Estuarine Tidal Mouth Flaring</h3>
-<p>Tidal prism amplification widens distributary mouths seaward of an onset radius ($r_{\text{onset}} = \text{tidal_flare_onset}$, default $0.30$):
-$$w(r) = w_{\text{river}} \cdot \left((1 - R_{\text{rt}}) + R_{\text{rt}} \exp\left(k_{\text{flare}} \cdot \max\left(0, \frac{r}{r_{\text{shore}}} - r_{\text{onset}}\right)\right)\right)$$</p>
+<p>Tidal prism amplification widens distributary mouths seaward of an onset radius (<span class="katex-inline-block">$r_{\text{onset}} = \text{tidal_flare_onset}$</span>, default <span class="katex-inline-block">$0.30$</span>):</p>
+<div class="katex-display-block">$$w(r) = w_{\text{river}} \cdot \left((1 - R_{\text{rt}}) + R_{\text{rt}} \exp\left(k_{\text{flare}} \cdot \max\left(0, \frac{r}{r_{\text{shore}}} - r_{\text{onset}}\right)\right)\right)$$</div>
+
 <h3 id="secondary-loop-resistance-penalty">Secondary Loop Resistance Penalty</h3>
-<p>To capture narrower cross-sections ($36\%-60\%$ of branch width) and higher floodplain bed elevations in anastomosing cross-ties (Gao et al. 2023), loop conductances are scaled by <code>loop_flow_penalty</code> (default $0.40$):
-$$C_{\text{loop}} = C_e \times \text{loop_flow_penalty}$$</p>
-<p>Manning conductance scales as $C_e = w_e^\eta / L_e^\gamma$ (default $\eta = 1.65, \gamma = 0.50$).</p>
+<p>To capture narrower cross-sections (<span class="katex-inline-block">$36\%-60\%$</span> of branch width) and higher floodplain bed elevations in anastomosing cross-ties (Gao et al. 2023), loop conductances are scaled by <code>loop_flow_penalty</code> (default <span class="katex-inline-block">$0.40$</span>):</p>
+<div class="katex-display-block">$$C_{\text{loop}} = C_e \times \text{loop_flow_penalty}$$</div>
+
+<p>Manning conductance scales as <span class="katex-inline-block">$C_e = w_e^\eta / L_e^\gamma$</span> (default <span class="katex-inline-block">$\eta = 1.65, \gamma = 0.50$</span>).</p>
 <hr />
 <h2 id="step-6-curved-polyline-channel-geometry-proximity-constraints">Step 6: Curved Polyline Channel Geometry &amp; Proximity Constraints</h2>
-<p>Meander amplitudes are constrained by lateral proximity to non-incident channels:
-$$A_{\max} = \max(0.0, d_{\text{clearance}} \cdot C_{\text{clear}})$$
-$$S_{\max} = 1.0 + \left(\frac{\pi A_{\max}}{L}\right)^2$$</p>
-<p>Centerline trajectories are generated via harmonic sine curves satisfying Dirichlet boundary conditions (zero displacement at nodes):
-$$y(s) = A \cdot \sin(2\pi \cdot \text{bends} \cdot s) \cdot \sin(\pi s)$$</p>
-<p>When curved centerlines update reach length, hydraulic conductance $C_e = w^\eta / L^\gamma$ is automatically re-synchronized.</p>
+<p>Meander amplitudes are constrained by lateral proximity to non-incident channels:</p>
+<div class="katex-display-block">$$A_{\max} = \max(0.0, d_{\text{clearance}} \cdot C_{\text{clear}})$$</div>
+
+<div class="katex-display-block">$$S_{\max} = 1.0 + \left(\frac{\pi A_{\max}}{L}\right)^2$$</div>
+
+<p>Centerline trajectories are generated via harmonic sine curves satisfying Dirichlet boundary conditions (zero displacement at nodes):</p>
+<div class="katex-display-block">$$y(s) = A \cdot \sin(2\pi \cdot \text{bends} \cdot s) \cdot \sin(\pi s)$$</div>
+
+<p>When curved centerlines update reach length, hydraulic conductance <span class="katex-inline-block">$C_e = w^\eta / L^\gamma$</span> is automatically re-synchronized.</p>
 <hr />
 <h2 id="step-7-markov-flux-routing-solver-metrics-battery">Step 7: Markov Flux Routing Solver &amp; Metrics Battery</h2>
-<p>Steady-state water fluxes are solved via the transient submatrix formulation (Tejedor et al., 2017):
-$$(I - Q^T) \Phi_T = S_{0,T}$$
-$$\Phi_A = S_{0,A} + W[T, A]^T \Phi_T$$</p>
+<p>Steady-state water fluxes are solved via the transient submatrix formulation (Tejedor et al., 2017):</p>
+<div class="katex-display-block">$$(I - Q^T) \Phi_T = S_{0,T}$$</div>
+
+<div class="katex-display-block">$$\Phi_A = S_{0,A} + W_{TA}^T \Phi_T$$</div>
+
 <p>The 20-metric geomorphic battery computes:
-- <strong>Topological form</strong>: $\alpha$, $\beta_1/N$, $V_b$, $V_c$, $V_c/V_b$, $\Gamma$.
-- <strong>Entropy &amp; Braiding</strong>: $nER^*$, $eBI$.
-- <strong>Energetic dissipation</strong>: Total dissipation $D<strong>\text{net}}$, varianc</strong>dissipation.
-- <strong>Dynamic vulnerabil</strong>y**: Global vulnerability $V_{\text{net}}$, max channel vulnerability.
+- <strong>Topological form</strong>: <span class="katex-inline-block">$\alpha$</span>, <span class="katex-inline-block">$\beta_1/N$</span>, <span class="katex-inline-block">$V_b$</span>, <span class="katex-inline-block">$V_c$</span>, <span class="katex-inline-block">$V_c/V_b$</span>, <span class="katex-inline-block">$\Gamma$</span>.
+- <strong>Entropy &amp; Braiding</strong>: <span class="katex-inline-block">$nER^*$</span>, <span class="katex-inline-block">$eBI$</span>.
+- <strong>Energetic dissipation</strong>: Total dissipation <span class="katex-inline-block">$D_{\text{net}}$</span>, variance dissipation.
+- <strong>Dynamic vulnerability</strong>: Global vulnerability <span class="katex-inline-block">$V_{\text{net}}$</span>, max channel vulnerability.
 - <strong>Hydraulic geometry</strong>: Mean width, width CV, mean reach sinuosity, shoreline delivery ratio.</p>
 <hr />
 <h2 id="multi-stage-generative-pipeline-inspection">Multi-Stage Generative Pipeline Inspection</h2>
@@ -431,7 +530,7 @@ $$\Phi_A = S_{0,A} + W[T, A]^T \Phi_T$$</p>
             Grounding Source for <strong class="text-white">DGM Hybrid RAG</strong>
           </div>
           <div class="flex items-center space-x-3">
-            <a href="../index.html?q=Explain the 5 core pipeline stages, Murray&#x27;s law hydraulics, and loop engines in DGM." class="kestrel-btn kestrel-btn-orange text-[10px] py-1 px-3">
+            <a href="../index.html?q=Explain the 7 core pipeline stages, Murray&#x27;s law hydraulics, and loop engines in DGM." class="kestrel-btn kestrel-btn-orange text-[10px] py-1 px-3">
               Ask AI About This Topic
             </a>
             <a href="https://github.com/jay-kestrel/dgm" target="_blank" class="kestrel-btn text-[10px] py-1 px-3">
