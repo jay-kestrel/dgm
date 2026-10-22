@@ -24,6 +24,7 @@
     mermaid.initialize({
       startOnLoad: false,
       theme: 'dark',
+      securityLevel: 'loose',
       themeVariables: {
         darkMode: true,
         background: '#060706',
@@ -412,24 +413,24 @@
 <p>The <strong>DeltaGraphModel (DGM)</strong> generative pipeline executes seven sequential computational steps to synthesize realistic, hydraulically consistent delta channel networks (DCNs):</p>
 <pre><code class="language-mermaid">flowchart TD
   classDef startNode fill:#121612,stroke:#ff5a35,stroke-width:2px,color:#ffffff;
-  classDef stepNode fill:#0c0e0c,stroke:rgba(255,255,255,0.2),stroke-width:1px,color:#ffffff;
+  classDef stepNode fill:#0c0e0c,stroke:#3a443a,stroke-width:1px,color:#ffffff;
   classDef accentNode fill:#141b14,stroke:#c4f94a,stroke-width:1.5px,color:#ffffff;
 
-  Inputs[&quot;&lt;strong&gt;INPUTS&lt;/strong&gt;&lt;br/&gt;Node Budget N, Forcing Ratio R_rt ∈ [0, 1], YAML Config&quot;]:::startNode
+  Inputs[&quot;&lt;b&gt;INPUTS&lt;/b&gt;&lt;br/&gt;Node Budget N, Forcing Ratio R_rt ∈ (0, 1), YAML Config&quot;]:::startNode
 
-  Step1[&quot;&lt;strong&gt;STEP 1: Polar Domain &amp; Valley Confinement&lt;/strong&gt;&lt;br/&gt;Fan angle θ_open = (θ_base + Δθ · R_rt) · (1 - C_conf)&lt;br/&gt;Valley Bounds: |x(r)| ≤ W_valley / 2&quot;]:::stepNode
+  Step1[&quot;&lt;b&gt;STEP 1: Polar Domain &amp; Valley Confinement&lt;/b&gt;&lt;br/&gt;Fan angle θ_open = (θ_base + Δθ · R_rt) · (1 - C_conf)&lt;br/&gt;Valley Bounds: |x| ≤ W_valley / 2&quot;]:::stepNode
 
-  Step2[&quot;&lt;strong&gt;STEP 2: Polar Tree Backbone Growth&lt;/strong&gt;&lt;br/&gt;Radial Stepping Δr(r) &amp; Sinuosity S(r)&lt;br/&gt;Jordan Curve Planarity Filter (0 Edge Crossings via 2D AABB)&quot;]:::stepNode
+  Step2[&quot;&lt;b&gt;STEP 2: Polar Tree Backbone Growth&lt;/b&gt;&lt;br/&gt;Radial Stepping Δr(r) &amp; Sinuosity S(r)&lt;br/&gt;Jordan Curve Planarity Filter (0 Edge Crossings via 2D AABB)&quot;]:::stepNode
 
-  Step3[&quot;&lt;strong&gt;STEP 3: Emergent Loop Engines&lt;/strong&gt;&lt;br/&gt;Mechanism A: Spatial Potential-Field Reconnection&lt;br/&gt;Mechanism B: Thermodynamic nER* Annealing&quot;]:::accentNode
+  Step3[&quot;&lt;b&gt;STEP 3: Emergent Loop Engines&lt;/b&gt;&lt;br/&gt;Mechanism A: Spatial Potential-Field Reconnection&lt;br/&gt;Mechanism B: Thermodynamic nER Annealing&quot;]:::accentNode
 
-  Step4[&quot;&lt;strong&gt;STEP 4: Pre-Hydraulic Pruning &amp; Simplification&lt;/strong&gt;&lt;br/&gt;Inland Dead-End Spur Removal (100% Shoreline Delivery)&lt;br/&gt;Degree-2 Chain Contraction &amp; Sinuosity Recalculation&quot;]:::stepNode
+  Step4[&quot;&lt;b&gt;STEP 4: Pre-Hydraulic Pruning &amp; Simplification&lt;/b&gt;&lt;br/&gt;Inland Dead-End Spur Removal (100% Shoreline Delivery)&lt;br/&gt;Degree-2 Chain Contraction &amp; Sinuosity Recalculation&quot;]:::stepNode
 
-  Step5[&quot;&lt;strong&gt;STEP 5: Emergent Hydraulics &amp; Murray's Law&lt;/strong&gt;&lt;br/&gt;Murray Capacity Conservation: w_0^p = w_1^p + w_2^p&lt;br/&gt;Estuarine Tidal Flaring &amp; Manning Conductance C_e&quot;]:::stepNode
+  Step5[&quot;&lt;b&gt;STEP 5: Emergent Hydraulics &amp; Murray's Law&lt;/b&gt;&lt;br/&gt;Murray Capacity Conservation: w_0^p = w_1^p + w_2^p&lt;br/&gt;Estuarine Tidal Flaring &amp; Manning Conductance C_e&quot;]:::stepNode
 
-  Step6[&quot;&lt;strong&gt;STEP 6: Curved Polyline Channel Geometry&lt;/strong&gt;&lt;br/&gt;Harmonic Dirichlet Meander Centerlines&lt;br/&gt;Analytical Proximity Amplitude Clearance A_max&quot;]:::stepNode
+  Step6[&quot;&lt;b&gt;STEP 6: Curved Polyline Channel Geometry&lt;/b&gt;&lt;br/&gt;Harmonic Dirichlet Meander Centerlines&lt;br/&gt;Analytical Proximity Amplitude Clearance A_max&quot;]:::stepNode
 
-  Step7[&quot;&lt;strong&gt;STEP 7: Markov Flux Routing &amp; Metrics Battery&lt;/strong&gt;&lt;br/&gt;Transient Submatrix Solver: (I - Q^T) Φ_T = S_0,T&lt;br/&gt;20-Metric Geomorphic Battery (α, β_1/N, nER*, eBI, V_net)&quot;]:::startNode
+  Step7[&quot;&lt;b&gt;STEP 7: Markov Flux Routing &amp; Metrics Battery&lt;/b&gt;&lt;br/&gt;Transient Submatrix Solver: (I - Q^T) Φ_T = S_0,T&lt;br/&gt;20-Metric Geomorphic Battery (α, β_1/N, nER, eBI, V_net)&quot;]:::startNode
 
   Inputs --&gt; Step1 --&gt; Step2 --&gt; Step3 --&gt; Step4 --&gt; Step5 --&gt; Step6 --&gt; Step7
 </code></pre>

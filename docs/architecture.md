@@ -5,24 +5,24 @@ The **DeltaGraphModel (DGM)** generative pipeline executes seven sequential comp
 ```mermaid
 flowchart TD
   classDef startNode fill:#121612,stroke:#ff5a35,stroke-width:2px,color:#ffffff;
-  classDef stepNode fill:#0c0e0c,stroke:rgba(255,255,255,0.2),stroke-width:1px,color:#ffffff;
+  classDef stepNode fill:#0c0e0c,stroke:#3a443a,stroke-width:1px,color:#ffffff;
   classDef accentNode fill:#141b14,stroke:#c4f94a,stroke-width:1.5px,color:#ffffff;
 
-  Inputs["<strong>INPUTS</strong><br/>Node Budget N, Forcing Ratio R_rt ∈ [0, 1], YAML Config"]:::startNode
+  Inputs["<b>INPUTS</b><br/>Node Budget N, Forcing Ratio R_rt ∈ (0, 1), YAML Config"]:::startNode
 
-  Step1["<strong>STEP 1: Polar Domain & Valley Confinement</strong><br/>Fan angle θ_open = (θ_base + Δθ · R_rt) · (1 - C_conf)<br/>Valley Bounds: |x(r)| ≤ W_valley / 2"]:::stepNode
+  Step1["<b>STEP 1: Polar Domain & Valley Confinement</b><br/>Fan angle θ_open = (θ_base + Δθ · R_rt) · (1 - C_conf)<br/>Valley Bounds: |x| ≤ W_valley / 2"]:::stepNode
 
-  Step2["<strong>STEP 2: Polar Tree Backbone Growth</strong><br/>Radial Stepping Δr(r) & Sinuosity S(r)<br/>Jordan Curve Planarity Filter (0 Edge Crossings via 2D AABB)"]:::stepNode
+  Step2["<b>STEP 2: Polar Tree Backbone Growth</b><br/>Radial Stepping Δr(r) & Sinuosity S(r)<br/>Jordan Curve Planarity Filter (0 Edge Crossings via 2D AABB)"]:::stepNode
 
-  Step3["<strong>STEP 3: Emergent Loop Engines</strong><br/>Mechanism A: Spatial Potential-Field Reconnection<br/>Mechanism B: Thermodynamic nER* Annealing"]:::accentNode
+  Step3["<b>STEP 3: Emergent Loop Engines</b><br/>Mechanism A: Spatial Potential-Field Reconnection<br/>Mechanism B: Thermodynamic nER Annealing"]:::accentNode
 
-  Step4["<strong>STEP 4: Pre-Hydraulic Pruning & Simplification</strong><br/>Inland Dead-End Spur Removal (100% Shoreline Delivery)<br/>Degree-2 Chain Contraction & Sinuosity Recalculation"]:::stepNode
+  Step4["<b>STEP 4: Pre-Hydraulic Pruning & Simplification</b><br/>Inland Dead-End Spur Removal (100% Shoreline Delivery)<br/>Degree-2 Chain Contraction & Sinuosity Recalculation"]:::stepNode
 
-  Step5["<strong>STEP 5: Emergent Hydraulics & Murray's Law</strong><br/>Murray Capacity Conservation: w_0^p = w_1^p + w_2^p<br/>Estuarine Tidal Flaring & Manning Conductance C_e"]:::stepNode
+  Step5["<b>STEP 5: Emergent Hydraulics & Murray's Law</b><br/>Murray Capacity Conservation: w_0^p = w_1^p + w_2^p<br/>Estuarine Tidal Flaring & Manning Conductance C_e"]:::stepNode
 
-  Step6["<strong>STEP 6: Curved Polyline Channel Geometry</strong><br/>Harmonic Dirichlet Meander Centerlines<br/>Analytical Proximity Amplitude Clearance A_max"]:::stepNode
+  Step6["<b>STEP 6: Curved Polyline Channel Geometry</b><br/>Harmonic Dirichlet Meander Centerlines<br/>Analytical Proximity Amplitude Clearance A_max"]:::stepNode
 
-  Step7["<strong>STEP 7: Markov Flux Routing & Metrics Battery</strong><br/>Transient Submatrix Solver: (I - Q^T) Φ_T = S_0,T<br/>20-Metric Geomorphic Battery (α, β_1/N, nER*, eBI, V_net)"]:::startNode
+  Step7["<b>STEP 7: Markov Flux Routing & Metrics Battery</b><br/>Transient Submatrix Solver: (I - Q^T) Φ_T = S_0,T<br/>20-Metric Geomorphic Battery (α, β_1/N, nER, eBI, V_net)"]:::startNode
 
   Inputs --> Step1 --> Step2 --> Step3 --> Step4 --> Step5 --> Step6 --> Step7
 ```

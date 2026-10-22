@@ -245,6 +245,7 @@ def render_html_page(doc_info: dict[str, Any], body_html: str) -> str:
     mermaid.initialize({{
       startOnLoad: false,
       theme: 'dark',
+      securityLevel: 'loose',
       themeVariables: {{
         darkMode: true,
         background: '#060706',
