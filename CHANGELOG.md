@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Decoupled `scikit-learn`, `pandas`, and `matplotlib` from core dependencies into optional extras (`[viz]`, `[benchmarks]`, `[all]`, `[dev]`).
   - Core package now depends only on `networkx`, `numpy`, `scipy`, and `pyyaml`.
   - Added standard library `csv` fallback for CSV export when `pandas` is not installed.
-- Expanded comprehensive test suite to 212 passing unit and integration tests.
+- Expanded comprehensive test suite to 219 passing unit and integration tests.
 
 ---
 

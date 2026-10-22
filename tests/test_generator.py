@@ -138,3 +138,34 @@ def test_ensemble_generator_base_seed_none():
         assert g.number_of_nodes() > 0
 
 
+def test_config_preservation_in_facades():
+    """Verify passing a DGMConfig directly or via config= does not overwrite config attributes with function defaults."""
+    cfg = dgm.DGMConfig(N=30, R_rt=0.2, seed=42)
+
+    # 1. Positional config in generate(cfg)
+    G1 = dgm.generate(cfg)
+    assert G1.number_of_nodes() == 30
+    assert np.isclose(G1.graph["R_rt"], 0.2)
+
+    # 2. Keyword config in generate(config=cfg)
+    G2 = dgm.generate(config=cfg)
+    assert G2.number_of_nodes() == 30
+    assert np.isclose(G2.graph["R_rt"], 0.2)
+
+    # 3. Explicit override should take precedence
+    G3 = dgm.generate(config=cfg, N=25)
+    assert G3.number_of_nodes() == 25
+    assert np.isclose(G3.graph["R_rt"], 0.2)
+
+    # 4. EnsembleGenerator with config
+    ens = dgm.EnsembleGenerator(config=cfg, num_realizations=2)
+    assert ens.N == 30
+    assert np.isclose(ens.R_rt, 0.2)
+
+    # 5. sample_ensemble with positional config
+    graphs = dgm.sample_ensemble(cfg, num_realizations=2)
+    assert len(graphs) == 2
+    assert graphs[0].number_of_nodes() == 30
+
+
+

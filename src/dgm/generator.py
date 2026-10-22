@@ -314,11 +314,11 @@ class EnsembleGenerator:
 
     def __init__(
         self,
-        N: int = 50,
-        R_rt: float = 0.5,
+        N: int | Any = _UNSET,
+        R_rt: float | Any = _UNSET,
         num_realizations: int = 100,
-        loop_mechanism: str = "potential_field",
-        sample_parameters: bool = True,
+        loop_mechanism: str | Any = _UNSET,
+        sample_parameters: bool | Any = _UNSET,
         base_seed: int = 42,
         config: DGMConfig | None = None,
         target_nodes: int | None = None,
@@ -328,24 +328,41 @@ class EnsembleGenerator:
             raise ValueError(f"num_realizations must be >= 1 (received {num_realizations}).")
 
         eff_target = overrides.get("target_nodes", target_nodes)
-        self.N = int(eff_target) if eff_target is not None else N
-        self.R_rt = R_rt
-        self.num_realizations = num_realizations
-        self.loop_mechanism = loop_mechanism
-        self.sample_parameters = sample_parameters
-        self.base_seed = int(base_seed) if base_seed is not None else None
+        base_attrs: dict[str, Any] = {}
+        if eff_target is not None:
+            base_attrs["N"] = int(eff_target)
+        elif N is not _UNSET:
+            base_attrs["N"] = int(N)
+        elif config is None:
+            base_attrs["N"] = 50
+
+        if R_rt is not _UNSET:
+            base_attrs["R_rt"] = float(R_rt)
+        elif config is None:
+            base_attrs["R_rt"] = 0.5
+
+        if loop_mechanism is not _UNSET:
+            base_attrs["loop_mechanism"] = loop_mechanism
+        elif config is None:
+            base_attrs["loop_mechanism"] = "potential_field"
+
+        if sample_parameters is not _UNSET:
+            base_attrs["sample_parameters"] = bool(sample_parameters)
+        elif config is None:
+            base_attrs["sample_parameters"] = True
 
         self.config = _build_or_update_config(
             config=config,
             target_nodes=target_nodes,
-            base_attrs={
-                "N": self.N,
-                "R_rt": self.R_rt,
-                "loop_mechanism": self.loop_mechanism,
-                "sample_parameters": self.sample_parameters,
-            },
+            base_attrs=base_attrs,
             **overrides
         )
+        self.N = self.config.N
+        self.R_rt = self.config.R_rt
+        self.num_realizations = num_realizations
+        self.loop_mechanism = self.config.loop_mechanism
+        self.sample_parameters = self.config.sample_parameters
+        self.base_seed = int(base_seed) if base_seed is not None else None
         self.battery = MetricsBattery()
 
     def generate_ensemble(self) -> list[nx.DiGraph]:
@@ -407,8 +424,8 @@ class EnsembleGenerator:
 
 
 def generate(
-    N: int = 50,
-    R_rt: float = 0.5,
+    N: int | DGMConfig | str | Path | Any = _UNSET,
+    R_rt: float | Any = _UNSET,
     confinement: float | None = None,
     lateral_valley_width: float | None = None,
     coastal_node_decay: float | None = None,
@@ -428,8 +445,23 @@ def generate(
     """
     Convenient top-level function to generate a single synthetic delta graph.
     """
+    if isinstance(N, (DGMConfig, str, Path)) and config is None:
+        config = N
+        N = _UNSET
+
     if target_nodes is not None:
         N = int(target_nodes)
+
+    base_attrs: dict[str, Any] = {}
+    if N is not _UNSET:
+        base_attrs["N"] = int(N)
+    elif config is None:
+        base_attrs["N"] = 50
+
+    if R_rt is not _UNSET:
+        base_attrs["R_rt"] = float(R_rt)
+    elif config is None:
+        base_attrs["R_rt"] = 0.5
 
     cfg = _build_or_update_config(
         config=config,
@@ -445,7 +477,7 @@ def generate(
         min_spur_length=min_spur_length,
         simplify_pass_through_nodes=simplify_pass_through_nodes,
         seed=seed,
-        base_attrs={"N": N, "R_rt": R_rt},
+        base_attrs=base_attrs,
         **overrides
     )
 
@@ -454,8 +486,8 @@ def generate(
 
 
 def sample_ensemble(
-    N: int = 50,
-    R_rt: float = 0.5,
+    N: int | DGMConfig | str | Path | Any = _UNSET,
+    R_rt: float | Any = _UNSET,
     confinement: float | None = None,
     lateral_valley_width: float | None = None,
     coastal_node_decay: float | None = None,
@@ -475,8 +507,23 @@ def sample_ensemble(
     """
     Convenient top-level function to generate an ensemble of synthetic delta graphs.
     """
+    if isinstance(N, (DGMConfig, str, Path)) and config is None:
+        config = N
+        N = _UNSET
+
     if target_nodes is not None:
         N = int(target_nodes)
+
+    base_attrs: dict[str, Any] = {}
+    if N is not _UNSET:
+        base_attrs["N"] = int(N)
+    elif config is None:
+        base_attrs["N"] = 50
+
+    if R_rt is not _UNSET:
+        base_attrs["R_rt"] = float(R_rt)
+    elif config is None:
+        base_attrs["R_rt"] = 0.5
 
     cfg = _build_or_update_config(
         config=config,
@@ -491,13 +538,13 @@ def sample_ensemble(
         prune_inland_dead_ends=prune_inland_dead_ends,
         min_spur_length=min_spur_length,
         simplify_pass_through_nodes=simplify_pass_through_nodes,
-        base_attrs={"N": N, "R_rt": R_rt},
+        base_attrs=base_attrs,
         **overrides
     )
 
     ens = EnsembleGenerator(
-        N=N,
-        R_rt=R_rt,
+        N=cfg.N,
+        R_rt=cfg.R_rt,
         num_realizations=num_realizations,
         base_seed=base_seed,
         config=cfg,

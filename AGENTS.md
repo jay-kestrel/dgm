@@ -50,7 +50,7 @@ dgm/
 │       └── io/
 │           ├── datasets.py    # DIDNT dataset loader & empirical delta table
 │           └── export.py      # GraphML, GeoJSON (LineStrings), and CSV export
-├── tests/                     # 212 unit & integration tests across 20 modules
+├── tests/                     # 219 unit & integration tests across 20 modules
 ├── examples/                  # 01 through 06 runnable example scripts
 ├── docs/                      # Markdown documentation, architecture, & parameter justifications
 ├── CITATION.cff               # Academic citation metadata

@@ -53,4 +53,7 @@ jobs:
         run: uv build
 
       - name: Test installing built wheel
-        run: uv pip install --system dist/*.whl
+        run: |
+          uv venv test-venv
+          uv pip install --python test-venv dist/*.whl
+          uv run --python test-venv python -c "import dgm; print('Installed DGM v' + dgm.__version__)"
