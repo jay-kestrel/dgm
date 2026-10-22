@@ -380,7 +380,6 @@
 <a href="configuration.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">YAML Configuration</a>
 <div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Reference</div>
 <a href="api_reference.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Python API Reference</a>
-<a href="parameter_justifications.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Parameter Justifications</a>
 <div class="text-[10px] font-mono uppercase tracking-widest text-white/40 px-3 pt-3 pb-1 border-t border-white/[0.08] first:border-t-0">Tutorials</div>
 <a href="walkthrough.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">End-to-End Walkthrough</a>
 <a href="tutorial_01_quickstart.html" class="block px-3 py-1.5 text-xs transition text-white/70 hover:text-white hover:bg-white/[0.03] border-l-2 border-l-transparent">Tutorial 01: Quickstart</a>
@@ -474,7 +473,7 @@
 </ul>
 <div class="katex-display-block">$$r < r_{\text{shore}} \cdot (1 - \epsilon_{\text{shore}})$$</div>
 
-<p>where <span class="katex-inline-block">$\epsilon_{\text{shore}} = \text{outlet_tolerance}$</span> (default <span class="katex-inline-block">$0.05$</span>). This accommodates coastal rugosity while guaranteeing 100% shoreline outlet delivery matching DIDNT observations.
+<p>where <span class="katex-inline-block">$\epsilon_{\text{shore}} = \text{outlet\_tolerance}$</span> (default <span class="katex-inline-block">$0.05$</span>). This accommodates coastal rugosity while guaranteeing 100% shoreline outlet delivery matching DIDNT observations.
 - <strong>Degree-2 Reach Simplification</strong>: Contracts non-branching pass-through chains (<span class="katex-inline-block">$d_{\text{in}}=1, d_{\text{out}}=1$</span>) into direct links between morphological junctions. When <code>recalculate_reach_sinuosity=True</code>, a unified reach sinuosity is drawn from the lognormal process model rather than compounding discrete knees, matching RivGraph and DIDNT reach-scale standards. Continuous polyline coordinates are preserved across merged vertices.</p>
 <hr />
 <h2 id="step-5-emergent-hydraulics-murrays-law-conservation">Step 5: Emergent Hydraulics &amp; Murray's Law Conservation</h2>
@@ -483,12 +482,12 @@
 
 <p>where exponent <span class="katex-inline-block">$p \in [1.2, 2.2]$</span> (default <span class="katex-inline-block">$1.85$</span>).</p>
 <h3 id="estuarine-tidal-mouth-flaring">Estuarine Tidal Mouth Flaring</h3>
-<p>Tidal prism amplification widens distributary mouths seaward of an onset radius (<span class="katex-inline-block">$r_{\text{onset}} = \text{tidal_flare_onset}$</span>, default <span class="katex-inline-block">$0.30$</span>):</p>
+<p>Tidal prism amplification widens distributary mouths seaward of an onset radius (<span class="katex-inline-block">$r_{\text{onset}} = \text{tidal\_flare\_onset}$</span>, default <span class="katex-inline-block">$0.30$</span>):</p>
 <div class="katex-display-block">$$w(r) = w_{\text{river}} \cdot \left((1 - R_{\text{rt}}) + R_{\text{rt}} \exp\left(k_{\text{flare}} \cdot \max\left(0, \frac{r}{r_{\text{shore}}} - r_{\text{onset}}\right)\right)\right)$$</div>
 
 <h3 id="secondary-loop-resistance-penalty">Secondary Loop Resistance Penalty</h3>
 <p>To capture narrower cross-sections (<span class="katex-inline-block">$36\%-60\%$</span> of branch width) and higher floodplain bed elevations in anastomosing cross-ties (Gao et al. 2023), loop conductances are scaled by <code>loop_flow_penalty</code> (default <span class="katex-inline-block">$0.40$</span>):</p>
-<div class="katex-display-block">$$C_{\text{loop}} = C_e \times \text{loop_flow_penalty}$$</div>
+<div class="katex-display-block">$$C_{\text{loop}} = C_e \times \text{loop\_flow\_penalty}$$</div>
 
 <p>Manning conductance scales as <span class="katex-inline-block">$C_e = w_e^\eta / L_e^\gamma$</span> (default <span class="katex-inline-block">$\eta = 1.65, \gamma = 0.50$</span>).</p>
 <hr />

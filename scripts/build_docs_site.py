@@ -18,7 +18,9 @@ DOCS_DIR = REPO_ROOT / "docs"
 SITE_DIR = REPO_ROOT / "site"
 SITE_DOCS_DIR = SITE_DIR / "docs"
 
-EXCLUDED_DOC_FILES: set[str] = set()
+EXCLUDED_DOC_FILES = {
+    "parameter_justifications.md",  # Omitted pending citation/reference verification
+}
 
 # Navigation manifest for documentation sidebar & header
 DOCS_MANIFEST = [
@@ -55,14 +57,6 @@ DOCS_MANIFEST = [
         "prompt": "What are the main functions and classes in DGM public API (dgm.generate, MetricsBattery, etc.)?",
     },
     {
-        "slug": "parameter_justifications",
-        "title": "Parameter Justifications",
-        "category": "Reference",
-        "src": DOCS_DIR / "parameter_justifications.md",
-        "dest": "parameter_justifications.html",
-        "prompt": "What are the scientific justifications, empirical foundations, and literature citations for DGM parameters?",
-    },
-    {
         "slug": "walkthrough",
         "title": "End-to-End Walkthrough",
         "category": "Tutorials",
@@ -87,6 +81,14 @@ DOCS_MANIFEST = [
         "prompt": "How does DGM sample large stochastic ensembles and compute geomorphic metric distributions?",
     },
 ]
+
+
+def sanitize_latex_text(math_str: str) -> str:
+    """Escapes unescaped underscores inside \\text{...} blocks to prevent KaTeX syntax errors."""
+    def repl(m: re.Match[str]) -> str:
+        clean_inner = re.sub(r"(?<!\\)_", r"\_", m.group(1))
+        return f"\\text{{{clean_inner}}}"
+    return re.sub(r"\\text\{([^}]+)\}", repl, math_str)
 
 
 def preprocess_markdown(raw_md: str) -> tuple[str, dict[str, str]]:
@@ -116,7 +118,7 @@ def preprocess_markdown(raw_md: str) -> tuple[str, dict[str, str]]:
         nonlocal counter
         k = f"DGM_MATH_DISP_{counter}_X"
         counter += 1
-        math_store[k] = m.group(0)
+        math_store[k] = sanitize_latex_text(m.group(0))
         return f"\n\n<div class=\"katex-display-block\">{k}</div>\n\n"
 
     raw_md = re.sub(r"\$\$([\s\S]+?)\$\$", disp_repl, raw_md)
@@ -126,7 +128,7 @@ def preprocess_markdown(raw_md: str) -> tuple[str, dict[str, str]]:
         nonlocal counter
         k = f"DGM_MATH_INL_{counter}_X"
         counter += 1
-        math_store[k] = m.group(0)
+        math_store[k] = sanitize_latex_text(m.group(0))
         return f"<span class=\"katex-inline-block\">{k}</span>"
 
     raw_md = re.sub(r"(?<!\$)\$(?!\$)([^\$\n]+?)(?<!\$)\$(?!\$)", inl_repl, raw_md)

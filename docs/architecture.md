@@ -71,7 +71,7 @@ Constructs a candidate network and optimizes link configuration using Simulated 
 
 - **Inland Dead-End Pruning & Coastal Protection**: Cascades through leaf nodes terminating inland without reaching the shoreline envelope:
   $$r < r_{\text{shore}} \cdot (1 - \epsilon_{\text{shore}})$$
-  where $\epsilon_{\text{shore}} = \text{outlet_tolerance}$ (default $0.05$). This accommodates coastal rugosity while guaranteeing 100% shoreline outlet delivery matching DIDNT observations.
+  where $\epsilon_{\text{shore}} = \text{outlet\_tolerance}$ (default $0.05$). This accommodates coastal rugosity while guaranteeing 100% shoreline outlet delivery matching DIDNT observations.
 - **Degree-2 Reach Simplification**: Contracts non-branching pass-through chains ($d_{\text{in}}=1, d_{\text{out}}=1$) into direct links between morphological junctions. When `recalculate_reach_sinuosity=True`, a unified reach sinuosity is drawn from the lognormal process model rather than compounding discrete knees, matching RivGraph and DIDNT reach-scale standards. Continuous polyline coordinates are preserved across merged vertices.
 
 ---
@@ -83,12 +83,12 @@ $$w_{\text{parent}}^p = w_{\text{child1}}^p + w_{\text{child2}}^p + \dots$$
 where exponent $p \in [1.2, 2.2]$ (default $1.85$).
 
 ### Estuarine Tidal Mouth Flaring
-Tidal prism amplification widens distributary mouths seaward of an onset radius ($r_{\text{onset}} = \text{tidal_flare_onset}$, default $0.30$):
+Tidal prism amplification widens distributary mouths seaward of an onset radius ($r_{\text{onset}} = \text{tidal\_flare\_onset}$, default $0.30$):
 $$w(r) = w_{\text{river}} \cdot \left((1 - R_{\text{rt}}) + R_{\text{rt}} \exp\left(k_{\text{flare}} \cdot \max\left(0, \frac{r}{r_{\text{shore}}} - r_{\text{onset}}\right)\right)\right)$$
 
 ### Secondary Loop Resistance Penalty
 To capture narrower cross-sections ($36\%-60\%$ of branch width) and higher floodplain bed elevations in anastomosing cross-ties (Gao et al. 2023), loop conductances are scaled by `loop_flow_penalty` (default $0.40$):
-$$C_{\text{loop}} = C_e \times \text{loop_flow_penalty}$$
+$$C_{\text{loop}} = C_e \times \text{loop\_flow\_penalty}$$
 
 Manning conductance scales as $C_e = w_e^\eta / L_e^\gamma$ (default $\eta = 1.65, \gamma = 0.50$).
 

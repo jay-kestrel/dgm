@@ -1,6 +1,6 @@
 {
   "model": "Xenova/all-MiniLM-L6-v2",
-  "count": 390,
+  "count": 375,
   "dim": 384,
   "dtype": "float16"
 }
