@@ -140,10 +140,11 @@ def preprocess_markdown(raw_md: str) -> tuple[str, dict[str, str]]:
     return raw_md, math_store
 
 
-def postprocess_html(html_text: str, math_store: dict[str, str]) -> str:
+def postprocess_html(html_text: str, math_store: dict[str, str], current_doc_src: Path | None = None) -> str:
     """
     Restores original math expressions, wraps tables in responsive containers,
-    and converts GitHub-style alert callouts into styled Kestrel HUD cards.
+    converts GitHub-style alert callouts into styled Kestrel HUD cards,
+    and rewrites relative markdown links (.md) to static HTML documentation pages.
     """
     # 1. Restore math expressions
     for k, orig_math in math_store.items():
@@ -184,7 +185,59 @@ def postprocess_html(html_text: str, math_store: dict[str, str]) -> str:
         html_text
     )
 
+    # 4. Rewrite internal Markdown links (.md) to rendered HTML documentation pages (.html)
+    if current_doc_src is not None:
+        html_text = rewrite_markdown_links(html_text, current_doc_src)
+
     return html_text
+
+
+def rewrite_markdown_links(html_text: str, current_doc_src: Path) -> str:
+    """
+    Translates relative markdown links (.md) into the corresponding static HTML documentation
+    pages (.html), and rewrites external repo markdown links to GitHub repository URLs.
+    """
+    manifest_by_src: dict[Path, str] = {
+        item["src"].resolve(): item["dest"] for item in DOCS_MANIFEST
+    }
+    github_blob_root = "https://github.com/jay-kestrel/dgm/blob/main"
+
+    def link_repl(m: re.Match[str]) -> str:
+        quote = m.group(1)
+        href = m.group(2)
+
+        # Ignore external links, mailto, javascript, or pure fragment links
+        if href.startswith(("http://", "https://", "mailto:", "javascript:", "#")):
+            return m.group(0)
+
+        url_path, sep, anchor = href.partition("#")
+        anchor_suffix = f"#{anchor}" if sep else ""
+
+        if not url_path.endswith(".md"):
+            return m.group(0)
+
+        # Resolve path relative to current markdown file's directory
+        target_path = (current_doc_src.parent / url_path).resolve()
+
+        # 1. Match against known docs manifest
+        if target_path in manifest_by_src:
+            dest_html = manifest_by_src[target_path]
+            return f'href={quote}{dest_html}{anchor_suffix}{quote}'
+
+        # 2. Check if it points to a repository file (e.g. AGENTS.md, README.md, etc.)
+        try:
+            rel_to_repo = target_path.relative_to(REPO_ROOT.resolve()).as_posix()
+            gh_url = f"{github_blob_root}/{rel_to_repo}{anchor_suffix}"
+            return f'href={quote}{gh_url}{quote}'
+        except ValueError:
+            pass
+
+        # 3. Fallback: replace .md with .html
+        converted = re.sub(r"\.md$", ".html", url_path)
+        return f'href={quote}{converted}{anchor_suffix}{quote}'
+
+    # Match href="..." or href='...'
+    return re.sub(r'''href=(["'])(.*?)\1''', link_repl, html_text)
 
 
 def render_html_page(doc_info: dict[str, Any], body_html: str) -> str:
@@ -682,8 +735,8 @@ def build_docs_html():
         # 2. Convert markdown to HTML
         body_html = markdown.markdown(preprocessed_md, extensions=["fenced_code", "tables", "toc", "sane_lists"])
 
-        # 3. Postprocess: restore math, style callouts and wrap tables
-        body_html = postprocess_html(body_html, math_store)
+        # 3. Postprocess: restore math, style callouts, wrap tables, and rewrite markdown links
+        body_html = postprocess_html(body_html, math_store, current_doc_src=src_path)
 
         full_html = render_html_page(doc, body_html)
         dest_path.write_text(full_html, encoding="utf-8")
